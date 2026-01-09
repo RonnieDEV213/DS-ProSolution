@@ -1,18 +1,22 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar placeholder */}
+      {/* Sidebar */}
       <aside className="w-64 border-r bg-gray-50 p-4">
-        <h2 className="text-lg font-semibold mb-4">Order Tracker</h2>
-        <nav className="space-y-2">
-          <div className="text-sm text-gray-600">Dashboard</div>
-          <div className="text-sm text-gray-600">Orders</div>
-          <div className="text-sm text-gray-600">Settings</div>
+        <h2 className="text-lg font-semibold mb-4">DS ProSolution</h2>
+        <nav className="space-y-1">
+          {/* Active tab - Dashboard */}
+          <div className="text-sm font-medium text-gray-900 bg-gray-100 px-3 py-2 rounded-md border-l-2 border-gray-900">
+            Dashboard
+          </div>
+          {/* Inactive tab */}
+          <div className="text-sm text-gray-600 px-3 py-2 rounded-md hover:bg-gray-100 cursor-pointer">
+            Order Tracker
+          </div>
         </nav>
       </aside>
 
@@ -27,7 +31,6 @@ export default function Home() {
           <p className="text-gray-600 mb-8">
             Your in-house order tracking solution.
           </p>
-          <Button size="lg">Start Bookkeeping</Button>
         </motion.div>
       </main>
     </div>
