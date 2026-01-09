@@ -7,7 +7,10 @@
       "Bash(npx shadcn@latest init --defaults --yes)",
       "Bash(npx shadcn@latest add button --yes)",
       "Bash(npm run lint)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(tree:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(python -m ruff check:*)"
     ]
   }
 }
