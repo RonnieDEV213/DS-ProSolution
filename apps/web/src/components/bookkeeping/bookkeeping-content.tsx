@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/bookkeeping/account-selector";
 import { RecordsTable } from "@/components/bookkeeping/records-table";
@@ -80,6 +81,7 @@ export function BookkeepingContent() {
     const account = accounts.find((a) => a.id === selectedAccountId);
     if (account && records.length > 0) {
       exportToCSV(records, account.account_code);
+      toast.success(`Exported ${records.length} records`);
     }
   };
 

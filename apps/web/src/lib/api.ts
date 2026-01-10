@@ -1,4 +1,14 @@
+import { createClient } from "@/lib/supabase/client";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+async function getAccessToken(): Promise<string | null> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+}
 
 export interface Account {
   id: string;
@@ -65,10 +75,13 @@ async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
+  const token = await getAccessToken();
+
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...options?.headers,
     },
   });
@@ -76,6 +89,11 @@ async function fetchAPI<T>(
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: "Request failed" }));
     throw new Error(error.detail || "Request failed");
+  }
+
+  // Handle 204 No Content
+  if (res.status === 204) {
+    return null as T;
   }
 
   return res.json();
@@ -113,13 +131,18 @@ export const api = {
     }),
 
   deleteRecord: async (id: string): Promise<void> => {
+    const token = await getAccessToken();
     const res = await fetch(`${API_BASE}/records/${id}`, {
       method: "DELETE",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
     });
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: "Delete failed" }));
       throw new Error(error.detail || "Delete failed");
     }
+    // 204 = success, no body to parse
   },
 };
 
