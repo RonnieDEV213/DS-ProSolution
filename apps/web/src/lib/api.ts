@@ -111,6 +111,16 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  deleteRecord: async (id: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/records/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: "Delete failed" }));
+      throw new Error(error.detail || "Delete failed");
+    }
+  },
 };
 
 // Utility functions

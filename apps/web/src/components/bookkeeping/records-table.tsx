@@ -10,11 +10,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -54,14 +56,16 @@ const FIELD_CONFIG: Record<string, { type: FieldType; width: string }> = {
 interface RecordsTableProps {
   records: BookkeepingRecord[];
   onRecordUpdated: (record: BookkeepingRecord) => void;
+  onRecordDeleted: (recordId: string) => void;
 }
 
-export function RecordsTable({ records, onRecordUpdated }: RecordsTableProps) {
+export function RecordsTable({ records, onRecordUpdated, onRecordDeleted }: RecordsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<{id: string, status: BookkeepingStatus} | null>(null);
 
   const shouldStrike = (status: BookkeepingStatus) =>
     STRIKE_STATUSES.includes(status);
@@ -136,6 +140,7 @@ export function RecordsTable({ records, onRecordUpdated }: RecordsTableProps) {
     recordId: string,
     newStatus: BookkeepingStatus
   ) => {
+    setPendingStatus({ id: recordId, status: newStatus });
     setSaving(true);
     setError(null);
     try {
@@ -143,6 +148,22 @@ export function RecordsTable({ records, onRecordUpdated }: RecordsTableProps) {
       onRecordUpdated(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
+    } finally {
+      setSaving(false);
+      setPendingStatus(null);
+    }
+  };
+
+  const handleDelete = async (recordId: string) => {
+    if (!confirm("Are you sure you want to delete this record?")) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      await api.deleteRecord(recordId);
+      onRecordDeleted(recordId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete record");
     } finally {
       setSaving(false);
     }
@@ -235,12 +256,12 @@ export function RecordsTable({ records, onRecordUpdated }: RecordsTableProps) {
 
   return (
     <div className="rounded-md border border-gray-800 overflow-x-auto">
-      {error && (
-        <div className="bg-red-900/50 border-b border-red-700 text-red-200 px-4 py-2 text-sm">
-          {error}
-        </div>
-      )}
-      <Table>
+        {error && (
+          <div className="bg-red-900/50 border-b border-red-700 text-red-200 px-4 py-2 text-sm">
+            {error}
+          </div>
+        )}
+        <Table>
         <TableHeader>
           <TableRow className="border-gray-800 hover:bg-gray-900">
             <TableHead className="text-gray-400">Date</TableHead>
@@ -256,6 +277,7 @@ export function RecordsTable({ records, onRecordUpdated }: RecordsTableProps) {
             <TableHead className="text-gray-400">Amazon Order</TableHead>
             <TableHead className="text-gray-400">Status</TableHead>
             <TableHead className="text-gray-400">Remarks</TableHead>
+            <TableHead className="text-gray-400 w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -294,7 +316,7 @@ export function RecordsTable({ records, onRecordUpdated }: RecordsTableProps) {
                   {renderEditableCell(
                     record,
                     "item_name",
-                    <span className="truncate block">{record.item_name}</span>,
+                    <span className="truncate block" title={record.item_name}>{record.item_name}</span>,
                     "text-white"
                   )}
                 </TableCell>
@@ -359,31 +381,42 @@ export function RecordsTable({ records, onRecordUpdated }: RecordsTableProps) {
 
                 {/* Status - Dropdown */}
                 <TableCell>
-                  <Select
-                    value={record.status}
-                    onValueChange={(value) =>
-                      handleStatusChange(record.id, value as BookkeepingStatus)
-                    }
-                    disabled={saving}
-                  >
-                    <SelectTrigger className="w-[140px] h-7 text-xs bg-gray-800 border-gray-700">
-                      <Badge variant={getStatusBadgeVariant(record.status)}>
-                        {STATUS_OPTIONS.find((s) => s.value === record.status)
-                          ?.label || record.status}
-                      </Badge>
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-700">
-                      {STATUS_OPTIONS.map((opt) => (
-                        <SelectItem
-                          key={opt.value}
-                          value={opt.value}
-                          className="text-white hover:bg-gray-700"
-                        >
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {(() => {
+                    const isPending = pendingStatus?.id === record.id;
+                    const displayStatus = isPending ? pendingStatus.status : record.status;
+                    return (
+                      <Select
+                        value={displayStatus}
+                        onValueChange={(value) =>
+                          handleStatusChange(record.id, value as BookkeepingStatus)
+                        }
+                        disabled={isPending}
+                      >
+                        <SelectTrigger className="w-[140px] h-7 text-xs bg-gray-800 border-gray-700">
+                          <SelectValue>
+                            <Badge
+                              variant={getStatusBadgeVariant(displayStatus)}
+                              className="pointer-events-none"
+                            >
+                              {STATUS_OPTIONS.find((s) => s.value === displayStatus)
+                                ?.label || displayStatus}
+                            </Badge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-700">
+                          {STATUS_OPTIONS.map((opt) => (
+                            <SelectItem
+                              key={opt.value}
+                              value={opt.value}
+                              className="text-white hover:bg-gray-700"
+                            >
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  })()}
                 </TableCell>
 
                 {/* Remarks - Editable */}
@@ -395,11 +428,39 @@ export function RecordsTable({ records, onRecordUpdated }: RecordsTableProps) {
                     "text-gray-300 text-sm"
                   )}
                 </TableCell>
+
+                {/* Delete Button */}
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-gray-400 hover:text-red-400 hover:bg-red-900/20"
+                    onClick={() => handleDelete(record.id)}
+                    disabled={saving}
+                    title="Delete record"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 6h18" />
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                    </svg>
+                  </Button>
+                </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
-      </Table>
+        </Table>
     </div>
   );
 }

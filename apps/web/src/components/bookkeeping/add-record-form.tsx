@@ -48,10 +48,20 @@ export function AddRecordForm({
     ebay_fees: "",
     cogs: "",
     tax_paid: "",
+    return_label_cost: "",
     amazon_order_id: "",
     remarks: "",
     status: "SUCCESSFUL" as BookkeepingStatus,
   });
+
+  const validateMoneyField = (value: string, fieldName: string): number | null => {
+    if (!value.trim()) return null;
+    // Only allow valid dollar amounts: optional minus, digits, optional decimal with up to 2 digits
+    if (!/^-?\d*\.?\d{0,2}$/.test(value.trim())) {
+      throw new Error(`${fieldName} must be a valid dollar amount (e.g., 123.45)`);
+    }
+    return parseDollars(value);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,10 +69,23 @@ export function AddRecordForm({
     setSaving(true);
 
     try {
-      const salePrice = parseDollars(formData.sale_price);
-      if (salePrice === null) {
+      // Validate sale price format
+      if (!formData.sale_price.trim()) {
         throw new Error("Sale price is required");
       }
+      if (!/^\d*\.?\d{0,2}$/.test(formData.sale_price.trim())) {
+        throw new Error("Sale price must be a valid dollar amount (e.g., 123.45)");
+      }
+      const salePrice = parseDollars(formData.sale_price);
+      if (salePrice === null || salePrice <= 0) {
+        throw new Error("Sale price must be a positive amount");
+      }
+
+      // Validate other money fields
+      const ebayFees = validateMoneyField(formData.ebay_fees, "eBay Fees");
+      const cogs = validateMoneyField(formData.cogs, "COGS");
+      const taxPaid = validateMoneyField(formData.tax_paid, "Tax Paid");
+      const returnLabelCost = validateMoneyField(formData.return_label_cost, "Return Label Cost");
 
       const record = await api.createRecord({
         account_id: accountId,
@@ -71,9 +94,10 @@ export function AddRecordForm({
         item_name: formData.item_name,
         qty: parseInt(formData.qty) || 1,
         sale_price_cents: salePrice,
-        ebay_fees_cents: parseDollars(formData.ebay_fees),
-        cogs_cents: parseDollars(formData.cogs),
-        tax_paid_cents: parseDollars(formData.tax_paid),
+        ebay_fees_cents: ebayFees,
+        cogs_cents: cogs,
+        tax_paid_cents: taxPaid,
+        return_label_cost_cents: returnLabelCost,
         amazon_order_id: formData.amazon_order_id || null,
         remarks: formData.remarks || null,
         status: formData.status,
@@ -212,6 +236,20 @@ export function AddRecordForm({
             placeholder="0.00"
             value={formData.tax_paid}
             onChange={(e) => handleChange("tax_paid", e.target.value)}
+            className="bg-gray-800 border-gray-700"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="return_label_cost" className="text-gray-300">
+            Return Label Cost
+          </Label>
+          <Input
+            id="return_label_cost"
+            type="text"
+            placeholder="0.00"
+            value={formData.return_label_cost}
+            onChange={(e) => handleChange("return_label_cost", e.target.value)}
             className="bg-gray-800 border-gray-700"
           />
         </div>

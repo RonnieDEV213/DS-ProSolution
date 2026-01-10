@@ -98,3 +98,24 @@ async def update_record(record_id: str, record: RecordUpdate):
                 detail="eBay order ID already exists for this account",
             )
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{record_id}", status_code=204)
+async def delete_record(record_id: str):
+    """Delete a bookkeeping record."""
+    try:
+        supabase = get_supabase()
+        response = (
+            supabase.table("bookkeeping_records")
+            .delete()
+            .eq("id", record_id)
+            .execute()
+        )
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Record not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
