@@ -10,7 +10,12 @@
       "Bash(npm run build:*)",
       "Bash(tree:*)",
       "Bash(npx shadcn@latest add:*)",
-      "Bash(python -m ruff check:*)"
+      "Bash(python -m ruff check:*)",
+      "WebSearch",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
