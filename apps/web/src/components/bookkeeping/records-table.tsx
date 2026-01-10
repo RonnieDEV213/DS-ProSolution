@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -155,12 +156,13 @@ export function RecordsTable({ records, onRecordUpdated, onRecordDeleted }: Reco
     if (!confirm("Are you sure you want to delete this record?")) return;
 
     setSaving(true);
-    setError(null);
     try {
       await api.deleteRecord(recordId);
       onRecordDeleted(recordId);
+      toast.success("Record deleted");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete record");
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+      // Row stays - don't call onRecordDeleted
     } finally {
       setSaving(false);
     }
