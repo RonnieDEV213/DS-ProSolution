@@ -73,6 +73,10 @@ export default function BookkeepingPage() {
     setShowAddForm(false);
   };
 
+  const handleRecordDeleted = (recordId: string) => {
+    setRecords((prev) => prev.filter((r) => r.id !== recordId));
+  };
+
   const handleExportCSV = () => {
     const account = accounts.find((a) => a.id === selectedAccountId);
     if (account && records.length > 0) {
@@ -169,6 +173,7 @@ export default function BookkeepingPage() {
                   <RecordsTable
                     records={records}
                     onRecordUpdated={handleRecordUpdated}
+                    onRecordDeleted={handleRecordDeleted}
                   />
                 </>
               )}
