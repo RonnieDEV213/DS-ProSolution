@@ -34,7 +34,7 @@ const STATUS_OPTIONS: { value: BookkeepingStatus; label: string }[] = [
   { value: "REFUND_NO_RETURN", label: "Refund (No Return)" },
 ];
 
-const STRIKE_STATUSES: BookkeepingStatus[] = ["RETURN_CLOSED", "REFUND_NO_RETURN"];
+const STRIKE_CLASS = "line-through text-gray-500";
 
 // Field configuration for editing
 type FieldType = "text" | "date" | "number" | "cents";
@@ -66,9 +66,6 @@ export function RecordsTable({ records, onRecordUpdated, onRecordDeleted }: Reco
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<{id: string, status: BookkeepingStatus} | null>(null);
-
-  const shouldStrike = (status: BookkeepingStatus) =>
-    STRIKE_STATUSES.includes(status);
 
   const getDisplayValue = (
     record: BookkeepingRecord,
@@ -282,9 +279,11 @@ export function RecordsTable({ records, onRecordUpdated, onRecordDeleted }: Reco
         </TableHeader>
         <TableBody>
           {records.map((record) => {
-            const strike = shouldStrike(record.status);
-            const strikeClass = strike ? "line-through text-gray-500" : "";
-            const displayProfit = strike ? 0 : record.profit_cents;
+            const strikeAll = record.status === "RETURN_CLOSED";
+            const strikeSalesFees = record.status === "REFUND_NO_RETURN";
+            const strikeClassAll = strikeAll ? STRIKE_CLASS : "";
+            const strikeClassSalesFees = strikeAll || strikeSalesFees ? STRIKE_CLASS : "";
+            const displayProfit = strikeAll ? 0 : record.profit_cents;
 
             return (
               <TableRow
@@ -333,34 +332,34 @@ export function RecordsTable({ records, onRecordUpdated, onRecordDeleted }: Reco
 
                 {/* Sale Price - Editable */}
                 <TableCell className="text-right">
-                  {renderCentsCell(record, "sale_price_cents", strikeClass)}
+                  {renderCentsCell(record, "sale_price_cents", strikeClassSalesFees)}
                 </TableCell>
 
                 {/* eBay Fees - Editable */}
                 <TableCell className="text-right">
-                  {renderCentsCell(record, "ebay_fees_cents", strikeClass)}
+                  {renderCentsCell(record, "ebay_fees_cents", strikeClassSalesFees)}
                 </TableCell>
 
                 {/* COGS - Editable */}
                 <TableCell className="text-right">
-                  {renderCentsCell(record, "cogs_cents", strikeClass)}
+                  {renderCentsCell(record, "cogs_cents", strikeClassAll)}
                 </TableCell>
 
                 {/* Tax Paid - Editable */}
                 <TableCell className="text-right">
-                  {renderCentsCell(record, "tax_paid_cents", strikeClass)}
+                  {renderCentsCell(record, "tax_paid_cents", strikeClassAll)}
                 </TableCell>
 
                 {/* Return Label - Editable only when RETURN_LABEL_PROVIDED */}
                 <TableCell className="text-right">
-                  {renderCentsCell(record, "return_label_cost_cents", strikeClass)}
+                  {renderCentsCell(record, "return_label_cost_cents", strikeClassAll)}
                 </TableCell>
 
                 {/* Profit - NOT Editable (computed) */}
                 <TableCell
                   className={`text-right font-semibold ${
-                    strike
-                      ? strikeClass
+                    strikeAll
+                      ? strikeClassAll
                       : displayProfit >= 0
                         ? "text-green-400"
                         : "text-red-400"
