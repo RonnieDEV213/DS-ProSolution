@@ -92,8 +92,14 @@ class RecordResponse(BaseModel):
     def from_db(cls, data: dict) -> "RecordResponse":
         """Create RecordResponse from database row, computing profit."""
         status = data["status"]
-        if status in ("RETURN_CLOSED", "REFUND_NO_RETURN"):
+        if status == "RETURN_CLOSED":
             profit = 0
+        elif status == "REFUND_NO_RETURN":
+            profit = -(
+                (data.get("cogs_cents") or 0)
+                + (data.get("tax_paid_cents") or 0)
+                + (data.get("return_label_cost_cents") or 0)
+            )
         else:
             profit = data["sale_price_cents"] - (
                 (data.get("ebay_fees_cents") or 0)
