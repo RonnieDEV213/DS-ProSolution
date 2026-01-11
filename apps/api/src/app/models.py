@@ -28,12 +28,13 @@ class RecordCreate(BaseModel):
     qty: int = 1
     sale_price_cents: int
     ebay_fees_cents: Optional[int] = None
-    cogs_cents: Optional[int] = None
-    tax_paid_cents: Optional[int] = None
+    amazon_price_cents: Optional[int] = None
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
     amazon_order_id: Optional[str] = None
-    remarks: Optional[str] = None
+    order_remark: Optional[str] = None  # Stored separately in order_remarks table
     status: BookkeepingStatus = BookkeepingStatus.SUCCESSFUL
-    return_label_cost_cents: Optional[int] = None
+    # Note: return_label_cost_cents and service_remark not in create (service fields)
 
 
 class RecordUpdate(BaseModel):
@@ -43,10 +44,10 @@ class RecordUpdate(BaseModel):
     qty: Optional[int] = None
     sale_price_cents: Optional[int] = None
     ebay_fees_cents: Optional[int] = None
-    cogs_cents: Optional[int] = None
-    tax_paid_cents: Optional[int] = None
+    amazon_price_cents: Optional[int] = None
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
     amazon_order_id: Optional[str] = None
-    remarks: Optional[str] = None
     status: Optional[BookkeepingStatus] = None
     return_label_cost_cents: Optional[int] = None
 
@@ -60,8 +61,9 @@ class RecordUpdate(BaseModel):
     @field_validator(
         "sale_price_cents",
         "ebay_fees_cents",
-        "cogs_cents",
-        "tax_paid_cents",
+        "amazon_price_cents",
+        "amazon_tax_cents",
+        "amazon_shipping_cents",
         "return_label_cost_cents",
     )
     @classmethod
@@ -69,6 +71,12 @@ class RecordUpdate(BaseModel):
         if v is not None and v < 0:
             raise ValueError("cents values cannot be negative")
         return v
+
+
+class RemarkUpdate(BaseModel):
+    """Model for updating a remark (order or service)."""
+
+    content: Optional[str] = None
 
 
 class RecordResponse(BaseModel):
@@ -80,33 +88,54 @@ class RecordResponse(BaseModel):
     qty: int
     sale_price_cents: int
     ebay_fees_cents: Optional[int] = None
-    cogs_cents: Optional[int] = None
-    tax_paid_cents: Optional[int] = None
+    amazon_price_cents: Optional[int] = None
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
     amazon_order_id: Optional[str] = None
-    remarks: Optional[str] = None
     status: BookkeepingStatus
     return_label_cost_cents: Optional[int] = None
-    profit_cents: int  # Computed field
+    # Computed fields
+    earnings_net_cents: int
+    cogs_total_cents: int
+    profit_cents: int
+    # Remarks (null if user doesn't have access)
+    order_remark: Optional[str] = None
+    service_remark: Optional[str] = None
 
     @classmethod
-    def from_db(cls, data: dict) -> "RecordResponse":
-        """Create RecordResponse from database row, computing profit."""
+    def from_db(
+        cls,
+        data: dict,
+        order_remark: Optional[str] = None,
+        service_remark: Optional[str] = None,
+    ) -> "RecordResponse":
+        """Create RecordResponse from database row, computing derived fields."""
         status = data["status"]
+
+        # Extract values with defaults
+        sale = data["sale_price_cents"] or 0
+        fees = data.get("ebay_fees_cents") or 0
+        amazon_price = data.get("amazon_price_cents") or 0
+        amazon_tax = data.get("amazon_tax_cents") or 0
+        amazon_shipping = data.get("amazon_shipping_cents") or 0
+        return_label = data.get("return_label_cost_cents") or 0
+
+        # Compute earnings_net = sale - fees
+        earnings_net = sale - fees
+
+        # Compute cogs_total = amazon_price + amazon_tax + amazon_shipping
+        cogs_total = amazon_price + amazon_tax + amazon_shipping
+
+        # Compute profit based on status
         if status == "RETURN_CLOSED":
             profit = 0
         elif status == "REFUND_NO_RETURN":
-            profit = -(
-                (data.get("cogs_cents") or 0)
-                + (data.get("tax_paid_cents") or 0)
-                + (data.get("return_label_cost_cents") or 0)
-            )
+            # eBay fees refunded, return_label forced to 0 by trigger
+            profit = -cogs_total
         else:
-            profit = data["sale_price_cents"] - (
-                (data.get("ebay_fees_cents") or 0)
-                + (data.get("cogs_cents") or 0)
-                + (data.get("tax_paid_cents") or 0)
-                + (data.get("return_label_cost_cents") or 0)
-            )
+            # SUCCESSFUL or RETURN_LABEL_PROVIDED
+            profit = sale - fees - amazon_price - amazon_tax - amazon_shipping - return_label
+
         return cls(
             id=data["id"],
             account_id=data["account_id"],
@@ -116,11 +145,15 @@ class RecordResponse(BaseModel):
             qty=data["qty"],
             sale_price_cents=data["sale_price_cents"],
             ebay_fees_cents=data.get("ebay_fees_cents"),
-            cogs_cents=data.get("cogs_cents"),
-            tax_paid_cents=data.get("tax_paid_cents"),
+            amazon_price_cents=data.get("amazon_price_cents"),
+            amazon_tax_cents=data.get("amazon_tax_cents"),
+            amazon_shipping_cents=data.get("amazon_shipping_cents"),
             amazon_order_id=data.get("amazon_order_id"),
-            remarks=data.get("remarks"),
             status=data["status"],
             return_label_cost_cents=data.get("return_label_cost_cents"),
+            earnings_net_cents=earnings_net,
+            cogs_total_cents=cogs_total,
             profit_cents=profit,
+            order_remark=order_remark,
+            service_remark=service_remark,
         )

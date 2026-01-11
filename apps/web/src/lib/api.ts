@@ -22,6 +22,13 @@ export type BookkeepingStatus =
   | "RETURN_CLOSED"
   | "REFUND_NO_RETURN";
 
+export const STATUS_LABELS: Record<BookkeepingStatus, string> = {
+  SUCCESSFUL: "Successful",
+  RETURN_LABEL_PROVIDED: "Return Label",
+  RETURN_CLOSED: "Return Closed",
+  REFUND_NO_RETURN: "Refund (No Return)",
+};
+
 export interface BookkeepingRecord {
   id: string;
   account_id: string;
@@ -31,13 +38,19 @@ export interface BookkeepingRecord {
   qty: number;
   sale_price_cents: number;
   ebay_fees_cents: number | null;
-  cogs_cents: number | null;
-  tax_paid_cents: number | null;
+  amazon_price_cents: number | null;
+  amazon_tax_cents: number | null;
+  amazon_shipping_cents: number | null;
   amazon_order_id: string | null;
-  remarks: string | null;
   status: BookkeepingStatus;
   return_label_cost_cents: number | null;
+  // Computed fields
+  earnings_net_cents: number;
+  cogs_total_cents: number;
   profit_cents: number;
+  // Remarks (null if user doesn't have access)
+  order_remark: string | null;
+  service_remark: string | null;
 }
 
 export interface RecordCreate {
@@ -48,12 +61,13 @@ export interface RecordCreate {
   qty: number;
   sale_price_cents: number;
   ebay_fees_cents?: number | null;
-  cogs_cents?: number | null;
-  tax_paid_cents?: number | null;
+  amazon_price_cents?: number | null;
+  amazon_tax_cents?: number | null;
+  amazon_shipping_cents?: number | null;
   amazon_order_id?: string | null;
-  remarks?: string | null;
+  order_remark?: string | null;
   status?: BookkeepingStatus;
-  return_label_cost_cents?: number | null;
+  // Note: return_label_cost_cents and service_remark not in create
 }
 
 export interface RecordUpdate {
@@ -63,12 +77,16 @@ export interface RecordUpdate {
   qty?: number;
   sale_price_cents?: number;
   ebay_fees_cents?: number | null;
-  cogs_cents?: number | null;
-  tax_paid_cents?: number | null;
+  amazon_price_cents?: number | null;
+  amazon_tax_cents?: number | null;
+  amazon_shipping_cents?: number | null;
   amazon_order_id?: string | null;
-  remarks?: string | null;
   status?: BookkeepingStatus;
   return_label_cost_cents?: number | null;
+}
+
+export interface RemarkUpdate {
+  content: string | null;
 }
 
 async function fetchAPI<T>(
@@ -144,6 +162,19 @@ export const api = {
     }
     // 204 = success, no body to parse
   },
+
+  // Remark endpoints
+  updateOrderRemark: (recordId: string, content: string | null) =>
+    fetchAPI<{ content: string | null }>(`/records/${recordId}/order-remark`, {
+      method: "PATCH",
+      body: JSON.stringify({ content }),
+    }),
+
+  updateServiceRemark: (recordId: string, content: string | null) =>
+    fetchAPI<{ content: string | null }>(`/records/${recordId}/service-remark`, {
+      method: "PATCH",
+      body: JSON.stringify({ content }),
+    }),
 };
 
 // Utility functions
@@ -158,10 +189,21 @@ export function parseDollars(value: string): number | null {
   return Math.round(num * 100);
 }
 
+export interface UserRole {
+  isAdmin: boolean;
+  isOrderDept: boolean;
+  isServiceDept: boolean;
+  canAccessOrderRemark: boolean;
+  canAccessServiceRemark: boolean;
+  department: string | null;
+}
+
 export function exportToCSV(
   records: BookkeepingRecord[],
-  accountCode: string
+  accountCode: string,
+  userRole?: UserRole
 ): void {
+  // Build headers based on role
   const headers = [
     "Sale Date",
     "eBay Order ID",
@@ -169,30 +211,52 @@ export function exportToCSV(
     "Qty",
     "Sale Price",
     "eBay Fees",
-    "COGS",
-    "Tax Paid",
-    "Return Label",
-    "Profit",
-    "Amazon Order ID",
+    "Earnings Net",
+    "Amazon Price",
+    "Amazon Tax",
+    "Amazon Shipping",
+    "COGS Total",
+    "Return Label Cost",
     "Status",
-    "Remarks",
   ];
 
-  const rows = records.map((r) => [
-    r.sale_date,
-    r.ebay_order_id,
-    r.item_name,
-    r.qty.toString(),
-    formatCents(r.sale_price_cents),
-    formatCents(r.ebay_fees_cents),
-    formatCents(r.cogs_cents),
-    formatCents(r.tax_paid_cents),
-    formatCents(r.return_label_cost_cents),
-    formatCents(r.profit_cents),
-    r.amazon_order_id || "",
-    r.status,
-    r.remarks || "",
-  ]);
+  // Add remark columns based on access
+  const includeOrderRemark = !userRole || userRole.canAccessOrderRemark;
+  const includeServiceRemark = !userRole || userRole.canAccessServiceRemark;
+
+  if (includeOrderRemark) headers.push("Order Remark");
+  if (includeServiceRemark) headers.push("Service Remark");
+
+  headers.push("Profit", "Amazon Order ID", "Account ID");
+
+  const rows = records.map((r) => {
+    const row = [
+      r.sale_date,
+      r.ebay_order_id,
+      r.item_name,
+      r.qty.toString(),
+      formatCents(r.sale_price_cents),
+      formatCents(r.ebay_fees_cents),
+      formatCents(r.earnings_net_cents),
+      formatCents(r.amazon_price_cents),
+      formatCents(r.amazon_tax_cents),
+      formatCents(r.amazon_shipping_cents),
+      formatCents(r.cogs_total_cents),
+      formatCents(r.return_label_cost_cents),
+      STATUS_LABELS[r.status] || r.status,
+    ];
+
+    if (includeOrderRemark) row.push(r.order_remark || "");
+    if (includeServiceRemark) row.push(r.service_remark || "");
+
+    row.push(
+      formatCents(r.profit_cents),
+      r.amazon_order_id || "",
+      r.account_id
+    );
+
+    return row;
+  });
 
   const csvContent = [
     headers.join(","),
