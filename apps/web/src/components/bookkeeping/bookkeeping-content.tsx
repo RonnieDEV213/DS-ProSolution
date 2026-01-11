@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/bookkeeping/account-selector";
 import { RecordsTable } from "@/components/bookkeeping/records-table";
 import { AddRecordForm } from "@/components/bookkeeping/add-record-form";
+import { useUserRole } from "@/hooks/use-user-role";
 import {
   api,
   exportToCSV,
@@ -23,6 +24,8 @@ export function BookkeepingContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  const userRole = useUserRole();
 
   // Load accounts on mount
   useEffect(() => {
@@ -80,7 +83,7 @@ export function BookkeepingContent() {
   const handleExportCSV = () => {
     const account = accounts.find((a) => a.id === selectedAccountId);
     if (account && records.length > 0) {
-      exportToCSV(records, account.account_code);
+      exportToCSV(records, account.account_code, userRole);
       toast.success(`Exported ${records.length} records`);
     }
   };
@@ -137,6 +140,7 @@ export function BookkeepingContent() {
           {showAddForm && (
             <AddRecordForm
               accountId={selectedAccountId}
+              userRole={userRole}
               onRecordAdded={handleRecordAdded}
               onCancel={() => setShowAddForm(false)}
             />
@@ -154,6 +158,7 @@ export function BookkeepingContent() {
               </div>
               <RecordsTable
                 records={records}
+                userRole={userRole}
                 onRecordUpdated={handleRecordUpdated}
                 onRecordDeleted={handleRecordDeleted}
               />

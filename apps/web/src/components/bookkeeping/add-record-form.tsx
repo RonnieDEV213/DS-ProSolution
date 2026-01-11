@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -14,25 +15,29 @@ import {
 import {
   api,
   parseDollars,
+  STATUS_LABELS,
   type BookkeepingRecord,
   type BookkeepingStatus,
+  type UserRole,
 } from "@/lib/api";
 
 const STATUS_OPTIONS: { value: BookkeepingStatus; label: string }[] = [
-  { value: "SUCCESSFUL", label: "Successful" },
-  { value: "RETURN_LABEL_PROVIDED", label: "Return Label Provided" },
-  { value: "RETURN_CLOSED", label: "Return Closed" },
-  { value: "REFUND_NO_RETURN", label: "Refund (No Return)" },
+  { value: "SUCCESSFUL", label: STATUS_LABELS.SUCCESSFUL },
+  { value: "RETURN_LABEL_PROVIDED", label: STATUS_LABELS.RETURN_LABEL_PROVIDED },
+  { value: "RETURN_CLOSED", label: STATUS_LABELS.RETURN_CLOSED },
+  { value: "REFUND_NO_RETURN", label: STATUS_LABELS.REFUND_NO_RETURN },
 ];
 
 interface AddRecordFormProps {
   accountId: string;
+  userRole: UserRole;
   onRecordAdded: (record: BookkeepingRecord) => void;
   onCancel: () => void;
 }
 
 export function AddRecordForm({
   accountId,
+  userRole,
   onRecordAdded,
   onCancel,
 }: AddRecordFormProps) {
@@ -46,19 +51,23 @@ export function AddRecordForm({
     qty: "1",
     sale_price: "",
     ebay_fees: "",
-    cogs: "",
-    tax_paid: "",
-    return_label_cost: "",
+    amazon_price: "",
+    amazon_tax: "",
+    amazon_shipping: "",
     amazon_order_id: "",
-    remarks: "",
+    order_remark: "",
     status: "SUCCESSFUL" as BookkeepingStatus,
   });
 
-  const validateMoneyField = (value: string, fieldName: string): number | null => {
+  const validateMoneyField = (
+    value: string,
+    fieldName: string
+  ): number | null => {
     if (!value.trim()) return null;
-    // Only allow valid dollar amounts: optional minus, digits, optional decimal with up to 2 digits
     if (!/^-?\d*\.?\d{0,2}$/.test(value.trim())) {
-      throw new Error(`${fieldName} must be a valid dollar amount (e.g., 123.45)`);
+      throw new Error(
+        `${fieldName} must be a valid dollar amount (e.g., 123.45)`
+      );
     }
     return parseDollars(value);
   };
@@ -74,7 +83,9 @@ export function AddRecordForm({
         throw new Error("Sale price is required");
       }
       if (!/^\d*\.?\d{0,2}$/.test(formData.sale_price.trim())) {
-        throw new Error("Sale price must be a valid dollar amount (e.g., 123.45)");
+        throw new Error(
+          "Sale price must be a valid dollar amount (e.g., 123.45)"
+        );
       }
       const salePrice = parseDollars(formData.sale_price);
       if (salePrice === null || salePrice <= 0) {
@@ -83,9 +94,15 @@ export function AddRecordForm({
 
       // Validate other money fields
       const ebayFees = validateMoneyField(formData.ebay_fees, "eBay Fees");
-      const cogs = validateMoneyField(formData.cogs, "COGS");
-      const taxPaid = validateMoneyField(formData.tax_paid, "Tax Paid");
-      const returnLabelCost = validateMoneyField(formData.return_label_cost, "Return Label Cost");
+      const amazonPrice = validateMoneyField(
+        formData.amazon_price,
+        "Amazon Price"
+      );
+      const amazonTax = validateMoneyField(formData.amazon_tax, "Amazon Tax");
+      const amazonShipping = validateMoneyField(
+        formData.amazon_shipping,
+        "Amazon Shipping"
+      );
 
       const record = await api.createRecord({
         account_id: accountId,
@@ -95,11 +112,14 @@ export function AddRecordForm({
         qty: parseInt(formData.qty) || 1,
         sale_price_cents: salePrice,
         ebay_fees_cents: ebayFees,
-        cogs_cents: cogs,
-        tax_paid_cents: taxPaid,
-        return_label_cost_cents: returnLabelCost,
+        amazon_price_cents: amazonPrice,
+        amazon_tax_cents: amazonTax,
+        amazon_shipping_cents: amazonShipping,
         amazon_order_id: formData.amazon_order_id || null,
-        remarks: formData.remarks || null,
+        order_remark:
+          userRole.canAccessOrderRemark && formData.order_remark
+            ? formData.order_remark
+            : null,
         status: formData.status,
       });
 
@@ -213,43 +233,43 @@ export function AddRecordForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cogs" className="text-gray-300">
-            COGS
+          <Label htmlFor="amazon_price" className="text-gray-300">
+            Amazon Price
           </Label>
           <Input
-            id="cogs"
+            id="amazon_price"
             type="text"
             placeholder="15.00"
-            value={formData.cogs}
-            onChange={(e) => handleChange("cogs", e.target.value)}
+            value={formData.amazon_price}
+            onChange={(e) => handleChange("amazon_price", e.target.value)}
             className="bg-gray-800 border-gray-700"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="tax_paid" className="text-gray-300">
-            Tax Paid
+          <Label htmlFor="amazon_tax" className="text-gray-300">
+            Amazon Tax
           </Label>
           <Input
-            id="tax_paid"
+            id="amazon_tax"
             type="text"
-            placeholder="0.00"
-            value={formData.tax_paid}
-            onChange={(e) => handleChange("tax_paid", e.target.value)}
+            placeholder="1.20"
+            value={formData.amazon_tax}
+            onChange={(e) => handleChange("amazon_tax", e.target.value)}
             className="bg-gray-800 border-gray-700"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="return_label_cost" className="text-gray-300">
-            Return Label Cost
+          <Label htmlFor="amazon_shipping" className="text-gray-300">
+            Amazon Shipping
           </Label>
           <Input
-            id="return_label_cost"
+            id="amazon_shipping"
             type="text"
             placeholder="0.00"
-            value={formData.return_label_cost}
-            onChange={(e) => handleChange("return_label_cost", e.target.value)}
+            value={formData.amazon_shipping}
+            onChange={(e) => handleChange("amazon_shipping", e.target.value)}
             className="bg-gray-800 border-gray-700"
           />
         </div>
@@ -291,17 +311,20 @@ export function AddRecordForm({
           </Select>
         </div>
 
-        <div className="space-y-2 col-span-2">
-          <Label htmlFor="remarks" className="text-gray-300">
-            Remarks
-          </Label>
-          <Input
-            id="remarks"
-            value={formData.remarks}
-            onChange={(e) => handleChange("remarks", e.target.value)}
-            className="bg-gray-800 border-gray-700"
-          />
-        </div>
+        {userRole.canAccessOrderRemark && (
+          <div className="space-y-2 col-span-2">
+            <Label htmlFor="order_remark" className="text-gray-300">
+              Order Remark
+            </Label>
+            <Textarea
+              id="order_remark"
+              value={formData.order_remark}
+              onChange={(e) => handleChange("order_remark", e.target.value)}
+              className="bg-gray-800 border-gray-700 min-h-[60px]"
+              placeholder="Notes about this order..."
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 mt-4">

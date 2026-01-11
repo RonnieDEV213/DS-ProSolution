@@ -15,7 +15,8 @@
       "WebFetch(domain:supabase.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }
