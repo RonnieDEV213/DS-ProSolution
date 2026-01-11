@@ -22,7 +22,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   api,
+  displayValue,
   formatCents,
+  normalizeForCompare,
   parseDollars,
   STATUS_LABELS,
   type BookkeepingRecord,
@@ -122,46 +124,73 @@ export function RecordsTable({
   const handleEditSave = async () => {
     if (!editingId || !editingField) return;
 
+    const record = records.find((r) => r.id === editingId);
+    if (!record) return;
+
+    const config = FIELD_CONFIG[editingField];
+    let convertedValue: unknown;
+    const trimmedInput = editValue.trim();
+
+    // Convert input value based on field type
+    switch (config?.type) {
+      case "cents":
+        if (trimmedInput === "") {
+          convertedValue = null;
+        } else {
+          const parsed = parseDollars(editValue);
+          if (parsed === null) {
+            toast.error("Invalid dollar amount");
+            return; // Keep editing open
+          }
+          convertedValue = parsed;
+        }
+        break;
+      case "number":
+        if (trimmedInput === "") {
+          convertedValue = null;
+        } else {
+          const parsed = parseInt(trimmedInput, 10);
+          if (isNaN(parsed)) {
+            toast.error("Invalid number");
+            return; // Keep editing open
+          }
+          convertedValue = parsed;
+        }
+        break;
+      case "date":
+        convertedValue = trimmedInput === "" ? null : trimmedInput;
+        break;
+      default:
+        convertedValue = trimmedInput === "" ? null : trimmedInput;
+    }
+
+    // Get original value and compare after normalizing
+    const originalValue = record[editingField as keyof BookkeepingRecord];
+    const normalizedNew = normalizeForCompare(convertedValue);
+    const normalizedOld = normalizeForCompare(originalValue);
+
+    // If no change, exit early (no API call)
+    if (Object.is(normalizedNew, normalizedOld)) {
+      handleEditCancel();
+      return;
+    }
+
     setSaving(true);
-    setError(null);
 
     try {
-      const config = FIELD_CONFIG[editingField];
-      let convertedValue: unknown;
-
-      switch (config?.type) {
-        case "cents":
-          convertedValue = parseDollars(editValue);
-          break;
-        case "number":
-          convertedValue = parseInt(editValue) || null;
-          break;
-        case "date":
-          convertedValue = editValue || null;
-          break;
-        default:
-          convertedValue = editValue || null;
-      }
-
       // Handle remark updates separately
       if (editingField === "order_remark") {
         await api.updateOrderRemark(editingId, convertedValue as string | null);
-        const record = records.find((r) => r.id === editingId);
-        if (record) {
-          onRecordUpdated({
-            ...record,
-            order_remark: convertedValue as string | null,
-          });
-        }
+        onRecordUpdated({
+          ...record,
+          order_remark: convertedValue as string | null,
+        });
       } else if (editingField === "service_remark") {
         await api.updateServiceRemark(editingId, convertedValue as string | null);
-        const record = records.find((r) => r.id === editingId);
-        if (record) {
-          onRecordUpdated({
-            ...record,
-            service_remark: convertedValue as string | null,
-          });
-        }
+        onRecordUpdated({
+          ...record,
+          service_remark: convertedValue as string | null,
+        });
       } else {
         const updated = await api.updateRecord(editingId, {
           [editingField]: convertedValue,
@@ -170,7 +199,7 @@ export function RecordsTable({
       }
       handleEditCancel();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      // Only show toast for PATCH failures, no error banner
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
@@ -446,7 +475,7 @@ export function RecordsTable({
                     {renderEditableCell(
                       record,
                       "amazon_order_id",
-                      record.amazon_order_id || "-",
+                      displayValue(record.amazon_order_id),
                       "text-white font-mono text-sm"
                     )}
                   </TableCell>

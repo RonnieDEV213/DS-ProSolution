@@ -178,6 +178,39 @@ export const api = {
 };
 
 // Utility functions
+
+/**
+ * Normalize value for comparison:
+ * - undefined => undefined
+ * - null => null
+ * - string => trimmed; if empty after trim => null
+ * - other => as-is
+ */
+export function normalizeForCompare(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+  return value;
+}
+
+/**
+ * Format value for display:
+ * - null/undefined/empty string => "-"
+ * - other => String(value)
+ * Note: 0 and false display as "0" and "false", not "-"
+ */
+export function displayValue(value: unknown): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? "-" : trimmed;
+  }
+  return String(value);
+}
+
 export function formatCents(cents: number | null | undefined): string {
   if (cents == null) return "-";
   return `$${(cents / 100).toFixed(2)}`;

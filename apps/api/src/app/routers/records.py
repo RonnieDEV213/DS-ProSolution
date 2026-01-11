@@ -216,13 +216,33 @@ async def update_record(
         # Get user's role info for field restriction
         role_info = await get_user_role_info(user["user_id"], supabase)
 
-        # Only include non-None fields in update
-        update_data = {
-            k: v for k, v in record.model_dump(mode="json").items() if v is not None
-        }
+        # Only include explicitly provided fields (exclude_unset=True)
+        update_data = record.model_dump(mode="json", exclude_unset=True)
 
+        # Normalize empty strings to None for all string fields
+        for k, v in list(update_data.items()):
+            if isinstance(v, str):
+                stripped = v.strip()
+                update_data[k] = stripped if stripped else None
+
+        # Handle empty payload as no-op: return existing record without updating
         if not update_data:
-            raise HTTPException(status_code=400, detail="No fields to update")
+            response = (
+                supabase.table("bookkeeping_records")
+                .select("*")
+                .eq("id", record_id)
+                .execute()
+            )
+            if not response.data:
+                raise HTTPException(status_code=404, detail="Record not found")
+            order_remarks, service_remarks = await fetch_remarks_for_records(
+                [record_id], supabase
+            )
+            return RecordResponse.from_db(
+                response.data[0],
+                order_remark=order_remarks.get(record_id),
+                service_remark=service_remarks.get(record_id),
+            )
 
         # Enforce role-based field restrictions (unless admin)
         if not role_info["is_admin"]:
