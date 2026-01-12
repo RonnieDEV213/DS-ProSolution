@@ -12,7 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
 from app.database import get_supabase
-from app.permissions import LEGACY_TO_NEW_KEY, NEW_KEY_TO_LEGACY
+from app.permissions import LEGACY_TO_NEW_KEY
 
 # auto_error=False so we can return 401 (not 403) on missing header
 security = HTTPBearer(auto_error=False)
@@ -115,13 +115,12 @@ def _get_dept_role_permissions(supabase, membership_id: str) -> set[str]:
 
 def _merge_permissions(
     role_perms: dict[str, Any] | None,
-    overrides: dict[str, Any] | None,
     dept_role_keys: set[str] | None = None,
 ) -> dict[str, bool]:
     """
-    Merge permissions from three sources.
+    Merge permissions from role defaults and department role keys.
 
-    Priority: override > dept_role > role_default
+    Priority: dept_role > role_default
 
     NOTE: dept_role_keys only affects bookkeeping permissions.
     """
@@ -137,11 +136,7 @@ def _merge_permissions(
         if new_key and new_key in dept_role_keys:
             base = True  # Dept role grants this permission
 
-        # 3. Override if explicitly set (highest priority)
-        if overrides and overrides.get(field) is not None:
-            result[field] = overrides[field]
-        else:
-            result[field] = base
+        result[field] = base
 
     return result
 
@@ -156,7 +151,8 @@ async def get_current_user_with_membership(
         - user_id: UUID string
         - token: JWT token string
         - membership: {id, role, department, status, last_seen_at, org_id}
-        - permissions: {merged role_permissions + user_overrides}
+        - permissions: {merged role_permissions + dept_role_keys}
+        - permission_keys: list of permission keys from department roles (VAs only)
 
     Raises:
         - 401 if no valid token
@@ -248,22 +244,13 @@ async def get_current_user_with_membership(
     )
     role_perms = role_perms_result.data[0] if role_perms_result.data else None
 
-    # Fetch user permission overrides
-    overrides_result = (
-        supabase.table("user_permission_overrides")
-        .select("*")
-        .eq("user_id", user_id)
-        .execute()
-    )
-    overrides = overrides_result.data[0] if overrides_result.data else None
-
     # Fetch department role permissions (only for VAs)
     dept_role_keys: set[str] = set()
     if membership["role"] == "va":
         dept_role_keys = _get_dept_role_permissions(supabase, membership["id"])
 
-    # Merge all three sources
-    permissions = _merge_permissions(role_perms, overrides, dept_role_keys)
+    # Merge role defaults with department role permissions
+    permissions = _merge_permissions(role_perms, dept_role_keys)
 
     return {
         "user_id": user_id,
@@ -274,37 +261,13 @@ async def get_current_user_with_membership(
     }
 
 
-def require_permission(permission: str):
-    """
-    Dependency factory to require a specific permission (legacy style).
-
-    Usage:
-        @router.get("/admin/users")
-        async def list_users(user = Depends(require_permission("can_manage_users"))):
-            ...
-    """
-
-    async def check_permission(
-        user: dict = Depends(get_current_user_with_membership),
-    ) -> dict:
-        if not user["permissions"].get(permission, False):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Permission denied: {permission} required",
-            )
-        return user
-
-    return check_permission
-
-
 def require_permission_key(permission_key: str):
     """
-    Dependency factory for new-style permission keys.
+    Dependency factory for permission key checks.
 
     Check order:
     1. Admin bypass (always allow)
     2. Dept role permission_keys
-    3. Legacy fallback via NEW_KEY_TO_LEGACY
 
     Usage:
         @router.get("/bookkeeping")
@@ -323,11 +286,6 @@ def require_permission_key(permission_key: str):
 
         # 2. Check dept role permission_keys
         if permission_key in user.get("permission_keys", []):
-            return user
-
-        # 3. Fallback: check legacy permissions (for transition period)
-        legacy_field = NEW_KEY_TO_LEGACY.get(permission_key)
-        if legacy_field and user["permissions"].get(legacy_field, False):
             return user
 
         raise HTTPException(

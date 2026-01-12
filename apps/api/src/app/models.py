@@ -35,24 +35,12 @@ class Department(str, Enum):
 # ============================================================
 
 
-class PermissionOverrides(BaseModel):
-    """Permission overrides for a user (nullable fields inherit from role)."""
-
-    can_view_bookkeeping: Optional[bool] = None
-    can_edit_bookkeeping: Optional[bool] = None
-    can_export_bookkeeping: Optional[bool] = None
-    can_manage_invites: Optional[bool] = None
-    can_manage_users: Optional[bool] = None
-    can_manage_account_assignments: Optional[bool] = None
-
-
 class UserMembershipUpdate(BaseModel):
     """Request body for updating a user's membership."""
 
     role: Optional[UserRole] = None
     department: Optional[Department] = None
     status: Optional[MembershipStatus] = None
-    overrides: Optional[PermissionOverrides] = None
 
 
 class MembershipResponse(BaseModel):
@@ -84,7 +72,6 @@ class UserResponse(BaseModel):
     profile: ProfileResponse
     membership: MembershipResponse
     permissions: dict
-    overrides: Optional[PermissionOverrides] = None
 
 
 class UserListResponse(BaseModel):

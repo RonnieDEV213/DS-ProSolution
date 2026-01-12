@@ -43,7 +43,6 @@ interface User {
     updated_at: string | null;
   };
   permissions: Record<string, boolean>;
-  overrides: Record<string, boolean | null> | null;
 }
 
 interface DepartmentRole {

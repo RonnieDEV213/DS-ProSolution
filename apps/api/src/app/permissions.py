@@ -21,20 +21,17 @@ DEPT_ROLE_PERMISSION_KEYS = {
 FORBIDDEN_DEPT_ROLE_PERMISSIONS = {"payouts.read", "profit.read"}
 
 # Mapping: legacy fields -> new permission keys
-# Used by require_permission_key() for legacy fallback
+# Used by _merge_permissions() to check if dept roles grant permissions
 LEGACY_TO_NEW_KEY = {
     # Bookkeeping
     "can_view_bookkeeping": "bookkeeping.read",
     "can_edit_bookkeeping": "bookkeeping.write",
     "can_export_bookkeeping": "bookkeeping.export",
-    # Admin (for legacy fallback only - NOT assignable via dept roles)
+    # Admin (NOT assignable via dept roles - admins get these by role)
     "can_manage_invites": "admin.invites",
     "can_manage_users": "admin.users",
     "can_manage_account_assignments": "admin.account_assign",
 }
-
-# Reverse mapping for backward compatibility
-NEW_KEY_TO_LEGACY = {v: k for k, v in LEGACY_TO_NEW_KEY.items()}
 
 # Human-readable labels for permission keys
 PERMISSION_LABELS = {

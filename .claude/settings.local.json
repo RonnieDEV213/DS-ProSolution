@@ -19,7 +19,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(python:*)",
       "Bash(ruff check:*)",
-      "Bash(.venv/Scripts/python.exe:*)"
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(npm run type-check:*)"
     ]
   }
 }

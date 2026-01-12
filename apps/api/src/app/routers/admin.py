@@ -22,7 +22,6 @@ from app.models import (
     MembershipResponse,
     MembershipStatus,
     OrgResponse,
-    PermissionOverrides,
     ProfileResponse,
     TransferOwnershipRequest,
     UserListResponse,
@@ -38,18 +37,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def _build_user_response(
     profile: dict,
     membership: dict,
-    overrides: dict | None,
     role_perms: dict | None,
 ) -> UserResponse:
     """Build a UserResponse from database rows."""
-    # Compute effective permissions
+    # Compute effective permissions from role defaults
     permissions = {}
     for field in PERMISSION_FIELDS:
-        base = role_perms.get(field, False) if role_perms else False
-        if overrides and overrides.get(field) is not None:
-            permissions[field] = overrides[field]
-        else:
-            permissions[field] = base
+        permissions[field] = role_perms.get(field, False) if role_perms else False
 
     return UserResponse(
         profile=ProfileResponse(
@@ -70,7 +64,6 @@ def _build_user_response(
             updated_at=membership.get("updated_at"),
         ),
         permissions=permissions,
-        overrides=PermissionOverrides(**overrides) if overrides else None,
     )
 
 
@@ -120,18 +113,6 @@ async def list_users(
     if not result.data:
         return UserListResponse(users=[], total=0, page=page, page_size=page_size)
 
-    # Get all user_ids for fetching overrides
-    user_ids = [row["user_id"] for row in result.data]
-
-    # Fetch overrides for all users
-    overrides_result = (
-        supabase.table("user_permission_overrides")
-        .select("*")
-        .in_("user_id", user_ids)
-        .execute()
-    )
-    overrides_map = {row["user_id"]: row for row in (overrides_result.data or [])}
-
     # Fetch role permissions for all unique roles
     roles = list(set(row["role"] for row in result.data))
     role_perms_result = (
@@ -144,10 +125,9 @@ async def list_users(
     for row in result.data:
         profile = row["profiles"]
         membership = {k: v for k, v in row.items() if k != "profiles"}
-        overrides = overrides_map.get(row["user_id"])
         role_perms = role_perms_map.get(row["role"])
 
-        users.append(_build_user_response(profile, membership, overrides, role_perms))
+        users.append(_build_user_response(profile, membership, role_perms))
 
     return UserListResponse(
         users=users,
@@ -193,15 +173,6 @@ async def get_user(
 
     profile = profile_result.data[0]
 
-    # Fetch overrides
-    overrides_result = (
-        supabase.table("user_permission_overrides")
-        .select("*")
-        .eq("user_id", user_id)
-        .execute()
-    )
-    overrides = overrides_result.data[0] if overrides_result.data else None
-
     # Fetch role permissions
     role_perms_result = (
         supabase.table("role_permissions")
@@ -211,7 +182,7 @@ async def get_user(
     )
     role_perms = role_perms_result.data[0] if role_perms_result.data else None
 
-    return _build_user_response(profile, membership, overrides, role_perms)
+    return _build_user_response(profile, membership, role_perms)
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -222,7 +193,7 @@ async def update_user(
     user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
-    Update a user's membership (role, department, status) and/or permission overrides.
+    Update a user's membership (role, department, status).
 
     Requires can_manage_users permission.
     Writes to audit_logs with before/after state.
@@ -382,56 +353,6 @@ async def update_user(
     else:
         new_membership = old_membership
 
-    # Handle permission overrides
-    if body.overrides is not None:
-        # Fetch current overrides
-        overrides_result = (
-            supabase.table("user_permission_overrides")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        old_overrides = overrides_result.data[0] if overrides_result.data else None
-
-        # Build new overrides data
-        overrides_data = body.overrides.model_dump(exclude_unset=False)
-        overrides_data["user_id"] = user_id
-        overrides_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        overrides_data["updated_by"] = actor_user_id
-
-        # Upsert overrides
-        overrides_result = (
-            supabase.table("user_permission_overrides")
-            .upsert(overrides_data, on_conflict="user_id")
-            .execute()
-        )
-
-        if not overrides_result.data:
-            raise HTTPException(status_code=500, detail="Failed to update overrides")
-
-        new_overrides = overrides_result.data[0]
-
-        # Write audit log for overrides change
-        await write_audit_log(
-            supabase,
-            actor_user_id=actor_user_id,
-            action="user_permission_overrides.update",
-            resource_type="user_permission_overrides",
-            resource_id=user_id,
-            before=old_overrides,
-            after=new_overrides,
-            request=request,
-        )
-    else:
-        # Fetch existing overrides
-        overrides_result = (
-            supabase.table("user_permission_overrides")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        new_overrides = overrides_result.data[0] if overrides_result.data else None
-
     # Fetch profile for response
     profile_result = (
         supabase.table("profiles").select("*").eq("user_id", user_id).execute()
@@ -447,7 +368,7 @@ async def update_user(
     )
     role_perms = role_perms_result.data[0] if role_perms_result.data else None
 
-    return _build_user_response(profile, new_membership, new_overrides, role_perms)
+    return _build_user_response(profile, new_membership, role_perms)
 
 
 # ============================================================
