@@ -7,7 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from postgrest.exceptions import APIError
 
 from app.audit import write_audit_log
-from app.auth import require_permission, DEFAULT_ORG_ID, PERMISSION_FIELDS
+from app.auth import (
+    require_permission_key,
+    DEFAULT_ORG_ID,
+    PERMISSION_FIELDS,
+)
 from app.database import get_supabase
 from app.models import (
     DepartmentRoleAssignment,
@@ -76,7 +80,7 @@ async def list_users(
     status: Optional[str] = Query(None, description="Filter by status"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     List users with search and pagination.
@@ -156,7 +160,7 @@ async def list_users(
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: str,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Get a single user's details.
@@ -215,7 +219,7 @@ async def update_user(
     user_id: str,
     body: UserMembershipUpdate,
     request: Request,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Update a user's membership (role, department, status) and/or permission overrides.
@@ -454,7 +458,7 @@ async def update_user(
 @router.get("/orgs/{org_id}", response_model=OrgResponse)
 async def get_org(
     org_id: str,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Get organization details including owner.
@@ -476,7 +480,7 @@ async def transfer_ownership(
     org_id: str,
     body: TransferOwnershipRequest,
     request: Request,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Transfer organization ownership to another active admin.
@@ -573,7 +577,7 @@ def _build_department_role_response(role: dict, permissions: list[str]) -> Depar
 @router.get("/orgs/{org_id}/department-roles", response_model=DepartmentRoleListResponse)
 async def list_department_roles(
     org_id: str,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     List all department roles for an organization.
@@ -624,7 +628,7 @@ async def create_department_role(
     org_id: str,
     body: DepartmentRoleCreate,
     request: Request,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Create a new department role.
@@ -725,7 +729,7 @@ async def update_department_role(
     role_id: str,
     body: DepartmentRoleUpdate,
     request: Request,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Update a department role (name, permissions, position).
@@ -851,7 +855,7 @@ async def delete_department_role(
     org_id: str,
     role_id: str,
     request: Request,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Delete a department role.
@@ -911,7 +915,7 @@ async def delete_department_role(
 async def get_membership_department_roles(
     org_id: str,
     membership_id: str,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Get department roles assigned to a membership.
@@ -983,7 +987,7 @@ async def assign_department_role(
     membership_id: str,
     body: DepartmentRoleAssignment,
     request: Request,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Assign a department role to a VA membership.
@@ -1105,7 +1109,7 @@ async def unassign_department_role(
     membership_id: str,
     role_id: str,
     request: Request,
-    user: dict = Depends(require_permission("can_manage_users")),
+    user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
     Remove a department role from a VA membership.

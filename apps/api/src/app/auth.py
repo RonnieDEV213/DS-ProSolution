@@ -12,7 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
 from app.database import get_supabase
-from app.permissions import LEGACY_TO_NEW_KEY
+from app.permissions import LEGACY_TO_NEW_KEY, NEW_KEY_TO_LEGACY
 
 # auto_error=False so we can return 401 (not 403) on missing header
 security = HTTPBearer(auto_error=False)
@@ -299,11 +299,12 @@ def require_permission(permission: str):
 
 def require_permission_key(permission_key: str):
     """
-    Dependency factory for new-style permission keys (for future use).
+    Dependency factory for new-style permission keys.
 
-    Checks permission_keys from department roles. Admin role bypasses check.
-
-    NOTE: Currently only checks dept_role_keys. Not used by any endpoints yet.
+    Check order:
+    1. Admin bypass (always allow)
+    2. Dept role permission_keys
+    3. Legacy fallback via NEW_KEY_TO_LEGACY
 
     Usage:
         @router.get("/bookkeeping")
@@ -316,12 +317,17 @@ def require_permission_key(permission_key: str):
     async def check_permission(
         user: dict = Depends(get_current_user_with_membership),
     ) -> dict:
-        # Admin always has access
+        # 1. Admin always has access
         if user["membership"]["role"] == "admin":
             return user
 
-        # Check dept role keys
+        # 2. Check dept role permission_keys
         if permission_key in user.get("permission_keys", []):
+            return user
+
+        # 3. Fallback: check legacy permissions (for transition period)
+        legacy_field = NEW_KEY_TO_LEGACY.get(permission_key)
+        if legacy_field and user["permissions"].get(legacy_field, False):
             return user
 
         raise HTTPException(
