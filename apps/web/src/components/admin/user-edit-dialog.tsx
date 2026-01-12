@@ -64,15 +64,6 @@ interface UserEditDialogProps {
   ownerUserId?: string | null;
 }
 
-const PERMISSION_LABELS: Record<string, string> = {
-  can_view_bookkeeping: "View Bookkeeping",
-  can_edit_bookkeeping: "Edit Bookkeeping",
-  can_export_bookkeeping: "Export Bookkeeping",
-  can_manage_invites: "Manage Invites",
-  can_manage_users: "Manage Users",
-  can_manage_account_assignments: "Manage Account Assignments",
-};
-
 export function UserEditDialog({
   user,
   open,
@@ -86,7 +77,6 @@ export function UserEditDialog({
   const [role, setRole] = useState("");
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
-  const [overrides, setOverrides] = useState<Record<string, boolean | null>>({});
 
   // Department roles state
   const [availableDeptRoles, setAvailableDeptRoles] = useState<DepartmentRole[]>([]);
@@ -166,7 +156,6 @@ export function UserEditDialog({
       setRole(user.membership.role);
       setDepartment(user.membership.department || "none");
       setStatus(user.membership.status);
-      setOverrides(user.overrides || {});
 
       // Fetch department roles if user is a VA
       if (user.membership.role === "va" && user.membership.status === "active") {
@@ -206,15 +195,6 @@ export function UserEditDialog({
       }
       if (status !== user.membership.status) {
         updates.status = status;
-      }
-
-      // Check if overrides changed
-      const overridesChanged = Object.keys(PERMISSION_LABELS).some(
-        (key) => overrides[key] !== (user.overrides?.[key] ?? null)
-      );
-
-      if (overridesChanged) {
-        updates.overrides = overrides;
       }
 
       // Check if department roles changed
@@ -298,13 +278,6 @@ export function UserEditDialog({
     }
   };
 
-  const handleOverrideChange = (permission: string, value: boolean | null) => {
-    setOverrides((prev) => ({
-      ...prev,
-      [permission]: value,
-    }));
-  };
-
   const handleDeptRoleToggle = (roleId: string) => {
     setAssignedDeptRoleIds((prev) => {
       const next = new Set(prev);
@@ -315,31 +288,6 @@ export function UserEditDialog({
       }
       return next;
     });
-  };
-
-  // Cycle through: inherit (null) -> true -> false -> inherit
-  const getNextOverrideValue = (current: boolean | null): boolean | null => {
-    if (current === null) return true;
-    if (current === true) return false;
-    return null;
-  };
-
-  const getOverrideDisplay = (permission: string) => {
-    const value = overrides[permission];
-    const roleDefault = user?.permissions[permission] ?? false;
-
-    if (value === null || value === undefined) {
-      return (
-        <span className="text-gray-400">
-          Inherit ({roleDefault ? "Yes" : "No"})
-        </span>
-      );
-    }
-    return value ? (
-      <span className="text-green-400">Yes (Override)</span>
-    ) : (
-      <span className="text-red-400">No (Override)</span>
-    );
   };
 
   if (!user) return null;
@@ -454,28 +402,6 @@ export function UserEditDialog({
               )}
             </div>
           )}
-
-          {/* Permission Overrides */}
-          <div className="space-y-3">
-            <Label>Permission Overrides</Label>
-            <p className="text-sm text-gray-400">
-              Click to cycle: Inherit → Yes → No → Inherit
-            </p>
-            <div className="space-y-2">
-              {Object.entries(PERMISSION_LABELS).map(([key, label]) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between p-2 rounded bg-gray-800 cursor-pointer hover:bg-gray-750"
-                  onClick={() =>
-                    handleOverrideChange(key, getNextOverrideValue(overrides[key] ?? null))
-                  }
-                >
-                  <span className="text-sm">{label}</span>
-                  <span className="text-sm">{getOverrideDisplay(key)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
         <DialogFooter>
