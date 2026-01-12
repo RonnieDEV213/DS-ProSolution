@@ -1,8 +1,177 @@
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, field_validator
+
+
+# ============================================================
+# User Management Enums
+# ============================================================
+
+
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    VA = "va"
+    CLIENT = "client"
+
+
+class MembershipStatus(str, Enum):
+    PENDING = "pending"
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
+class Department(str, Enum):
+    ORDERING = "ordering"
+    LISTING = "listing"
+    CS = "cs"
+    RETURNS = "returns"
+    GENERAL = "general"
+
+
+# ============================================================
+# User Management Models
+# ============================================================
+
+
+class PermissionOverrides(BaseModel):
+    """Permission overrides for a user (nullable fields inherit from role)."""
+
+    can_view_bookkeeping: Optional[bool] = None
+    can_edit_bookkeeping: Optional[bool] = None
+    can_export_bookkeeping: Optional[bool] = None
+    can_manage_invites: Optional[bool] = None
+    can_manage_users: Optional[bool] = None
+    can_manage_account_assignments: Optional[bool] = None
+
+
+class UserMembershipUpdate(BaseModel):
+    """Request body for updating a user's membership."""
+
+    role: Optional[UserRole] = None
+    department: Optional[Department] = None
+    status: Optional[MembershipStatus] = None
+    overrides: Optional[PermissionOverrides] = None
+
+
+class MembershipResponse(BaseModel):
+    """Membership data in API responses."""
+
+    id: str
+    user_id: str
+    org_id: str
+    role: UserRole
+    department: Optional[Department] = None
+    status: MembershipStatus
+    last_seen_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ProfileResponse(BaseModel):
+    """Profile data in API responses."""
+
+    user_id: str
+    email: str
+    display_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class UserResponse(BaseModel):
+    """Combined user data for admin API responses."""
+
+    profile: ProfileResponse
+    membership: MembershipResponse
+    permissions: dict
+    overrides: Optional[PermissionOverrides] = None
+
+
+class UserListResponse(BaseModel):
+    """Paginated user list response."""
+
+    users: list[UserResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class BootstrapResponse(BaseModel):
+    """Response from bootstrap endpoint."""
+
+    profile: ProfileResponse
+    membership: MembershipResponse
+    is_new: bool = False
+
+
+# ============================================================
+# Organization Models
+# ============================================================
+
+
+class OrgResponse(BaseModel):
+    """Organization data in API responses."""
+
+    id: str
+    name: str
+    owner_user_id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class TransferOwnershipRequest(BaseModel):
+    """Request body for transferring organization ownership."""
+
+    new_owner_user_id: str
+    confirm: Literal["TRANSFER"]
+
+
+# ============================================================
+# Department Roles Models
+# ============================================================
+
+
+class DepartmentRoleCreate(BaseModel):
+    """Request body for creating a department role."""
+
+    name: str
+    permissions: list[str]  # permission keys
+
+
+class DepartmentRoleUpdate(BaseModel):
+    """Request body for updating a department role."""
+
+    name: Optional[str] = None
+    permissions: Optional[list[str]] = None
+    position: Optional[int] = None
+
+
+class DepartmentRoleResponse(BaseModel):
+    """Department role data in API responses."""
+
+    id: str
+    org_id: str
+    name: str
+    position: int
+    permissions: list[str]
+    created_at: Optional[datetime] = None
+
+
+class DepartmentRoleListResponse(BaseModel):
+    """List of department roles response."""
+
+    roles: list[DepartmentRoleResponse]
+
+
+class DepartmentRoleAssignment(BaseModel):
+    """Request body for assigning a department role to a membership."""
+
+    role_id: str
+
+
+# ============================================================
+# Bookkeeping Models
+# ============================================================
 
 
 class BookkeepingStatus(str, Enum):
