@@ -21,8 +21,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 // All available permission keys for department roles
 const AVAILABLE_PERMISSIONS = [
   { key: "bookkeeping.read", label: "View Bookkeeping", group: "Bookkeeping" },
-  { key: "bookkeeping.write", label: "Edit Bookkeeping", group: "Bookkeeping" },
+  { key: "bookkeeping.write.basic_fields", label: "Edit Basic Fields", group: "Bookkeeping" },
+  { key: "bookkeeping.write.order_fields", label: "Edit Order Fields", group: "Bookkeeping" },
+  { key: "bookkeeping.write.service_fields", label: "Edit Service Fields", group: "Bookkeeping" },
   { key: "bookkeeping.export", label: "Export Bookkeeping", group: "Bookkeeping" },
+  { key: "bookkeeping.delete", label: "Delete Records", group: "Bookkeeping" },
   { key: "orders.read", label: "View Orders", group: "Orders" },
   { key: "orders.write", label: "Edit Orders", group: "Orders" },
   { key: "returns.read", label: "View Returns", group: "Returns" },

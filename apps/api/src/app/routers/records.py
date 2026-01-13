@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.auth import get_current_user
+from app.auth import get_current_user_with_membership, require_permission_key
 from app.database import get_supabase_for_user
 from app.models import (
     BookkeepingStatus,
@@ -15,15 +15,19 @@ from app.models import (
 
 router = APIRouter(prefix="/records", tags=["records"])
 
-# Fields that only Service VA/Admin can edit
-SERVICE_FIELDS = {"status", "return_label_cost_cents"}
+# =============================================================================
+# Field Groups for Permission Checks
+# These must match exactly what RecordUpdate allows (models.py)
+# =============================================================================
 
-# Fields that Order VA can edit (everything except service fields)
-ORDER_FIELDS = {
-    "ebay_order_id",
-    "sale_date",
+BASIC_FIELDS = {
     "item_name",
     "qty",
+    "sale_date",
+}
+
+ORDER_FIELDS = {
+    "ebay_order_id",
     "sale_price_cents",
     "ebay_fees_cents",
     "amazon_price_cents",
@@ -32,36 +36,17 @@ ORDER_FIELDS = {
     "amazon_order_id",
 }
 
+SERVICE_FIELDS = {
+    "status",
+    "return_label_cost_cents",
+}
 
-async def get_user_role_info(user_id: str, supabase) -> dict:
-    """Get user's role and department from memberships table."""
-    try:
-        result = (
-            supabase.table("memberships")
-            .select("role, department")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        if result.data:
-            membership = result.data[0]
-            role = membership.get("role")
-            department = membership.get("department")
-            return {
-                "is_admin": role == "admin",
-                "is_order_dept": department == "ordering",
-                "is_service_dept": department in ("returns", "cs"),
-                "department": department,
-                "role": role,
-            }
-    except Exception:
-        pass
-    return {
-        "is_admin": False,
-        "is_order_dept": False,
-        "is_service_dept": False,
-        "department": None,
-        "role": None,
-    }
+# Union of all mutable fields - anything outside this is rejected with 400
+ALL_MUTABLE_FIELDS = BASIC_FIELDS | ORDER_FIELDS | SERVICE_FIELDS
+
+# Fields allowed in RecordCreate (excluding account_id and order_remark which are handled separately)
+# Note: status is allowed in create; return_label_cost_cents is NOT in RecordCreate
+CREATE_ALLOWED_FIELDS = BASIC_FIELDS | ORDER_FIELDS | {"status"}
 
 
 async def fetch_remarks_for_records(
@@ -112,9 +97,9 @@ async def get_records(
     date_from: Optional[date] = Query(None, description="Filter from date"),
     date_to: Optional[date] = Query(None, description="Filter to date"),
     status: Optional[BookkeepingStatus] = Query(None, description="Filter by status"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_permission_key("bookkeeping.read")),
 ):
-    """Get bookkeeping records for an account with optional filters (filtered by RLS)."""
+    """Get bookkeeping records (requires bookkeeping.read)."""
     try:
         supabase = get_supabase_for_user(user["token"])
         query = supabase.table("bookkeeping_records").select("*").eq(
@@ -153,14 +138,68 @@ async def get_records(
 
 
 @router.post("", response_model=RecordResponse, status_code=201)
-async def create_record(record: RecordCreate, user: dict = Depends(get_current_user)):
-    """Create a new bookkeeping record (must have write access via RLS)."""
+async def create_record(
+    record: RecordCreate,
+    user: dict = Depends(get_current_user_with_membership),
+):
+    """Create a new bookkeeping record (requires field-level permissions)."""
     try:
         supabase = get_supabase_for_user(user["token"])
 
         # Extract order_remark before inserting record
         order_remark_content = record.order_remark
         record_data = record.model_dump(mode="json", exclude={"order_remark"})
+
+        # Determine which fields are being set (non-None values, excluding account_id)
+        provided_fields = {
+            k for k, v in record_data.items() if v is not None and k != "account_id"
+        }
+
+        # 1. Reject unknown/forbidden fields (400)
+        unknown_fields = provided_fields - CREATE_ALLOWED_FIELDS
+        if unknown_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown or forbidden fields: {', '.join(sorted(unknown_fields))}",
+            )
+
+        # 2. Check field-level permissions (admin bypass)
+        is_admin = user["membership"]["role"] == "admin"
+        if not is_admin:
+            permission_keys = set(user.get("permission_keys", []))
+
+            # Check field-level permissions for each group
+            if provided_fields & BASIC_FIELDS:
+                if "bookkeeping.write.basic_fields" not in permission_keys:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Permission denied: cannot set basic fields (item_name, qty, sale_date)",
+                    )
+
+            if provided_fields & ORDER_FIELDS:
+                if "bookkeeping.write.order_fields" not in permission_keys:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Permission denied: cannot set order fields (ebay_*, amazon_*, sale_price)",
+                    )
+
+            if provided_fields & SERVICE_FIELDS:
+                if "bookkeeping.write.service_fields" not in permission_keys:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Permission denied: cannot set service fields (status)",
+                    )
+
+            # Must have at least one write permission to create
+            has_any_write = (
+                "bookkeeping.write.basic_fields" in permission_keys
+                or "bookkeeping.write.order_fields" in permission_keys
+                or "bookkeeping.write.service_fields" in permission_keys
+            )
+            if not has_any_write:
+                raise HTTPException(
+                    status_code=403, detail="Permission denied: no write permissions"
+                )
 
         # Insert record
         response = supabase.table("bookkeeping_records").insert(record_data).execute()
@@ -207,14 +246,13 @@ async def create_record(record: RecordCreate, user: dict = Depends(get_current_u
 
 @router.patch("/{record_id}", response_model=RecordResponse)
 async def update_record(
-    record_id: str, record: RecordUpdate, user: dict = Depends(get_current_user)
+    record_id: str,
+    record: RecordUpdate,
+    user: dict = Depends(get_current_user_with_membership),
 ):
-    """Update a bookkeeping record with role-based field restrictions."""
+    """Update a bookkeeping record with strict field-level permissions."""
     try:
         supabase = get_supabase_for_user(user["token"])
-
-        # Get user's role info for field restriction
-        role_info = await get_user_role_info(user["user_id"], supabase)
 
         # Only include explicitly provided fields (exclude_unset=True)
         update_data = record.model_dump(mode="json", exclude_unset=True)
@@ -244,33 +282,41 @@ async def update_record(
                 service_remark=service_remarks.get(record_id),
             )
 
-        # Enforce role-based field restrictions (unless admin)
-        if not role_info["is_admin"]:
-            requested_fields = set(update_data.keys())
+        requested_fields = set(update_data.keys())
 
-            if role_info["is_order_dept"]:
-                # Order VA can only edit order fields
-                forbidden = requested_fields & SERVICE_FIELDS
-                if forbidden:
+        # 1. Reject unknown/forbidden fields (400)
+        unknown_fields = requested_fields - ALL_MUTABLE_FIELDS
+        if unknown_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown or forbidden fields: {', '.join(sorted(unknown_fields))}",
+            )
+
+        # 2. Check field-level permissions (admin bypass)
+        is_admin = user["membership"]["role"] == "admin"
+        if not is_admin:
+            permission_keys = set(user.get("permission_keys", []))
+
+            # Check each field group
+            if requested_fields & BASIC_FIELDS:
+                if "bookkeeping.write.basic_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
-                        detail=f"Order department cannot edit: {', '.join(forbidden)}",
+                        detail="Permission denied: cannot edit basic fields (item_name, qty, sale_date)",
                     )
-            elif role_info["is_service_dept"]:
-                # Service VA can only edit service fields
-                forbidden = requested_fields - SERVICE_FIELDS
-                if forbidden:
+
+            if requested_fields & ORDER_FIELDS:
+                if "bookkeeping.write.order_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
-                        detail=f"Service department can only edit status and return_label_cost",
+                        detail="Permission denied: cannot edit order fields (ebay_*, amazon_*, sale_price)",
                     )
-            else:
-                # Other departments (general, listing) - no edit access to restricted fields
-                forbidden = requested_fields & SERVICE_FIELDS
-                if forbidden:
+
+            if requested_fields & SERVICE_FIELDS:
+                if "bookkeeping.write.service_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
-                        detail=f"Cannot edit: {', '.join(forbidden)}",
+                        detail="Permission denied: cannot edit service fields (status, return_label_cost)",
                     )
 
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -307,8 +353,11 @@ async def update_record(
 
 
 @router.delete("/{record_id}", status_code=204)
-async def delete_record(record_id: str, user: dict = Depends(get_current_user)):
-    """Delete a bookkeeping record (admin-only via RLS)."""
+async def delete_record(
+    record_id: str,
+    user: dict = Depends(require_permission_key("bookkeeping.delete")),
+):
+    """Delete a bookkeeping record (requires bookkeeping.delete permission)."""
     try:
         supabase = get_supabase_for_user(user["token"])
         response = (
@@ -334,9 +383,10 @@ async def delete_record(record_id: str, user: dict = Depends(get_current_user)):
 
 @router.get("/{record_id}/order-remark")
 async def get_order_remark(
-    record_id: str, user: dict = Depends(get_current_user)
+    record_id: str,
+    user: dict = Depends(require_permission_key("bookkeeping.read")),
 ) -> dict:
-    """Get order remark for a record (RLS enforces department access)."""
+    """Get order remark for a record (requires bookkeeping.read)."""
     try:
         supabase = get_supabase_for_user(user["token"])
         result = (
@@ -357,9 +407,11 @@ async def get_order_remark(
 
 @router.patch("/{record_id}/order-remark")
 async def update_order_remark(
-    record_id: str, body: RemarkUpdate, user: dict = Depends(get_current_user)
+    record_id: str,
+    body: RemarkUpdate,
+    user: dict = Depends(require_permission_key("bookkeeping.write.order_fields")),
 ) -> dict:
-    """Update order remark for a record (RLS enforces department access)."""
+    """Update order remark for a record (requires bookkeeping.write.order_fields)."""
     try:
         supabase = get_supabase_for_user(user["token"])
 
@@ -387,9 +439,10 @@ async def update_order_remark(
 
 @router.get("/{record_id}/service-remark")
 async def get_service_remark(
-    record_id: str, user: dict = Depends(get_current_user)
+    record_id: str,
+    user: dict = Depends(require_permission_key("bookkeeping.read")),
 ) -> dict:
-    """Get service remark for a record (RLS enforces department access)."""
+    """Get service remark for a record (requires bookkeeping.read)."""
     try:
         supabase = get_supabase_for_user(user["token"])
         result = (
@@ -409,9 +462,11 @@ async def get_service_remark(
 
 @router.patch("/{record_id}/service-remark")
 async def update_service_remark(
-    record_id: str, body: RemarkUpdate, user: dict = Depends(get_current_user)
+    record_id: str,
+    body: RemarkUpdate,
+    user: dict = Depends(require_permission_key("bookkeeping.write.service_fields")),
 ) -> dict:
-    """Update service remark for a record (RLS enforces department access)."""
+    """Update service remark for a record (requires bookkeeping.write.service_fields)."""
     try:
         supabase = get_supabase_for_user(user["token"])
 

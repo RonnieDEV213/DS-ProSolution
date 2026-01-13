@@ -20,8 +20,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 // Permission labels for display
 const PERMISSION_LABELS: Record<string, string> = {
   "bookkeeping.read": "View Bookkeeping",
-  "bookkeeping.write": "Edit Bookkeeping",
+  "bookkeeping.write.basic_fields": "Edit Basic Fields",
+  "bookkeeping.write.order_fields": "Edit Order Fields",
+  "bookkeeping.write.service_fields": "Edit Service Fields",
   "bookkeeping.export": "Export Bookkeeping",
+  "bookkeeping.delete": "Delete Records",
   "orders.read": "View Orders",
   "orders.write": "Edit Orders",
   "returns.read": "View Returns",

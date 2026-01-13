@@ -7,9 +7,15 @@ Will be used by future orders/returns endpoints.
 
 # All valid permission keys for department roles
 DEPT_ROLE_PERMISSION_KEYS = {
+    # Bookkeeping - page access
     "bookkeeping.read",
-    "bookkeeping.write",
     "bookkeeping.export",
+    "bookkeeping.delete",
+    # Bookkeeping - field-level write access
+    "bookkeeping.write.basic_fields",
+    "bookkeeping.write.order_fields",
+    "bookkeeping.write.service_fields",
+    # Future (placeholders)
     "orders.read",
     "orders.write",
     "returns.read",
@@ -25,7 +31,6 @@ FORBIDDEN_DEPT_ROLE_PERMISSIONS = {"payouts.read", "profit.read"}
 LEGACY_TO_NEW_KEY = {
     # Bookkeeping
     "can_view_bookkeeping": "bookkeeping.read",
-    "can_edit_bookkeeping": "bookkeeping.write",
     "can_export_bookkeeping": "bookkeeping.export",
     # Admin (NOT assignable via dept roles - admins get these by role)
     "can_manage_invites": "admin.invites",
@@ -36,8 +41,11 @@ LEGACY_TO_NEW_KEY = {
 # Human-readable labels for permission keys
 PERMISSION_LABELS = {
     "bookkeeping.read": "View Bookkeeping",
-    "bookkeeping.write": "Edit Bookkeeping",
     "bookkeeping.export": "Export Bookkeeping",
+    "bookkeeping.delete": "Delete Records",
+    "bookkeeping.write.basic_fields": "Edit Basic Fields",
+    "bookkeeping.write.order_fields": "Edit Order Fields",
+    "bookkeeping.write.service_fields": "Edit Service Fields",
     "orders.read": "View Orders",
     "orders.write": "Edit Orders",
     "returns.read": "View Returns",

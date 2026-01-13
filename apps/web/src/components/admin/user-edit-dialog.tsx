@@ -74,7 +74,6 @@ export function UserEditDialog({
 }: UserEditDialogProps) {
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState("");
-  const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
 
   // Department roles state
@@ -153,7 +152,6 @@ export function UserEditDialog({
   useEffect(() => {
     if (user) {
       setRole(user.membership.role);
-      setDepartment(user.membership.department || "none");
       setStatus(user.membership.status);
 
       // Fetch department roles if user is a VA
@@ -188,9 +186,6 @@ export function UserEditDialog({
 
       if (role !== user.membership.role) {
         updates.role = role;
-      }
-      if (department !== (user.membership.department || "none")) {
-        updates.department = department === "none" ? null : department;
       }
       if (status !== user.membership.status) {
         updates.status = status;
@@ -329,26 +324,6 @@ export function UserEditDialog({
               </SelectContent>
             </Select>
           </div>
-
-          {/* Department (only for VA) */}
-          {role === "va" && (
-            <div className="space-y-2">
-              <Label>Department</Label>
-              <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="ordering">Ordering</SelectItem>
-                  <SelectItem value="listing">Listing</SelectItem>
-                  <SelectItem value="cs">Customer Service</SelectItem>
-                  <SelectItem value="returns">Returns</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           {/* Status */}
           <div className="space-y-2">

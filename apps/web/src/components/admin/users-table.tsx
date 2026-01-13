@@ -281,7 +281,6 @@ export function UsersTable({
               <TableHead className="text-gray-400">Name</TableHead>
               <TableHead className="text-gray-400">Email</TableHead>
               <TableHead className="text-gray-400">Role</TableHead>
-              <TableHead className="text-gray-400">Department</TableHead>
               <TableHead className="text-gray-400">Status</TableHead>
               <TableHead className="text-gray-400">Last Seen</TableHead>
               <TableHead className="text-gray-400 text-right">Actions</TableHead>
@@ -290,13 +289,13 @@ export function UsersTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                   No users found
                 </TableCell>
               </TableRow>
@@ -308,9 +307,6 @@ export function UsersTable({
                   </TableCell>
                   <TableCell className="text-gray-300">{user.profile.email}</TableCell>
                   <TableCell>{getRoleBadge(user)}</TableCell>
-                  <TableCell className="text-gray-300 capitalize">
-                    {user.membership.department || "-"}
-                  </TableCell>
                   <TableCell>{getStatusBadge(user.membership.status)}</TableCell>
                   <TableCell className="text-gray-400">
                     {formatDate(user.membership.last_seen_at)}
