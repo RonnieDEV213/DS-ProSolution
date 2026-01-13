@@ -20,16 +20,18 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 
 // All available permission keys for department roles
 const AVAILABLE_PERMISSIONS = [
-  { key: "bookkeeping.read", label: "View Bookkeeping", group: "Bookkeeping" },
-  { key: "bookkeeping.write.basic_fields", label: "Edit Basic Fields", group: "Bookkeeping" },
-  { key: "bookkeeping.write.order_fields", label: "Edit Order Fields", group: "Bookkeeping" },
-  { key: "bookkeeping.write.service_fields", label: "Edit Service Fields", group: "Bookkeeping" },
-  { key: "bookkeeping.export", label: "Export Bookkeeping", group: "Bookkeeping" },
-  { key: "bookkeeping.delete", label: "Delete Records", group: "Bookkeeping" },
-  { key: "orders.read", label: "View Orders", group: "Orders" },
-  { key: "orders.write", label: "Edit Orders", group: "Orders" },
-  { key: "returns.read", label: "View Returns", group: "Returns" },
-  { key: "returns.write", label: "Edit Returns", group: "Returns" },
+  // Ordering Permissions
+  { key: "order_tracking.read", label: "View Order Tracking", group: "Ordering Permissions" },
+  { key: "order_tracking.write.basic_fields", label: "Edit Basic Fields", group: "Ordering Permissions" },
+  { key: "order_tracking.write.order_fields", label: "Edit Order Fields", group: "Ordering Permissions" },
+  { key: "order_tracking.read.order_remark", label: "View Order Remarks", group: "Ordering Permissions" },
+  { key: "order_tracking.write.order_remark", label: "Edit Order Remarks", group: "Ordering Permissions" },
+  { key: "order_tracking.export", label: "Export Order Tracking", group: "Ordering Permissions" },
+  { key: "order_tracking.delete", label: "Delete Records", group: "Ordering Permissions" },
+  // Customer Service Permissions
+  { key: "order_tracking.write.service_fields", label: "Edit Service Fields", group: "Customer Service Permissions" },
+  { key: "order_tracking.read.service_remark", label: "View Service Remarks", group: "Customer Service Permissions" },
+  { key: "order_tracking.write.service_remark", label: "Edit Service Remarks", group: "Customer Service Permissions" },
 ];
 
 // Group permissions by category
@@ -184,7 +186,7 @@ export function DepartmentRoleDialog({
               id="role-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Bookkeeping VA"
+              placeholder="e.g., Order Tracking VA"
               className="bg-gray-800 border-gray-700"
             />
           </div>

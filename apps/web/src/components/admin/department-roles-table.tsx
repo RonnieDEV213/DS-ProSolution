@@ -19,16 +19,16 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 
 // Permission labels for display
 const PERMISSION_LABELS: Record<string, string> = {
-  "bookkeeping.read": "View Bookkeeping",
-  "bookkeeping.write.basic_fields": "Edit Basic Fields",
-  "bookkeeping.write.order_fields": "Edit Order Fields",
-  "bookkeeping.write.service_fields": "Edit Service Fields",
-  "bookkeeping.export": "Export Bookkeeping",
-  "bookkeeping.delete": "Delete Records",
-  "orders.read": "View Orders",
-  "orders.write": "Edit Orders",
-  "returns.read": "View Returns",
-  "returns.write": "Edit Returns",
+  "order_tracking.read": "View Order Tracking",
+  "order_tracking.write.basic_fields": "Edit Basic Fields",
+  "order_tracking.write.order_fields": "Edit Order Fields",
+  "order_tracking.write.service_fields": "Edit Service Fields",
+  "order_tracking.read.order_remark": "View Order Remarks",
+  "order_tracking.write.order_remark": "Edit Order Remarks",
+  "order_tracking.read.service_remark": "View Service Remarks",
+  "order_tracking.write.service_remark": "Edit Service Remarks",
+  "order_tracking.export": "Export Order Tracking",
+  "order_tracking.delete": "Delete Records",
 };
 
 interface DepartmentRole {

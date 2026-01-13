@@ -10,7 +10,7 @@ const navItems = [
   { href: "/admin/users", label: "Users", icon: "users-group" },
   { href: "/admin/department-roles", label: "Department Roles", icon: "shield" },
   { href: "/admin/invites", label: "Invites", icon: "users" },
-  { href: "/admin/bookkeeping", label: "Bookkeeping", icon: "book" },
+  { href: "/admin/order-tracking", label: "Order Tracking", icon: "book" },
 ];
 
 export function AdminSidebar() {

@@ -12,7 +12,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
 from app.database import get_supabase
-from app.permissions import LEGACY_TO_NEW_KEY
+from app.permissions import (
+    IMPLIED_PERMISSIONS,
+    LEGACY_TO_NEW_KEY,
+    PERMISSION_KEY_ALIASES,
+)
 
 # auto_error=False so we can return 401 (not 403) on missing header
 security = HTTPBearer(auto_error=False)
@@ -98,19 +102,51 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
 
 
+def _expand_permission_keys(raw_keys: set[str]) -> set[str]:
+    """
+    Expand permission keys with aliases and implied permissions.
+
+    1. Apply aliases: bookkeeping.* -> order_tracking.* (backward compat)
+    2. Apply implied permissions: order_tracking.read -> order_tracking.read.*_remark
+
+    This ensures existing roles with old keys continue to work,
+    and roles with broad permissions get granular access.
+    """
+    expanded = set()
+
+    for key in raw_keys:
+        # 1. Apply alias (bookkeeping.X -> order_tracking.X)
+        canonical_key = PERMISSION_KEY_ALIASES.get(key, key)
+        expanded.add(canonical_key)
+
+        # Also keep original key for exact match (if someone checks bookkeeping.read)
+        expanded.add(key)
+
+        # 2. Apply implied permissions for the canonical key
+        implied = IMPLIED_PERMISSIONS.get(canonical_key, set())
+        expanded.update(implied)
+
+    return expanded
+
+
 def _get_dept_role_permissions(supabase, membership_id: str) -> set[str]:
     """
     Fetch all permission keys from assigned department roles.
 
     NOTE: Only called for VAs. Returns set for internal use;
     converted to sorted list before returning to API consumers.
+
+    Applies:
+    - Alias mapping (bookkeeping.* -> order_tracking.*)
+    - Implied permissions (order_tracking.read -> order_tracking.read.*_remark)
     """
     result = supabase.rpc(
         "get_membership_permission_keys",
         {"p_membership_id": membership_id}
     ).execute()
 
-    return set(row["permission_key"] for row in (result.data or []))
+    raw_keys = set(row["permission_key"] for row in (result.data or []))
+    return _expand_permission_keys(raw_keys)
 
 
 def _merge_permissions(
@@ -122,7 +158,7 @@ def _merge_permissions(
 
     Priority: dept_role > role_default
 
-    NOTE: dept_role_keys only affects bookkeeping permissions.
+    NOTE: dept_role_keys only affects order tracking permissions.
     """
     result = {}
     dept_role_keys = dept_role_keys or set()
@@ -267,12 +303,12 @@ def require_permission_key(permission_key: str):
 
     Check order:
     1. Admin bypass (always allow)
-    2. Dept role permission_keys
+    2. Dept role permission_keys (includes aliases and implied permissions)
 
     Usage:
-        @router.get("/bookkeeping")
-        async def view_bookkeeping(
-            user = Depends(require_permission_key("bookkeeping.read"))
+        @router.get("/records")
+        async def view_records(
+            user = Depends(require_permission_key("order_tracking.read"))
         ):
             ...
     """

@@ -97,9 +97,9 @@ async def get_records(
     date_from: Optional[date] = Query(None, description="Filter from date"),
     date_to: Optional[date] = Query(None, description="Filter to date"),
     status: Optional[BookkeepingStatus] = Query(None, description="Filter by status"),
-    user: dict = Depends(require_permission_key("bookkeeping.read")),
+    user: dict = Depends(require_permission_key("order_tracking.read")),
 ):
-    """Get bookkeeping records (requires bookkeeping.read)."""
+    """Get order tracking records (requires order_tracking.read)."""
     try:
         supabase = get_supabase_for_user(user["token"])
         query = supabase.table("bookkeeping_records").select("*").eq(
@@ -142,7 +142,7 @@ async def create_record(
     record: RecordCreate,
     user: dict = Depends(get_current_user_with_membership),
 ):
-    """Create a new bookkeeping record (requires field-level permissions)."""
+    """Create a new order tracking record (requires field-level permissions)."""
     try:
         supabase = get_supabase_for_user(user["token"])
 
@@ -170,21 +170,21 @@ async def create_record(
 
             # Check field-level permissions for each group
             if provided_fields & BASIC_FIELDS:
-                if "bookkeeping.write.basic_fields" not in permission_keys:
+                if "order_tracking.write.basic_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
                         detail="Permission denied: cannot set basic fields (item_name, qty, sale_date)",
                     )
 
             if provided_fields & ORDER_FIELDS:
-                if "bookkeeping.write.order_fields" not in permission_keys:
+                if "order_tracking.write.order_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
                         detail="Permission denied: cannot set order fields (ebay_*, amazon_*, sale_price)",
                     )
 
             if provided_fields & SERVICE_FIELDS:
-                if "bookkeeping.write.service_fields" not in permission_keys:
+                if "order_tracking.write.service_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
                         detail="Permission denied: cannot set service fields (status)",
@@ -192,9 +192,9 @@ async def create_record(
 
             # Must have at least one write permission to create
             has_any_write = (
-                "bookkeeping.write.basic_fields" in permission_keys
-                or "bookkeeping.write.order_fields" in permission_keys
-                or "bookkeeping.write.service_fields" in permission_keys
+                "order_tracking.write.basic_fields" in permission_keys
+                or "order_tracking.write.order_fields" in permission_keys
+                or "order_tracking.write.service_fields" in permission_keys
             )
             if not has_any_write:
                 raise HTTPException(
@@ -250,7 +250,7 @@ async def update_record(
     record: RecordUpdate,
     user: dict = Depends(get_current_user_with_membership),
 ):
-    """Update a bookkeeping record with strict field-level permissions."""
+    """Update an order tracking record with strict field-level permissions."""
     try:
         supabase = get_supabase_for_user(user["token"])
 
@@ -299,21 +299,21 @@ async def update_record(
 
             # Check each field group
             if requested_fields & BASIC_FIELDS:
-                if "bookkeeping.write.basic_fields" not in permission_keys:
+                if "order_tracking.write.basic_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
                         detail="Permission denied: cannot edit basic fields (item_name, qty, sale_date)",
                     )
 
             if requested_fields & ORDER_FIELDS:
-                if "bookkeeping.write.order_fields" not in permission_keys:
+                if "order_tracking.write.order_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
                         detail="Permission denied: cannot edit order fields (ebay_*, amazon_*, sale_price)",
                     )
 
             if requested_fields & SERVICE_FIELDS:
-                if "bookkeeping.write.service_fields" not in permission_keys:
+                if "order_tracking.write.service_fields" not in permission_keys:
                     raise HTTPException(
                         status_code=403,
                         detail="Permission denied: cannot edit service fields (status, return_label_cost)",
@@ -355,9 +355,9 @@ async def update_record(
 @router.delete("/{record_id}", status_code=204)
 async def delete_record(
     record_id: str,
-    user: dict = Depends(require_permission_key("bookkeeping.delete")),
+    user: dict = Depends(require_permission_key("order_tracking.delete")),
 ):
-    """Delete a bookkeeping record (requires bookkeeping.delete permission)."""
+    """Delete an order tracking record (requires order_tracking.delete permission)."""
     try:
         supabase = get_supabase_for_user(user["token"])
         response = (
@@ -384,9 +384,9 @@ async def delete_record(
 @router.get("/{record_id}/order-remark")
 async def get_order_remark(
     record_id: str,
-    user: dict = Depends(require_permission_key("bookkeeping.read")),
+    user: dict = Depends(require_permission_key("order_tracking.read.order_remark")),
 ) -> dict:
-    """Get order remark for a record (requires bookkeeping.read)."""
+    """Get order remark for a record (requires order_tracking.read.order_remark)."""
     try:
         supabase = get_supabase_for_user(user["token"])
         result = (
@@ -409,9 +409,9 @@ async def get_order_remark(
 async def update_order_remark(
     record_id: str,
     body: RemarkUpdate,
-    user: dict = Depends(require_permission_key("bookkeeping.write.order_fields")),
+    user: dict = Depends(require_permission_key("order_tracking.write.order_remark")),
 ) -> dict:
-    """Update order remark for a record (requires bookkeeping.write.order_fields)."""
+    """Update order remark for a record (requires order_tracking.write.order_remark)."""
     try:
         supabase = get_supabase_for_user(user["token"])
 
@@ -440,9 +440,9 @@ async def update_order_remark(
 @router.get("/{record_id}/service-remark")
 async def get_service_remark(
     record_id: str,
-    user: dict = Depends(require_permission_key("bookkeeping.read")),
+    user: dict = Depends(require_permission_key("order_tracking.read.service_remark")),
 ) -> dict:
-    """Get service remark for a record (requires bookkeeping.read)."""
+    """Get service remark for a record (requires order_tracking.read.service_remark)."""
     try:
         supabase = get_supabase_for_user(user["token"])
         result = (
@@ -464,9 +464,9 @@ async def get_service_remark(
 async def update_service_remark(
     record_id: str,
     body: RemarkUpdate,
-    user: dict = Depends(require_permission_key("bookkeeping.write.service_fields")),
+    user: dict = Depends(require_permission_key("order_tracking.write.service_remark")),
 ) -> dict:
-    """Update service remark for a record (requires bookkeeping.write.service_fields)."""
+    """Update service remark for a record (requires order_tracking.write.service_remark)."""
     try:
         supabase = get_supabase_for_user(user["token"])
 

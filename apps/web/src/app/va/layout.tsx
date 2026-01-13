@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/va", label: "Dashboard", icon: "home" },
-  { href: "/va/bookkeeping", label: "Bookkeeping", icon: "book" },
+  { href: "/va/order-tracking", label: "Order Tracking", icon: "book" },
 ];
 
 export default function VALayout({ children }: { children: React.ReactNode }) {
