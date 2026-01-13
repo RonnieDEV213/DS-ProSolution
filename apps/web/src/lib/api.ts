@@ -224,19 +224,17 @@ export function parseDollars(value: string): number | null {
 
 export interface UserRole {
   isAdmin: boolean;
-  isOrderDept: boolean;
-  isServiceDept: boolean;
-  canAccessOrderRemark: boolean;
-  canAccessServiceRemark: boolean;
-  department: string | null;
+  isPending: boolean;
+  isActive: boolean;
+  isSuspended: boolean;
+  needsAccessProfile: boolean;
 }
 
 export function exportToCSV(
   records: BookkeepingRecord[],
-  accountCode: string,
-  userRole?: UserRole
+  accountCode: string
 ): void {
-  // Build headers based on role
+  // All columns - remarks are server-filtered based on permissions
   const headers = [
     "Sale Date",
     "eBay Order ID",
@@ -251,45 +249,33 @@ export function exportToCSV(
     "COGS Total",
     "Return Label Cost",
     "Status",
+    "Order Remark",
+    "Service Remark",
+    "Profit",
+    "Amazon Order ID",
+    "Account ID",
   ];
 
-  // Add remark columns based on access
-  const includeOrderRemark = !userRole || userRole.canAccessOrderRemark;
-  const includeServiceRemark = !userRole || userRole.canAccessServiceRemark;
-
-  if (includeOrderRemark) headers.push("Order Remark");
-  if (includeServiceRemark) headers.push("Service Remark");
-
-  headers.push("Profit", "Amazon Order ID", "Account ID");
-
-  const rows = records.map((r) => {
-    const row = [
-      r.sale_date,
-      r.ebay_order_id,
-      r.item_name,
-      r.qty.toString(),
-      formatCents(r.sale_price_cents),
-      formatCents(r.ebay_fees_cents),
-      formatCents(r.earnings_net_cents),
-      formatCents(r.amazon_price_cents),
-      formatCents(r.amazon_tax_cents),
-      formatCents(r.amazon_shipping_cents),
-      formatCents(r.cogs_total_cents),
-      formatCents(r.return_label_cost_cents),
-      STATUS_LABELS[r.status] || r.status,
-    ];
-
-    if (includeOrderRemark) row.push(r.order_remark || "");
-    if (includeServiceRemark) row.push(r.service_remark || "");
-
-    row.push(
-      formatCents(r.profit_cents),
-      r.amazon_order_id || "",
-      r.account_id
-    );
-
-    return row;
-  });
+  const rows = records.map((r) => [
+    r.sale_date,
+    r.ebay_order_id,
+    r.item_name,
+    r.qty.toString(),
+    formatCents(r.sale_price_cents),
+    formatCents(r.ebay_fees_cents),
+    formatCents(r.earnings_net_cents),
+    formatCents(r.amazon_price_cents),
+    formatCents(r.amazon_tax_cents),
+    formatCents(r.amazon_shipping_cents),
+    formatCents(r.cogs_total_cents),
+    formatCents(r.return_label_cost_cents),
+    STATUS_LABELS[r.status] || r.status,
+    r.order_remark || "",
+    r.service_remark || "",
+    formatCents(r.profit_cents),
+    r.amazon_order_id || "",
+    r.account_id,
+  ]);
 
   const csvContent = [
     headers.join(","),

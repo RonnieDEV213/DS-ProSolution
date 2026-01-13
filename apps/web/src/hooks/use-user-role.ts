@@ -5,17 +5,16 @@ import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/api";
 
 /**
- * Hook to get the current user's role and department information.
- * Uses cached membership data from Supabase.
+ * Hook to get the current user's role and status information.
+ * Returns status flags for route guarding and admin detection.
  */
 export function useUserRole(): UserRole & { loading: boolean } {
   const [role, setRole] = useState<UserRole>({
     isAdmin: false,
-    isOrderDept: false,
-    isServiceDept: false,
-    canAccessOrderRemark: false,
-    canAccessServiceRemark: false,
-    department: null,
+    isPending: false,
+    isActive: false,
+    isSuspended: false,
+    needsAccessProfile: false,
   });
   const [loading, setLoading] = useState(true);
 
@@ -34,27 +33,37 @@ export function useUserRole(): UserRole & { loading: boolean } {
           return;
         }
 
-        // Fetch membership info
+        // Fetch membership with access profile count
         const { data: membership } = await supabase
           .from("memberships")
-          .select("role, department")
+          .select("id, role, status")
           .eq("user_id", user.id)
           .single();
 
         if (membership) {
           const isAdmin = membership.role === "admin";
-          const isOrderDept = membership.department === "ordering";
-          const isServiceDept =
-            membership.department === "returns" ||
-            membership.department === "cs";
+          const isVA = membership.role === "va";
+          const isPending = membership.status === "pending";
+          const isActive = membership.status === "active";
+          const isSuspended = membership.status === "suspended";
+
+          // For VAs, check if they have any access profiles assigned
+          let needsAccessProfile = false;
+          if (isVA && isActive) {
+            const { count } = await supabase
+              .from("membership_department_roles")
+              .select("*", { count: "exact", head: true })
+              .eq("membership_id", membership.id);
+
+            needsAccessProfile = (count ?? 0) === 0;
+          }
 
           setRole({
             isAdmin,
-            isOrderDept,
-            isServiceDept,
-            canAccessOrderRemark: isAdmin || isOrderDept,
-            canAccessServiceRemark: isAdmin || isServiceDept,
-            department: membership.department,
+            isPending,
+            isActive,
+            isSuspended,
+            needsAccessProfile,
           });
         }
       } catch (error) {

@@ -119,7 +119,7 @@ export function DepartmentRolesTable({
         throw new Error(error.detail || "Failed to delete role");
       }
 
-      toast.success("Department role deleted");
+      toast.success("Access profile deleted");
       onRoleUpdated();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete role");
@@ -156,9 +156,9 @@ export function DepartmentRolesTable({
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-white">Department Roles</h2>
+        <h2 className="text-lg font-semibold text-white">Access Profiles</h2>
         <Button onClick={() => setCreateDialogOpen(true)}>
-          Create Role
+          Create Profile
         </Button>
       </div>
 
@@ -183,7 +183,7 @@ export function DepartmentRolesTable({
             ) : roles.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-gray-500 py-8">
-                  No department roles found. Create one to get started.
+                  No access profiles found. Create one to get started.
                 </TableCell>
               </TableRow>
             ) : (

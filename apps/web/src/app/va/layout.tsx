@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/hooks/use-user-role";
+import { WaitingForAccess } from "@/components/va/waiting-for-access";
 
 const navItems = [
   { href: "/va", label: "Dashboard", icon: "home" },
@@ -13,12 +15,27 @@ const navItems = [
 export default function VALayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { isPending, needsAccessProfile, loading } = useUserRole();
 
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  // Show loading state while checking user role
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="text-gray-400">Loading...</div>
+      </div>
+    );
+  }
+
+  // Route guard: VAs need to be active with an access profile
+  if (isPending || needsAccessProfile) {
+    return <WaitingForAccess isPending={isPending} needsAccessProfile={needsAccessProfile} />;
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-950">

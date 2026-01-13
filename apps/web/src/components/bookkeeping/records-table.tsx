@@ -210,12 +210,7 @@ export function RecordsTable({
     recordId: string,
     newStatus: BookkeepingStatus
   ) => {
-    // Check if user can edit status
-    if (!userRole.isAdmin && !userRole.isServiceDept) {
-      toast.error("Only service department can change status");
-      return;
-    }
-
+    // Backend enforces permission via order_tracking.write.service_fields
     setPendingStatus({ id: recordId, status: newStatus });
     setSaving(true);
     setError(null);
@@ -259,32 +254,10 @@ export function RecordsTable({
     }
   };
 
-  const canEditField = (field: string): boolean => {
-    if (userRole.isAdmin) return true;
-
-    const serviceFields = ["status", "return_label_cost_cents", "service_remark"];
-    const orderFields = [
-      "ebay_order_id",
-      "sale_date",
-      "item_name",
-      "qty",
-      "sale_price_cents",
-      "ebay_fees_cents",
-      "amazon_price_cents",
-      "amazon_tax_cents",
-      "amazon_shipping_cents",
-      "amazon_order_id",
-      "order_remark",
-    ];
-
-    if (userRole.isServiceDept) {
-      return serviceFields.includes(field);
-    }
-    if (userRole.isOrderDept) {
-      return orderFields.includes(field);
-    }
-    // General/listing dept can edit order fields but not service fields
-    return orderFields.includes(field) && field !== "order_remark";
+  const canEditField = (_field: string): boolean => {
+    // Permission checks are enforced by the backend via permission_keys
+    // Admins can edit everything, VAs can attempt edits (backend will reject if not allowed)
+    return true;
   };
 
   const renderEditableCell = (
@@ -378,7 +351,7 @@ export function RecordsTable({
             const strikeAll = record.status === "RETURN_CLOSED";
             const strikeSalesFees = record.status === "REFUND_NO_RETURN";
             const displayProfit = strikeAll ? 0 : record.profit_cents;
-            const canEditStatus = userRole.isAdmin || userRole.isServiceDept;
+            const canEditStatus = true; // Backend enforces via permission_keys
 
             return (
               <Fragment key={record.id}>
@@ -527,7 +500,7 @@ export function RecordsTable({
                     )}
                   </TableCell>
 
-                  {/* Delete Button */}
+                  {/* Delete Button (admins only) */}
                   <TableCell>
                     {userRole.isAdmin && (
                       <Button
@@ -677,31 +650,27 @@ export function RecordsTable({
                               </div>
                             )}
 
-                            {/* Order Remark - only show if user has access */}
-                            {userRole.canAccessOrderRemark && (
-                              <div>
-                                <span className="text-gray-400 block mb-1">Order Remark:</span>
-                                {renderEditableCell(
-                                  record,
-                                  "order_remark",
-                                  record.order_remark || "(none)",
-                                  "text-gray-300 text-sm block"
-                                )}
-                              </div>
-                            )}
+                            {/* Order Remark - visibility controlled by backend permission_keys */}
+                            <div>
+                              <span className="text-gray-400 block mb-1">Order Remark:</span>
+                              {renderEditableCell(
+                                record,
+                                "order_remark",
+                                record.order_remark || "(none)",
+                                "text-gray-300 text-sm block"
+                              )}
+                            </div>
 
-                            {/* Service Remark - only show if user has access */}
-                            {userRole.canAccessServiceRemark && (
-                              <div>
-                                <span className="text-gray-400 block mb-1">Service Remark:</span>
-                                {renderEditableCell(
-                                  record,
-                                  "service_remark",
-                                  record.service_remark || "(none)",
-                                  "text-gray-300 text-sm block"
-                                )}
-                              </div>
-                            )}
+                            {/* Service Remark - visibility controlled by backend permission_keys */}
+                            <div>
+                              <span className="text-gray-400 block mb-1">Service Remark:</span>
+                              {renderEditableCell(
+                                record,
+                                "service_remark",
+                                record.service_remark || "(none)",
+                                "text-gray-300 text-sm block"
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

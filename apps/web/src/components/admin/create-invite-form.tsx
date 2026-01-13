@@ -13,11 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const ACCOUNT_TYPES = ["admin", "va", "client"] as const;
-const DEPARTMENTS = ["ordering", "listing", "cs", "returns", "general"] as const;
+const USER_TYPES = ["admin", "va", "client"] as const;
 
-type AccountType = (typeof ACCOUNT_TYPES)[number];
-type Department = (typeof DEPARTMENTS)[number];
+type UserType = (typeof USER_TYPES)[number];
 
 interface CreateInviteFormProps {
   onInviteCreated?: () => void;
@@ -25,8 +23,7 @@ interface CreateInviteFormProps {
 
 export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
   const [email, setEmail] = useState("");
-  const [accountType, setAccountType] = useState<AccountType>("client");
-  const [department, setDepartment] = useState<Department | "">("");
+  const [userType, setUserType] = useState<UserType>("client");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -39,19 +36,10 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
 
     const supabase = createClient();
 
-    const inviteData: {
-      email: string;
-      account_type: AccountType;
-      department?: Department;
-    } = {
+    const inviteData = {
       email: email.toLowerCase().trim(),
-      account_type: accountType,
+      account_type: userType,
     };
-
-    // Only include department for VA role
-    if (accountType === "va" && department) {
-      inviteData.department = department;
-    }
 
     const { error: insertError } = await supabase
       .from("invites")
@@ -66,8 +54,7 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
     } else {
       setSuccess(true);
       setEmail("");
-      setAccountType("client");
-      setDepartment("");
+      setUserType("client");
       onInviteCreated?.();
     }
 
@@ -93,8 +80,8 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
           <Label htmlFor="email" className="text-gray-300">
             Email
           </Label>
@@ -110,15 +97,12 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
         </div>
 
         <div>
-          <Label htmlFor="accountType" className="text-gray-300">
-            Role
+          <Label htmlFor="userType" className="text-gray-300">
+            User Type
           </Label>
           <Select
-            value={accountType}
-            onValueChange={(v) => {
-              setAccountType(v as AccountType);
-              if (v !== "va") setDepartment("");
-            }}
+            value={userType}
+            onValueChange={(v) => setUserType(v as UserType)}
           >
             <SelectTrigger className="mt-1">
               <SelectValue />
@@ -130,29 +114,6 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
             </SelectContent>
           </Select>
         </div>
-
-        {accountType === "va" && (
-          <div>
-            <Label htmlFor="department" className="text-gray-300">
-              Department
-            </Label>
-            <Select
-              value={department}
-              onValueChange={(v) => setDepartment(v as Department)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select department" />
-              </SelectTrigger>
-              <SelectContent>
-                {DEPARTMENTS.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept.charAt(0).toUpperCase() + dept.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
       </div>
 
       <Button type="submit" disabled={loading}>

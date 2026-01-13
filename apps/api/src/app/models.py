@@ -19,15 +19,7 @@ class UserRole(str, Enum):
 class MembershipStatus(str, Enum):
     PENDING = "pending"
     ACTIVE = "active"
-    DISABLED = "disabled"
-
-
-class Department(str, Enum):
-    ORDERING = "ordering"
-    LISTING = "listing"
-    CS = "cs"
-    RETURNS = "returns"
-    GENERAL = "general"
+    SUSPENDED = "suspended"
 
 
 # ============================================================
@@ -39,7 +31,6 @@ class UserMembershipUpdate(BaseModel):
     """Request body for updating a user's membership."""
 
     role: Optional[UserRole] = None
-    department: Optional[Department] = None
     status: Optional[MembershipStatus] = None
 
 
@@ -50,7 +41,6 @@ class MembershipResponse(BaseModel):
     user_id: str
     org_id: str
     role: UserRole
-    department: Optional[Department] = None
     status: MembershipStatus
     last_seen_at: Optional[datetime] = None
     created_at: Optional[datetime] = None

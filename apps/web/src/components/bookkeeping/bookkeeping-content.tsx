@@ -83,7 +83,7 @@ export function BookkeepingContent() {
   const handleExportCSV = () => {
     const account = accounts.find((a) => a.id === selectedAccountId);
     if (account && records.length > 0) {
-      exportToCSV(records, account.account_code, userRole);
+      exportToCSV(records, account.account_code);
       toast.success(`Exported ${records.length} records`);
     }
   };

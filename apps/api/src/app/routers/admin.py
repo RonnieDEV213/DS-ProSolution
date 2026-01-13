@@ -57,7 +57,6 @@ def _build_user_response(
             user_id=membership["user_id"],
             org_id=membership["org_id"],
             role=membership["role"],
-            department=membership.get("department"),
             status=membership["status"],
             last_seen_at=membership.get("last_seen_at"),
             created_at=membership.get("created_at"),
@@ -193,10 +192,13 @@ async def update_user(
     user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
-    Update a user's membership (role, department, status).
+    Update a user's membership (role, status).
 
     Requires can_manage_users permission.
     Writes to audit_logs with before/after state.
+
+    VA Activation Rule: VAs cannot be set to 'active' unless they have
+    at least one Access Profile assigned.
     """
     supabase = get_supabase()
     actor_user_id = user["user_id"]
@@ -283,12 +285,33 @@ async def update_user(
                     detail={"code": "ADMIN_ORPHAN", "message": "Cannot remove the last active admin"},
                 )
 
+    # ===== VA ACTIVATION RULE: Require Access Profile to activate VA =====
+    if (
+        "status" in provided_fields
+        and provided_fields["status"] == MembershipStatus.ACTIVE
+        and old_membership["role"] == "va"
+        and old_membership["status"] != "active"
+    ):
+        # Check if VA has at least one Access Profile assigned
+        access_profile_count = (
+            supabase.table("membership_department_roles")
+            .select("role_id", count="exact")
+            .eq("membership_id", old_membership["id"])
+            .execute()
+        )
+        if (access_profile_count.count or 0) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "VA_NO_ACCESS_PROFILE",
+                    "message": "Cannot activate VA without an Access Profile. Assign at least one Access Profile first.",
+                },
+            )
+
     # Build update data for membership (only include provided fields)
     membership_update = {}
     if body.role is not None:
         membership_update["role"] = body.role.value
-    if body.department is not None:
-        membership_update["department"] = body.department.value
     if body.status is not None:
         membership_update["status"] = body.status.value
 
@@ -340,12 +363,10 @@ async def update_user(
             resource_id=old_membership["id"],
             before={
                 "role": old_membership["role"],
-                "department": old_membership.get("department"),
                 "status": old_membership["status"],
             },
             after={
                 "role": new_membership["role"],
-                "department": new_membership.get("department"),
                 "status": new_membership["status"],
             },
             request=request,
@@ -911,15 +932,17 @@ async def assign_department_role(
     user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
-    Assign a department role to a VA membership.
+    Assign an Access Profile (department role) to a VA membership.
 
-    Only works for role='va' and status='active'.
+    Only works for role='va'. VAs can receive Access Profiles while pending
+    (required before they can be activated).
+
     Requires can_manage_users permission.
     """
     supabase = get_supabase()
     actor_user_id = user["user_id"]
 
-    # Verify membership exists, belongs to org, is VA, and is active
+    # Verify membership exists, belongs to org, and is VA
     membership_result = (
         supabase.table("memberships")
         .select("id, org_id, role, status, user_id")
@@ -938,16 +961,7 @@ async def assign_department_role(
             status_code=400,
             detail={
                 "code": "NOT_VA",
-                "message": "Department roles can only be assigned to VA memberships",
-            },
-        )
-
-    if membership["status"] != "active":
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "NOT_ACTIVE",
-                "message": "Department roles can only be assigned to active memberships",
+                "message": "Access Profiles can only be assigned to VA memberships",
             },
         )
 
@@ -988,15 +1002,7 @@ async def assign_department_role(
                 status_code=400,
                 detail={
                     "code": "NOT_VA",
-                    "message": "Department roles can only be assigned to VA memberships",
-                },
-            )
-        if "NOT_ACTIVE" in msg:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "code": "NOT_ACTIVE",
-                    "message": "Department roles can only be assigned to active memberships",
+                    "message": "Access Profiles can only be assigned to VA memberships",
                 },
             )
         if "ORG_MISMATCH" in msg:

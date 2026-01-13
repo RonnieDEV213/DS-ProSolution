@@ -186,7 +186,7 @@ async def get_current_user_with_membership(
     Returns:
         - user_id: UUID string
         - token: JWT token string
-        - membership: {id, role, department, status, last_seen_at, org_id}
+        - membership: {id, role, status, last_seen_at, org_id}
         - permissions: {merged role_permissions + dept_role_keys}
         - permission_keys: list of permission keys from department roles (VAs only)
 
@@ -240,7 +240,7 @@ async def get_current_user_with_membership(
 
     membership_result = (
         supabase.table("memberships")
-        .select("id, role, department, status, last_seen_at, org_id")
+        .select("id, role, status, last_seen_at, org_id")
         .eq("user_id", user_id)
         .eq("org_id", DEFAULT_ORG_ID)
         .execute()
@@ -260,10 +260,10 @@ async def get_current_user_with_membership(
             status_code=403,
             detail="Account pending approval. Please wait for an administrator.",
         )
-    if membership["status"] == "disabled":
+    if membership["status"] == "suspended":
         raise HTTPException(
             status_code=403,
-            detail="Account disabled. Please contact an administrator.",
+            detail="Account suspended. Please contact an administrator.",
         )
     if membership["status"] != "active":
         raise HTTPException(
@@ -284,6 +284,13 @@ async def get_current_user_with_membership(
     dept_role_keys: set[str] = set()
     if membership["role"] == "va":
         dept_role_keys = _get_dept_role_permissions(supabase, membership["id"])
+
+        # VA Access Profile gate: VAs must have at least one Access Profile
+        if len(dept_role_keys) == 0:
+            raise HTTPException(
+                status_code=403,
+                detail="No access profile assigned. Please wait for an administrator to assign you an Access Profile.",
+            )
 
     # Merge role defaults with department role permissions
     permissions = _merge_permissions(role_perms, dept_role_keys)

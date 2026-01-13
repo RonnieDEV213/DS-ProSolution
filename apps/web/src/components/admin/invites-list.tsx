@@ -17,7 +17,6 @@ interface Invite {
   id: string;
   email: string;
   account_type: string;
-  department: string | null;
   status: string;
   created_at: string;
   expires_at: string | null;
@@ -107,8 +106,7 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
         <TableHeader>
           <TableRow className="border-gray-800 hover:bg-gray-900">
             <TableHead className="text-gray-400">Email</TableHead>
-            <TableHead className="text-gray-400">Role</TableHead>
-            <TableHead className="text-gray-400">Department</TableHead>
+            <TableHead className="text-gray-400">User Type</TableHead>
             <TableHead className="text-gray-400">Status</TableHead>
             <TableHead className="text-gray-400">Created</TableHead>
             <TableHead className="text-gray-400">Used</TableHead>
@@ -125,13 +123,6 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
                 <Badge variant="outline" className="capitalize">
                   {invite.account_type}
                 </Badge>
-              </TableCell>
-              <TableCell className="text-gray-400">
-                {invite.department ? (
-                  <span className="capitalize">{invite.department}</span>
-                ) : (
-                  "-"
-                )}
               </TableCell>
               <TableCell>{getStatusBadge(invite)}</TableCell>
               <TableCell className="text-gray-400">

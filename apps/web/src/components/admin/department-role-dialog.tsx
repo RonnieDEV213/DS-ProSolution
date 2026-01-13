@@ -117,7 +117,7 @@ export function DepartmentRoleDialog({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast.error("Role name is required");
+      toast.error("Profile name is required");
       return;
     }
 
@@ -157,7 +157,7 @@ export function DepartmentRoleDialog({
         throw new Error(message);
       }
 
-      toast.success(isEditing ? "Role updated successfully" : "Role created successfully");
+      toast.success(isEditing ? "Access profile updated" : "Access profile created");
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save role");
@@ -170,23 +170,23 @@ export function DepartmentRoleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-800 text-white">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Department Role" : "Create Department Role"}</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Access Profile" : "Create Access Profile"}</DialogTitle>
           <DialogDescription className="text-gray-400">
             {isEditing
-              ? "Update the role name and permissions."
-              : "Create a new department role for VAs."}
+              ? "Update the profile name and permissions."
+              : "Create a new access profile for VAs."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Role Name */}
+          {/* Profile Name */}
           <div className="space-y-2">
-            <Label htmlFor="role-name">Role Name</Label>
+            <Label htmlFor="profile-name">Profile Name</Label>
             <Input
-              id="role-name"
+              id="profile-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Order Tracking VA"
+              placeholder="e.g., Order Tracking"
               className="bg-gray-800 border-gray-700"
             />
           </div>
@@ -195,7 +195,7 @@ export function DepartmentRoleDialog({
           <div className="space-y-4">
             <Label>Permissions</Label>
             <p className="text-sm text-gray-400">
-              Select the permissions this role should have.
+              Select the permissions this access profile should have.
             </p>
 
             {Object.entries(PERMISSION_GROUPS).map(([group, perms]) => {
@@ -244,7 +244,7 @@ export function DepartmentRoleDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Role"}
+            {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Profile"}
           </Button>
         </DialogFooter>
       </DialogContent>

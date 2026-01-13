@@ -121,16 +121,18 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
                 detail="No valid invite found. Please contact an administrator.",
             )
 
-        # Create membership with status='pending'
+        # Create membership - VAs start pending, others start active
+        account_type = valid_invite["account_type"]
+        initial_status = "pending" if account_type == "va" else "active"
+
         membership_insert = (
             supabase.table("memberships")
             .insert(
                 {
                     "user_id": user_id,
                     "org_id": valid_invite.get("org_id", DEFAULT_ORG_ID),
-                    "role": valid_invite["account_type"],
-                    "department": valid_invite.get("department"),
-                    "status": "pending",  # Requires admin activation
+                    "role": account_type,
+                    "status": initial_status,
                 }
             )
             .execute()
@@ -159,7 +161,6 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
             user_id=membership["user_id"],
             org_id=membership["org_id"],
             role=membership["role"],
-            department=membership.get("department"),
             status=membership["status"],
             last_seen_at=membership.get("last_seen_at"),
             created_at=membership.get("created_at"),

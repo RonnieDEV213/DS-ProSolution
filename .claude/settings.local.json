@@ -20,7 +20,9 @@
       "Bash(python:*)",
       "Bash(ruff check:*)",
       "Bash(.venv/Scripts/python.exe:*)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
