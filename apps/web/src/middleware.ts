@@ -80,10 +80,10 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  if (membership.status === "disabled") {
+  if (membership.status === "suspended") {
     return NextResponse.redirect(
       new URL(
-        "/login?error=" + encodeURIComponent("Account disabled. Please contact an administrator."),
+        "/login?error=" + encodeURIComponent("Account suspended. Please contact an administrator."),
         request.url
       )
     );

@@ -16,7 +16,7 @@ import {
 interface Invite {
   id: string;
   email: string;
-  account_type: string;
+  user_type: string;
   status: string;
   created_at: string;
   expires_at: string | null;
@@ -121,7 +121,7 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
               </TableCell>
               <TableCell>
                 <Badge variant="outline" className="capitalize">
-                  {invite.account_type}
+                  {invite.user_type}
                 </Badge>
               </TableCell>
               <TableCell>{getStatusBadge(invite)}</TableCell>

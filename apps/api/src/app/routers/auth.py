@@ -122,8 +122,8 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
             )
 
         # Create membership - VAs start pending, others start active
-        account_type = valid_invite["account_type"]
-        initial_status = "pending" if account_type == "va" else "active"
+        user_type = valid_invite["user_type"]
+        initial_status = "pending" if user_type == "va" else "active"
 
         membership_insert = (
             supabase.table("memberships")
@@ -131,7 +131,7 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
                 {
                     "user_id": user_id,
                     "org_id": valid_invite.get("org_id", DEFAULT_ORG_ID),
-                    "role": account_type,
+                    "role": user_type,
                     "status": initial_status,
                 }
             )

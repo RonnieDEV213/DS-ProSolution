@@ -75,9 +75,9 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/setup`);
       }
 
-      if (membership.status === "disabled") {
+      if (membership.status === "suspended") {
         return NextResponse.redirect(
-          `${origin}/login?error=${encodeURIComponent("Account disabled")}`
+          `${origin}/login?error=${encodeURIComponent("Account suspended")}`
         );
       }
 

@@ -36,7 +36,6 @@ interface User {
     user_id: string;
     org_id: string;
     role: string;
-    department: string | null;
     status: string;
     last_seen_at: string | null;
     created_at: string | null;
@@ -335,7 +334,7 @@ export function UserEditDialog({
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="disabled">Disabled</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
           </div>

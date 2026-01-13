@@ -30,7 +30,6 @@ interface User {
     user_id: string;
     org_id: string;
     role: string;
-    department: string | null;
     status: string;
     last_seen_at: string | null;
     created_at: string | null;
@@ -197,7 +196,7 @@ export function UsersTable({
         return;
       }
 
-      toast.success(`User ${newStatus === "active" ? "activated" : "disabled"}`);
+      toast.success(`User ${newStatus === "active" ? "activated" : "suspended"}`);
       onUserUpdated();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update user");
@@ -231,8 +230,8 @@ export function UsersTable({
         return <Badge className="bg-green-600 hover:bg-green-600">Active</Badge>;
       case "pending":
         return <Badge className="bg-amber-600 hover:bg-amber-600">Pending</Badge>;
-      case "disabled":
-        return <Badge className="bg-red-600 hover:bg-red-600">Disabled</Badge>;
+      case "suspended":
+        return <Badge className="bg-red-600 hover:bg-red-600">Suspended</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -325,7 +324,7 @@ export function UsersTable({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleQuickStatusChange(user, "disabled")}
+                          onClick={() => handleQuickStatusChange(user, "suspended")}
                           disabled={isUserProtected(user)}
                           className="text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           title={getProtectionReason(user)}

@@ -38,7 +38,7 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
 
     const inviteData = {
       email: email.toLowerCase().trim(),
-      account_type: userType,
+      user_type: userType,
     };
 
     const { error: insertError } = await supabase
