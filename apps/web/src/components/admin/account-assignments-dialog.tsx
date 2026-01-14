@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -55,7 +54,6 @@ interface User {
 interface Assignment {
   account_id: string;
   user_id: string;
-  can_write: boolean;
   created_at: string | null;
 }
 
@@ -78,7 +76,6 @@ export function AccountAssignmentsDialog({
   const [loading, setLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   // Build user lookup map
@@ -160,7 +157,6 @@ export function AccountAssignmentsDialog({
         },
         body: JSON.stringify({
           user_id: selectedUserId,
-          can_write: true,
         }),
       });
 
@@ -178,50 +174,6 @@ export function AccountAssignmentsDialog({
       toast.error(err instanceof Error ? err.message : "Failed to add assignment");
     } finally {
       setAdding(false);
-    }
-  };
-
-  const handleToggleCanWrite = async (userId: string, currentValue: boolean) => {
-    setUpdatingUserId(userId);
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      const res = await fetch(`${API_BASE}/admin/accounts/${account.id}/assignments/${userId}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          can_write: !currentValue,
-        }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: "Failed to update assignment" }));
-        const message = error.detail?.message || error.detail || "Failed to update assignment";
-        throw new Error(message);
-      }
-
-      // Update local state
-      setAssignments((prev) =>
-        prev.map((a) =>
-          a.user_id === userId ? { ...a, can_write: !currentValue } : a
-        )
-      );
-      toast.success(`Write access ${!currentValue ? "enabled" : "disabled"}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update assignment");
-    } finally {
-      setUpdatingUserId(null);
     }
   };
 
@@ -291,9 +243,9 @@ export function AccountAssignmentsDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {availableUsers.length === 0 ? (
-                    <SelectItem value="" disabled>
+                    <div className="py-2 px-2 text-sm text-gray-500">
                       No VAs available
-                    </SelectItem>
+                    </div>
                   ) : (
                     availableUsers.map((u) => (
                       <SelectItem key={u.profile.user_id} value={u.profile.user_id}>
@@ -320,20 +272,19 @@ export function AccountAssignmentsDialog({
                 <TableHeader>
                   <TableRow className="border-gray-800 hover:bg-gray-950">
                     <TableHead className="text-gray-400">VA</TableHead>
-                    <TableHead className="text-gray-400 text-center">Can Write</TableHead>
                     <TableHead className="text-gray-400 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-gray-500 py-4">
+                      <TableCell colSpan={2} className="text-center text-gray-500 py-4">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : assignments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-gray-500 py-4">
+                      <TableCell colSpan={2} className="text-center text-gray-500 py-4">
                         No VAs assigned to this account yet.
                       </TableCell>
                     </TableRow>
@@ -342,15 +293,6 @@ export function AccountAssignmentsDialog({
                       <TableRow key={assignment.user_id} className="border-gray-800">
                         <TableCell className="text-white">
                           {getUserDisplay(assignment.user_id)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Checkbox
-                            checked={assignment.can_write}
-                            onCheckedChange={() =>
-                              handleToggleCanWrite(assignment.user_id, assignment.can_write)
-                            }
-                            disabled={updatingUserId === assignment.user_id}
-                          />
                         </TableCell>
                         <TableCell className="text-right">
                           <Button

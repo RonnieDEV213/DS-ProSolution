@@ -330,13 +330,6 @@ class AccountAssignmentCreate(BaseModel):
     """Request body for creating an account assignment."""
 
     user_id: UUID
-    can_write: bool = True
-
-
-class AccountAssignmentUpdate(BaseModel):
-    """Request body for updating an account assignment."""
-
-    can_write: bool
 
 
 class AccountAssignmentResponse(BaseModel):
@@ -344,7 +337,6 @@ class AccountAssignmentResponse(BaseModel):
 
     account_id: UUID
     user_id: UUID
-    can_write: bool
     created_at: Optional[datetime] = None
 
 

@@ -16,7 +16,6 @@ from app.database import get_supabase
 from app.models import (
     AccountAssignmentCreate,
     AccountAssignmentResponse,
-    AccountAssignmentUpdate,
     AccountCreate,
     AccountUpdate,
     AdminAccountListResponse,
@@ -1461,7 +1460,6 @@ async def list_account_assignments(
         AccountAssignmentResponse(
             account_id=a["account_id"],
             user_id=a["user_id"],
-            can_write=a["can_write"],
             created_at=a.get("created_at"),
         )
         for a in (result.data or [])
@@ -1498,7 +1496,6 @@ async def create_account_assignment(
             .insert({
                 "account_id": account_id,
                 "user_id": str(body.user_id),
-                "can_write": body.can_write,
             })
             .execute()
         )
@@ -1536,79 +1533,14 @@ async def create_account_assignment(
         resource_type="account_assignment",
         resource_id=f"{account_id}:{body.user_id}",
         before=None,
-        after={"account_id": account_id, "user_id": str(body.user_id), "can_write": body.can_write},
+        after={"account_id": account_id, "user_id": str(body.user_id)},
         request=request,
     )
 
     return AccountAssignmentResponse(
         account_id=assignment["account_id"],
         user_id=assignment["user_id"],
-        can_write=assignment["can_write"],
         created_at=assignment.get("created_at"),
-    )
-
-
-@router.patch("/accounts/{account_id}/assignments/{user_id}", response_model=AccountAssignmentResponse)
-async def update_account_assignment(
-    account_id: str,
-    user_id: str,
-    body: AccountAssignmentUpdate,
-    request: Request,
-    user: dict = Depends(require_permission_key("admin.accounts")),
-):
-    """
-    Update an account assignment (can_write flag).
-
-    Requires admin.accounts permission (admin role).
-    """
-    supabase = get_supabase()
-    actor_user_id = user["user_id"]
-
-    # Fetch current assignment
-    current_result = (
-        supabase.table("account_assignments")
-        .select("*")
-        .eq("account_id", account_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
-
-    if not current_result.data:
-        raise HTTPException(status_code=404, detail="Assignment not found")
-
-    old_assignment = current_result.data[0]
-
-    # Update assignment
-    result = (
-        supabase.table("account_assignments")
-        .update({"can_write": body.can_write})
-        .eq("account_id", account_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
-
-    if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to update assignment")
-
-    new_assignment = result.data[0]
-
-    # Audit log
-    await write_audit_log(
-        supabase,
-        actor_user_id=actor_user_id,
-        action="account_assignment.update",
-        resource_type="account_assignment",
-        resource_id=f"{account_id}:{user_id}",
-        before={"can_write": old_assignment["can_write"]},
-        after={"can_write": new_assignment["can_write"]},
-        request=request,
-    )
-
-    return AccountAssignmentResponse(
-        account_id=new_assignment["account_id"],
-        user_id=new_assignment["user_id"],
-        can_write=new_assignment["can_write"],
-        created_at=new_assignment.get("created_at"),
     )
 
 
@@ -1651,7 +1583,7 @@ async def delete_account_assignment(
         action="account_assignment.delete",
         resource_type="account_assignment",
         resource_id=f"{account_id}:{user_id}",
-        before={"account_id": account_id, "user_id": user_id, "can_write": old_assignment["can_write"]},
+        before={"account_id": account_id, "user_id": user_id},
         after=None,
         request=request,
     )
