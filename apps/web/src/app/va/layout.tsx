@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-user-role";
-import { WaitingForAccess } from "@/components/va/waiting-for-access";
 
 const navItems = [
   { href: "/va", label: "Dashboard", icon: "home" },
@@ -15,7 +15,18 @@ const navItems = [
 export default function VALayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isPending, needsAccessProfile, loading } = useUserRole();
+  const { role, hasAccessProfile, loading } = useUserRole();
+
+  const navItemsToShow =
+    role === "va" && !hasAccessProfile
+      ? navItems.filter((item) => item.href === "/va")
+      : navItems;
+
+  useEffect(() => {
+    if (!loading && role === "va" && !hasAccessProfile && pathname !== "/va") {
+      router.replace("/va");
+    }
+  }, [loading, role, hasAccessProfile, pathname, router]);
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -32,11 +43,6 @@ export default function VALayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Route guard: VAs need to be active with an access profile
-  if (isPending || needsAccessProfile) {
-    return <WaitingForAccess isPending={isPending} needsAccessProfile={needsAccessProfile} />;
-  }
-
   return (
     <div className="flex min-h-screen bg-gray-950">
       <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
@@ -46,7 +52,7 @@ export default function VALayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => {
+          {navItemsToShow.map((item) => {
             const isActive =
               item.href === "/va"
                 ? pathname === "/va"

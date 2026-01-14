@@ -41,7 +41,6 @@ interface User {
   };
   membership: {
     role: string;
-    status: string;
   };
 }
 
@@ -198,9 +197,7 @@ export function AccountDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No client assigned</SelectItem>
-                {users
-                  .filter((u) => u.membership.status === "active")
-                  .map((u) => (
+                {users.map((u) => (
                     <SelectItem key={u.profile.user_id} value={u.profile.user_id}>
                       {u.profile.display_name || u.profile.email}
                       {u.membership.role !== "client" && ` (${u.membership.role})`}

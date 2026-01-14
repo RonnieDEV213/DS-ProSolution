@@ -26,7 +26,6 @@ from app.models import (
     DepartmentRoleResponse,
     DepartmentRoleUpdate,
     MembershipResponse,
-    MembershipStatus,
     OrgResponse,
     ProfileResponse,
     TransferOwnershipRequest,
@@ -63,7 +62,6 @@ def _build_user_response(
             user_id=membership["user_id"],
             org_id=membership["org_id"],
             role=membership["role"],
-            status=membership["status"],
             last_seen_at=membership.get("last_seen_at"),
             created_at=membership.get("created_at"),
             updated_at=membership.get("updated_at"),
@@ -75,7 +73,6 @@ def _build_user_response(
 @router.get("/users", response_model=UserListResponse)
 async def list_users(
     search: Optional[str] = Query(None, description="Search by email or name"),
-    status: Optional[str] = Query(None, description="Filter by status"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     user: dict = Depends(require_permission_key("admin.users")),
@@ -94,10 +91,6 @@ async def list_users(
         .select("*, profiles!inner(*)", count="exact")
         .eq("org_id", DEFAULT_ORG_ID)
     )
-
-    # Apply status filter
-    if status:
-        query = query.eq("status", status)
 
     # Apply search filter (on profiles.email or profiles.display_name)
     if search:
@@ -198,13 +191,11 @@ async def update_user(
     user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
-    Update a user's membership (role, status).
+    Update a user's membership (role).
 
     Requires can_manage_users permission.
     Writes to audit_logs with before/after state.
 
-    VA Activation Rule: VAs cannot be set to 'active' unless they have
-    at least one Access Profile assigned.
     """
     supabase = get_supabase()
     actor_user_id = user["user_id"]
@@ -226,17 +217,12 @@ async def update_user(
     # Get provided fields (exclude_unset to distinguish missing vs explicit values)
     provided_fields = body.model_dump(exclude_unset=True)
 
-    # ===== SELF-PROTECTION: Block self-demotion/deactivation =====
+    # ===== SELF-PROTECTION: Block self-demotion =====
     if str(actor_user_id) == user_id:
         if "role" in provided_fields and provided_fields["role"] != UserRole.ADMIN:
             raise HTTPException(
                 status_code=403,
                 detail={"code": "SELF_DEMOTION", "message": "Cannot demote yourself"},
-            )
-        if "status" in provided_fields and provided_fields["status"] != MembershipStatus.ACTIVE:
-            raise HTTPException(
-                status_code=403,
-                detail={"code": "SELF_DEACTIVATION", "message": "Cannot deactivate yourself"},
             )
 
     # ===== OWNER PROTECTION: Block modifying the org owner =====
@@ -250,8 +236,6 @@ async def update_user(
         losing_privilege = False
         if "role" in provided_fields and provided_fields["role"] != UserRole.ADMIN:
             losing_privilege = True
-        if "status" in provided_fields and provided_fields["status"] != MembershipStatus.ACTIVE:
-            losing_privilege = True
         if losing_privilege:
             raise HTTPException(
                 status_code=403,
@@ -261,26 +245,21 @@ async def update_user(
                 },
             )
 
-    # ===== ORPHAN PREVENTION: Block removing last active admin =====
-    target_is_active_admin = (
-        old_membership["role"] == "admin" and old_membership["status"] == "active"
-    )
+    # ===== ORPHAN PREVENTION: Block removing last admin =====
+    target_is_admin = old_membership["role"] == "admin"
 
-    if target_is_active_admin:
+    if target_is_admin:
         losing_privilege = False
         if "role" in provided_fields and provided_fields["role"] != UserRole.ADMIN:
             losing_privilege = True
-        if "status" in provided_fields and provided_fields["status"] != MembershipStatus.ACTIVE:
-            losing_privilege = True
 
         if losing_privilege:
-            # Count remaining active admins in this org (excluding target)
+            # Count remaining admins in this org (excluding target)
             count_result = (
                 supabase.table("memberships")
                 .select("user_id", count="exact")
                 .eq("org_id", old_membership["org_id"])
                 .eq("role", "admin")
-                .eq("status", "active")
                 .neq("user_id", user_id)
                 .execute()
             )
@@ -288,38 +267,13 @@ async def update_user(
             if (count_result.count or 0) < 1:
                 raise HTTPException(
                     status_code=409,
-                    detail={"code": "ADMIN_ORPHAN", "message": "Cannot remove the last active admin"},
+                    detail={"code": "ADMIN_ORPHAN", "message": "Cannot remove the last admin"},
                 )
-
-    # ===== VA ACTIVATION RULE: Require Access Profile to activate VA =====
-    if (
-        "status" in provided_fields
-        and provided_fields["status"] == MembershipStatus.ACTIVE
-        and old_membership["role"] == "va"
-        and old_membership["status"] != "active"
-    ):
-        # Check if VA has at least one Access Profile assigned
-        access_profile_count = (
-            supabase.table("membership_department_roles")
-            .select("role_id", count="exact")
-            .eq("membership_id", old_membership["id"])
-            .execute()
-        )
-        if (access_profile_count.count or 0) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "code": "VA_NO_ACCESS_PROFILE",
-                    "message": "Cannot activate VA without an Access Profile. Assign at least one Access Profile first.",
-                },
-            )
 
     # Build update data for membership (only include provided fields)
     membership_update = {}
     if body.role is not None:
         membership_update["role"] = body.role.value
-    if body.status is not None:
-        membership_update["status"] = body.status.value
 
     # Update membership if there are changes
     if membership_update:
@@ -351,7 +305,7 @@ async def update_user(
                     )
                 raise HTTPException(
                     status_code=409,
-                    detail={"code": "ADMIN_ORPHAN", "message": "Cannot remove the last active admin"},
+                    detail={"code": "ADMIN_ORPHAN", "message": "Cannot remove the last admin"},
                 )
             raise
 
@@ -369,11 +323,9 @@ async def update_user(
             resource_id=old_membership["id"],
             before={
                 "role": old_membership["role"],
-                "status": old_membership["status"],
             },
             after={
                 "role": new_membership["role"],
-                "status": new_membership["status"],
             },
             request=request,
         )
@@ -431,10 +383,10 @@ async def transfer_ownership(
     user: dict = Depends(require_permission_key("admin.users")),
 ):
     """
-    Transfer organization ownership to another active admin.
+    Transfer organization ownership to another admin.
 
     Only the current owner can call this endpoint.
-    New owner must be an active admin in the organization.
+    New owner must be an admin in the organization.
     """
     supabase = get_supabase()
     actor_user_id = user["user_id"]
@@ -452,10 +404,10 @@ async def transfer_ownership(
             detail={"code": "NOT_OWNER", "message": "Only the owner can transfer ownership"},
         )
 
-    # 3. Validate new owner is active admin member of this org
+    # 3. Validate new owner is an admin member of this org
     membership_result = (
         supabase.table("memberships")
-        .select("role, status")
+        .select("role")
         .eq("org_id", org_id)
         .eq("user_id", body.new_owner_user_id)
         .execute()
@@ -470,10 +422,10 @@ async def transfer_ownership(
         )
 
     m = membership_result.data[0]
-    if m["role"] != "admin" or m["status"] != "active":
+    if m["role"] != "admin":
         raise HTTPException(
             status_code=400,
-            detail={"code": "INVALID_TARGET", "message": "New owner must be an active admin"},
+            detail={"code": "INVALID_TARGET", "message": "New owner must be an admin"},
         )
 
     # 4. Update org owner
@@ -940,8 +892,7 @@ async def assign_department_role(
     """
     Assign an Access Profile (department role) to a VA membership.
 
-    Only works for role='va'. VAs can receive Access Profiles while pending
-    (required before they can be activated).
+    Only works for role='va'.
 
     Requires can_manage_users permission.
     """
@@ -951,7 +902,7 @@ async def assign_department_role(
     # Verify membership exists, belongs to org, and is VA
     membership_result = (
         supabase.table("memberships")
-        .select("id, org_id, role, status, user_id")
+        .select("id, org_id, role, user_id")
         .eq("id", membership_id)
         .eq("org_id", org_id)
         .execute()

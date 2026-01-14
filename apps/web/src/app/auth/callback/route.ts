@@ -56,10 +56,10 @@ export async function GET(request: Request) {
         );
       }
 
-      // Bootstrap succeeded - now check membership status
+      // Bootstrap succeeded - now check membership role
       const { data: membership } = await supabase
         .from("memberships")
-        .select("role, status")
+        .select("role")
         .eq("user_id", session.user.id)
         .eq("org_id", DEFAULT_ORG_ID)
         .single();
@@ -70,18 +70,7 @@ export async function GET(request: Request) {
         );
       }
 
-      // Redirect based on status
-      if (membership.status === "pending") {
-        return NextResponse.redirect(`${origin}/setup`);
-      }
-
-      if (membership.status === "suspended") {
-        return NextResponse.redirect(
-          `${origin}/login?error=${encodeURIComponent("Account suspended")}`
-        );
-      }
-
-      // Active user - redirect to role dashboard
+      // Redirect to role dashboard
       const roleDashboards: Record<string, string> = {
         admin: "/admin",
         va: "/va",

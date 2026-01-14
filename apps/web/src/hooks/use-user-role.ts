@@ -5,16 +5,14 @@ import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/api";
 
 /**
- * Hook to get the current user's role and status information.
- * Returns status flags for route guarding and admin detection.
+ * Hook to get the current user's role and access profile information.
+ * Returns flags for route guarding and admin detection.
  */
 export function useUserRole(): UserRole & { loading: boolean } {
   const [role, setRole] = useState<UserRole>({
+    role: null,
     isAdmin: false,
-    isPending: false,
-    isActive: false,
-    isSuspended: false,
-    needsAccessProfile: false,
+    hasAccessProfile: false,
   });
   const [loading, setLoading] = useState(true);
 
@@ -36,34 +34,29 @@ export function useUserRole(): UserRole & { loading: boolean } {
         // Fetch membership with access profile count
         const { data: membership } = await supabase
           .from("memberships")
-          .select("id, role, status")
+          .select("id, role")
           .eq("user_id", user.id)
           .single();
 
         if (membership) {
           const isAdmin = membership.role === "admin";
           const isVA = membership.role === "va";
-          const isPending = membership.status === "pending";
-          const isActive = membership.status === "active";
-          const isSuspended = membership.status === "suspended";
 
           // For VAs, check if they have any access profiles assigned
-          let needsAccessProfile = false;
-          if (isVA && isActive) {
+          let hasAccessProfile = true;
+          if (isVA) {
             const { count } = await supabase
               .from("membership_department_roles")
               .select("*", { count: "exact", head: true })
               .eq("membership_id", membership.id);
 
-            needsAccessProfile = (count ?? 0) === 0;
+            hasAccessProfile = (count ?? 0) > 0;
           }
 
           setRole({
+            role: membership.role,
             isAdmin,
-            isPending,
-            isActive,
-            isSuspended,
-            needsAccessProfile,
+            hasAccessProfile,
           });
         }
       } catch (error) {

@@ -30,7 +30,6 @@ interface User {
     user_id: string;
     org_id: string;
     role: string;
-    status: string;
     last_seen_at: string | null;
     created_at: string | null;
     updated_at: string | null;
@@ -40,14 +39,12 @@ interface User {
 
 interface UsersTableProps {
   search: string;
-  statusFilter?: string;
   refreshTrigger: number;
   onUserUpdated: () => void;
 }
 
 export function UsersTable({
   search,
-  statusFilter,
   refreshTrigger,
   onUserUpdated,
 }: UsersTableProps) {
@@ -64,7 +61,7 @@ export function UsersTable({
 
   // Count active admins in the current user list
   const activeAdminCount = users.filter(
-    (u) => u.membership.role === "admin" && u.membership.status === "active"
+    (u) => u.membership.role === "admin"
   ).length;
 
   const fetchUsers = useCallback(async () => {
@@ -85,7 +82,6 @@ export function UsersTable({
 
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      if (statusFilter) params.set("status", statusFilter);
       params.set("page", page.toString());
       params.set("page_size", pageSize.toString());
 
@@ -108,7 +104,7 @@ export function UsersTable({
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, page, pageSize]);
+  }, [search, page, pageSize]);
 
   // Fetch org info to get owner_user_id
   const fetchOrg = useCallback(async (orgId: string) => {
@@ -164,79 +160,6 @@ export function UsersTable({
     }
   }, [users, ownerUserId, fetchOrg]);
 
-  const handleQuickStatusChange = async (user: User, newStatus: string) => {
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      const res = await fetch(`${API_BASE}/admin/users/${user.profile.user_id}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: "Failed to update user" }));
-        // Handle lockout prevention errors (403 self-protection, 409 last admin)
-        if (res.status === 403 || res.status === 409) {
-          toast.error(error.detail?.message || error.detail || "Operation not allowed");
-        } else {
-          toast.error(error.detail?.message || error.detail || "Failed to update user");
-        }
-        return;
-      }
-
-      toast.success(`User ${newStatus === "active" ? "activated" : "suspended"}`);
-      onUserUpdated();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update user");
-    }
-  };
-
-  // Check if a user is protected from status changes
-  const isUserProtected = (user: User): boolean => {
-    const isSelf = user.profile.user_id === currentUserId;
-    // Only treat as owner if ownerUserId is definitively loaded (not null)
-    const isOwner = ownerUserId !== null && user.profile.user_id === ownerUserId;
-    const isActiveAdmin = user.membership.role === "admin" && user.membership.status === "active";
-    const isLastAdmin = isActiveAdmin && activeAdminCount <= 1;
-    return isSelf || isOwner || isLastAdmin;
-  };
-
-  // Get protection reason for tooltip
-  const getProtectionReason = (user: User): string | undefined => {
-    if (user.profile.user_id === currentUserId) return "Cannot disable yourself";
-    if (ownerUserId !== null && user.profile.user_id === ownerUserId) {
-      return "Cannot disable the organization owner";
-    }
-    const isActiveAdmin = user.membership.role === "admin" && user.membership.status === "active";
-    if (isActiveAdmin && activeAdminCount <= 1) return "Cannot disable the last admin";
-    return undefined;
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return <Badge className="bg-green-600 hover:bg-green-600">Active</Badge>;
-      case "pending":
-        return <Badge className="bg-amber-600 hover:bg-amber-600">Pending</Badge>;
-      case "suspended":
-        return <Badge className="bg-red-600 hover:bg-red-600">Suspended</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
   const getRoleBadge = (user: User) => {
     // Only show owner badge if ownerUserId is definitively loaded (not null)
     const isOwner = ownerUserId !== null && user.profile.user_id === ownerUserId;
@@ -279,8 +202,7 @@ export function UsersTable({
             <TableRow className="border-gray-800 hover:bg-gray-900">
               <TableHead className="text-gray-400">Name</TableHead>
               <TableHead className="text-gray-400">Email</TableHead>
-              <TableHead className="text-gray-400">Role</TableHead>
-              <TableHead className="text-gray-400">Status</TableHead>
+              <TableHead className="text-gray-400">User Type</TableHead>
               <TableHead className="text-gray-400">Last Seen</TableHead>
               <TableHead className="text-gray-400 text-right">Actions</TableHead>
             </TableRow>
@@ -288,13 +210,13 @@ export function UsersTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                   No users found
                 </TableCell>
               </TableRow>
@@ -306,7 +228,6 @@ export function UsersTable({
                   </TableCell>
                   <TableCell className="text-gray-300">{user.profile.email}</TableCell>
                   <TableCell>{getRoleBadge(user)}</TableCell>
-                  <TableCell>{getStatusBadge(user.membership.status)}</TableCell>
                   <TableCell className="text-gray-400">
                     {formatDate(user.membership.last_seen_at)}
                   </TableCell>
@@ -320,27 +241,6 @@ export function UsersTable({
                       >
                         Edit
                       </Button>
-                      {user.membership.status === "active" ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleQuickStatusChange(user, "suspended")}
-                          disabled={isUserProtected(user)}
-                          className="text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={getProtectionReason(user)}
-                        >
-                          Disable
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleQuickStatusChange(user, "active")}
-                          className="text-green-400 hover:text-green-300"
-                        >
-                          Activate
-                        </Button>
-                      )}
                       {/* Transfer button - only visible for owner and only to the owner */}
                       {ownerUserId !== null && user.profile.user_id === ownerUserId && currentUserId === ownerUserId && (
                         <Button
@@ -410,7 +310,7 @@ export function UsersTable({
           orgId={users[0].membership.org_id}
           currentOwnerId={ownerUserId}
           activeAdmins={users.filter(
-            (u) => u.membership.role === "admin" && u.membership.status === "active"
+            (u) => u.membership.role === "admin"
           )}
           onTransferred={() => {
             setOwnerUserId(null); // Reset to refetch

@@ -3,17 +3,9 @@
 import { useState } from "react";
 import { UsersTable } from "@/components/admin/users-table";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleUserUpdated = () => {
@@ -38,22 +30,10 @@ export default function AdminUsersPage() {
             className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <UsersTable
         search={search}
-        statusFilter={statusFilter === "all" ? undefined : statusFilter}
         refreshTrigger={refreshTrigger}
         onUserUpdated={handleUserUpdated}
       />

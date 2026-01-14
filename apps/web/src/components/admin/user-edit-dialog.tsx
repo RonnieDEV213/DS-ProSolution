@@ -36,7 +36,6 @@ interface User {
     user_id: string;
     org_id: string;
     role: string;
-    status: string;
     last_seen_at: string | null;
     created_at: string | null;
     updated_at: string | null;
@@ -73,7 +72,6 @@ export function UserEditDialog({
 }: UserEditDialogProps) {
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState("");
-  const [status, setStatus] = useState("");
 
   // Department roles state
   const [availableDeptRoles, setAvailableDeptRoles] = useState<DepartmentRole[]>([]);
@@ -85,8 +83,8 @@ export function UserEditDialog({
   const isSelf = user?.profile.user_id === currentUserId;
   // Only treat as owner if ownerUserId is definitively loaded (not null/undefined)
   const isOwner = ownerUserId !== null && ownerUserId !== undefined && user?.profile.user_id === ownerUserId;
-  const isActiveAdmin = user?.membership.role === "admin" && user?.membership.status === "active";
-  const isLastAdmin = isActiveAdmin && activeAdminCount <= 1;
+  const isAdmin = user?.membership.role === "admin";
+  const isLastAdmin = isAdmin && activeAdminCount <= 1;
   const isProtected = isSelf || isOwner || isLastAdmin;
 
   // Fetch available department roles for the org
@@ -151,10 +149,9 @@ export function UserEditDialog({
   useEffect(() => {
     if (user) {
       setRole(user.membership.role);
-      setStatus(user.membership.status);
 
       // Fetch department roles if user is a VA
-      if (user.membership.role === "va" && user.membership.status === "active") {
+      if (user.membership.role === "va") {
         fetchAvailableDeptRoles(user.membership.org_id);
         fetchAssignedDeptRoles(user.membership.org_id, user.membership.id);
       } else {
@@ -185,9 +182,6 @@ export function UserEditDialog({
 
       if (role !== user.membership.role) {
         updates.role = role;
-      }
-      if (status !== user.membership.status) {
-        updates.status = status;
       }
 
       // Check if department roles changed
@@ -301,17 +295,17 @@ export function UserEditDialog({
             <div className="rounded-lg bg-amber-900/30 border border-amber-700 p-3">
               <p className="text-sm text-amber-200">
                 {isSelf
-                  ? "You cannot change your own role or status."
+                  ? "You cannot change your own role."
                   : isOwner
                     ? "This user is the organization owner. Transfer ownership to modify."
-                    : "This is the last active admin. Role and status cannot be changed."}
+                    : "This is the last admin. Role cannot be changed."}
               </p>
             </div>
           )}
 
-          {/* Role */}
+          {/* User Type */}
           <div className="space-y-2">
-            <Label>Role</Label>
+            <Label>User Type</Label>
             <Select value={role} onValueChange={setRole} disabled={isProtected}>
               <SelectTrigger className="bg-gray-800 border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 <SelectValue placeholder="Select role" />
@@ -324,23 +318,8 @@ export function UserEditDialog({
             </Select>
           </div>
 
-          {/* Status */}
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={status} onValueChange={setStatus} disabled={isProtected}>
-              <SelectTrigger className="bg-gray-800 border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Department Roles (only for active VAs) */}
-          {role === "va" && status === "active" && (
+          {/* Department Roles (for VAs) */}
+          {role === "va" && (
             <div className="space-y-3">
               <Label>Department Roles</Label>
               <p className="text-sm text-gray-400">

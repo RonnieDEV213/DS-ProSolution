@@ -33,7 +33,6 @@ interface User {
   membership: {
     org_id: string;
     role: string;
-    status: string;
   };
 }
 
@@ -121,7 +120,7 @@ export function TransferOwnershipDialog({
         <DialogHeader>
           <DialogTitle>Transfer Ownership</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Transfer organization ownership to another active admin. This action cannot be undone.
+            Transfer organization ownership to another admin. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
 
@@ -138,9 +137,9 @@ export function TransferOwnershipDialog({
           <div className="space-y-2">
             <Label>New Owner</Label>
             {candidates.length === 0 ? (
-              <p className="text-sm text-gray-400">
-                No other active admins available. Promote another user to admin first.
-              </p>
+                <p className="text-sm text-gray-400">
+                No other admins available. Promote another user to admin first.
+                </p>
             ) : (
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">

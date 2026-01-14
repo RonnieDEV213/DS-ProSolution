@@ -47,7 +47,6 @@ interface User {
   };
   membership: {
     role: string;
-    status: string;
   };
 }
 
@@ -88,7 +87,6 @@ export function AccountAssignmentsDialog({
   const availableUsers = users.filter(
     (u) =>
       u.membership.role === "va" &&
-      u.membership.status === "active" &&
       !assignedUserIds.has(u.profile.user_id)
   );
 

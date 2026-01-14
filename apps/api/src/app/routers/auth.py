@@ -17,7 +17,7 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
     Bootstrap user profile and membership after login.
 
     This endpoint ensures the user has a profile and membership.
-    For new users, it creates a membership from their invite (with status='pending').
+    For new users, it creates a membership from their invite.
     For existing users, it returns their current profile and membership.
 
     This is idempotent - safe to call multiple times.
@@ -26,7 +26,7 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
     1. Check if profile exists; if not, create from auth metadata
     2. Check if membership exists for (user_id, org_id)
     3. If no membership: look for active invite by email
-       - If invite found: create membership with status='pending', mark invite used
+       - If invite found: create membership, mark invite used
        - If no invite: return 403 "No valid invite"
     4. Return profile + membership data
 
@@ -121,9 +121,8 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
                 detail="No valid invite found. Please contact an administrator.",
             )
 
-        # Create membership - VAs start pending, others start active
+        # Create membership from invite
         user_type = valid_invite["user_type"]
-        initial_status = "pending" if user_type == "va" else "active"
 
         membership_insert = (
             supabase.table("memberships")
@@ -132,7 +131,6 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
                     "user_id": user_id,
                     "org_id": valid_invite.get("org_id", DEFAULT_ORG_ID),
                     "role": user_type,
-                    "status": initial_status,
                 }
             )
             .execute()
@@ -161,7 +159,6 @@ async def bootstrap_profile(user: dict = Depends(get_current_user)):
             user_id=membership["user_id"],
             org_id=membership["org_id"],
             role=membership["role"],
-            status=membership["status"],
             last_seen_at=membership.get("last_seen_at"),
             created_at=membership.get("created_at"),
             updated_at=membership.get("updated_at"),

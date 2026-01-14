@@ -22,7 +22,7 @@ async def write_audit_log(
     Args:
         supabase: Supabase client (should be service role for bypassing RLS)
         actor_user_id: UUID of the user performing the action
-        action: Action type (e.g., 'user.update', 'membership.status_change')
+        action: Action type (e.g., 'user.update', 'membership.update')
         resource_type: Type of resource (e.g., 'membership', 'profile', 'invite')
         resource_id: ID of the affected resource (optional)
         before: State before the change (optional)

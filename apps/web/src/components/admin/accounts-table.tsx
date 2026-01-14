@@ -35,7 +35,6 @@ interface User {
   };
   membership: {
     role: string;
-    status: string;
   };
 }
 

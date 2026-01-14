@@ -3,18 +3,14 @@
 import { motion } from "framer-motion";
 
 interface WaitingForAccessProps {
-  isPending: boolean;
-  needsAccessProfile: boolean;
+  title?: string;
+  message?: string;
 }
 
-export function WaitingForAccess({ isPending, needsAccessProfile }: WaitingForAccessProps) {
-  const title = isPending
-    ? "Account Pending Activation"
-    : "Access Profile Required";
-
-  const message = isPending
-    ? "Your account has been created but is awaiting activation. Please wait for an administrator to activate your account."
-    : "Your account is active, but you need an Access Profile to use the system. Please wait for an administrator to assign you an Access Profile.";
+export function WaitingForAccess({
+  title = "Access Limited",
+  message = "Your access is based on the roles assigned to your account. Please contact an administrator if you need additional access.",
+}: WaitingForAccessProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

@@ -223,11 +223,9 @@ export function parseDollars(value: string): number | null {
 }
 
 export interface UserRole {
+  role: string | null;
   isAdmin: boolean;
-  isPending: boolean;
-  isActive: boolean;
-  isSuspended: boolean;
-  needsAccessProfile: boolean;
+  hasAccessProfile: boolean;
 }
 
 export function exportToCSV(

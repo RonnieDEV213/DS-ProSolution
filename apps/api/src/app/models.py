@@ -17,12 +17,6 @@ class UserRole(str, Enum):
     CLIENT = "client"
 
 
-class MembershipStatus(str, Enum):
-    PENDING = "pending"
-    ACTIVE = "active"
-    SUSPENDED = "suspended"
-
-
 # ============================================================
 # User Management Models
 # ============================================================
@@ -32,7 +26,6 @@ class UserMembershipUpdate(BaseModel):
     """Request body for updating a user's membership."""
 
     role: Optional[UserRole] = None
-    status: Optional[MembershipStatus] = None
 
 
 class MembershipResponse(BaseModel):
@@ -42,7 +35,6 @@ class MembershipResponse(BaseModel):
     user_id: str
     org_id: str
     role: UserRole
-    status: MembershipStatus
     last_seen_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
