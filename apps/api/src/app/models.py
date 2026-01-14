@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from enum import Enum
 from typing import Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
@@ -303,3 +304,65 @@ class RecordResponse(BaseModel):
             order_remark=order_remark,
             service_remark=service_remark,
         )
+
+
+# ============================================================
+# Account Management Models
+# ============================================================
+
+
+class AccountCreate(BaseModel):
+    """Request body for creating an account."""
+
+    account_code: str
+    name: Optional[str] = None
+    client_user_id: Optional[UUID] = None
+
+
+class AccountUpdate(BaseModel):
+    """Request body for updating an account."""
+
+    name: Optional[str] = None
+    client_user_id: Optional[UUID] = None
+
+
+class AccountAssignmentCreate(BaseModel):
+    """Request body for creating an account assignment."""
+
+    user_id: UUID
+    can_write: bool = True
+
+
+class AccountAssignmentUpdate(BaseModel):
+    """Request body for updating an account assignment."""
+
+    can_write: bool
+
+
+class AccountAssignmentResponse(BaseModel):
+    """Account assignment data in API responses."""
+
+    account_id: UUID
+    user_id: UUID
+    can_write: bool
+    created_at: Optional[datetime] = None
+
+
+class AdminAccountResponse(BaseModel):
+    """Account data for admin API responses (IDs only - frontend maps to display names)."""
+
+    id: UUID
+    account_code: str
+    name: Optional[str] = None
+    client_user_id: Optional[UUID] = None
+    assignment_count: int = 0
+    created_at: Optional[datetime] = None
+
+
+class AdminAccountListResponse(BaseModel):
+    """Paginated account list response."""
+
+    accounts: list[AdminAccountResponse]
+    total: int
+    page: int
+    page_size: int

@@ -14,6 +14,13 @@ from app.auth import (
 )
 from app.database import get_supabase
 from app.models import (
+    AccountAssignmentCreate,
+    AccountAssignmentResponse,
+    AccountAssignmentUpdate,
+    AccountCreate,
+    AccountUpdate,
+    AdminAccountListResponse,
+    AdminAccountResponse,
     DepartmentRoleAssignment,
     DepartmentRoleCreate,
     DepartmentRoleListResponse,
@@ -1092,3 +1099,561 @@ async def unassign_department_role(
     )
 
     return {"status": "unassigned"}
+
+
+# ============================================================
+# Account Management Endpoints
+# ============================================================
+
+
+@router.get("/accounts", response_model=AdminAccountListResponse)
+async def list_accounts(
+    q: Optional[str] = Query(None, description="Search by account_code or name"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    List all accounts with pagination and search.
+
+    Requires admin.accounts permission (admin role).
+    Returns accounts with assignment counts.
+    """
+    supabase = get_supabase()
+
+    # Build query
+    query = supabase.table("accounts").select("*", count="exact")
+
+    # Apply search filter
+    if q:
+        query = query.or_(f"account_code.ilike.%{q}%,name.ilike.%{q}%")
+
+    # Apply pagination
+    offset = (page - 1) * page_size
+    query = query.range(offset, offset + page_size - 1)
+    query = query.order("account_code")
+
+    result = query.execute()
+
+    if not result.data:
+        return AdminAccountListResponse(
+            accounts=[], total=0, page=page, page_size=page_size
+        )
+
+    # Get assignment counts for each account
+    account_ids = [acc["id"] for acc in result.data]
+    assignment_counts: dict[str, int] = {}
+
+    if account_ids:
+        # Single query for all assignment counts (avoids N+1)
+        counts_result = (
+            supabase.table("account_assignments")
+            .select("account_id")
+            .in_("account_id", account_ids)
+            .execute()
+        )
+        for row in counts_result.data or []:
+            acc_id = row["account_id"]
+            assignment_counts[acc_id] = assignment_counts.get(acc_id, 0) + 1
+
+    # Build response
+    accounts = [
+        AdminAccountResponse(
+            id=acc["id"],
+            account_code=acc["account_code"],
+            name=acc.get("name"),
+            client_user_id=acc.get("client_user_id"),
+            assignment_count=assignment_counts.get(acc["id"], 0),
+            created_at=acc.get("created_at"),
+        )
+        for acc in result.data
+    ]
+
+    return AdminAccountListResponse(
+        accounts=accounts,
+        total=result.count or len(accounts),
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.post("/accounts", response_model=AdminAccountResponse)
+async def create_account(
+    body: AccountCreate,
+    request: Request,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    Create a new account.
+
+    Requires admin.accounts permission (admin role).
+    """
+    supabase = get_supabase()
+    actor_user_id = user["user_id"]
+
+    # Build insert data
+    insert_data = {
+        "account_code": body.account_code,
+    }
+    if body.name is not None:
+        insert_data["name"] = body.name
+    if body.client_user_id is not None:
+        insert_data["client_user_id"] = str(body.client_user_id)
+
+    try:
+        result = supabase.table("accounts").insert(insert_data).execute()
+    except APIError as e:
+        payload = e.args[0] if e.args else {}
+        msg = str(payload.get("message", "")) if isinstance(payload, dict) else str(e)
+        if "duplicate key" in msg.lower() or "unique" in msg.lower():
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "DUPLICATE_ACCOUNT_CODE",
+                    "message": f"Account with code '{body.account_code}' already exists",
+                },
+            )
+        raise
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create account")
+
+    account = result.data[0]
+
+    # Audit log
+    await write_audit_log(
+        supabase,
+        actor_user_id=actor_user_id,
+        action="account.create",
+        resource_type="account",
+        resource_id=account["id"],
+        before=None,
+        after={"account_code": body.account_code, "name": body.name},
+        request=request,
+    )
+
+    return AdminAccountResponse(
+        id=account["id"],
+        account_code=account["account_code"],
+        name=account.get("name"),
+        client_user_id=account.get("client_user_id"),
+        assignment_count=0,
+        created_at=account.get("created_at"),
+    )
+
+
+@router.get("/accounts/{account_id}", response_model=AdminAccountResponse)
+async def get_account(
+    account_id: str,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    Get a single account with assignment count.
+
+    Requires admin.accounts permission (admin role).
+    """
+    supabase = get_supabase()
+
+    result = supabase.table("accounts").select("*").eq("id", account_id).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    account = result.data[0]
+
+    # Get assignment count
+    count_result = (
+        supabase.table("account_assignments")
+        .select("account_id", count="exact")
+        .eq("account_id", account_id)
+        .execute()
+    )
+
+    return AdminAccountResponse(
+        id=account["id"],
+        account_code=account["account_code"],
+        name=account.get("name"),
+        client_user_id=account.get("client_user_id"),
+        assignment_count=count_result.count or 0,
+        created_at=account.get("created_at"),
+    )
+
+
+@router.patch("/accounts/{account_id}", response_model=AdminAccountResponse)
+async def update_account(
+    account_id: str,
+    body: AccountUpdate,
+    request: Request,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    Update an account (name, client_user_id).
+
+    Requires admin.accounts permission (admin role).
+    """
+    supabase = get_supabase()
+    actor_user_id = user["user_id"]
+
+    # Fetch current account
+    current_result = (
+        supabase.table("accounts").select("*").eq("id", account_id).execute()
+    )
+
+    if not current_result.data:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    old_account = current_result.data[0]
+
+    # Build update data (only include provided fields)
+    update_data = {}
+    provided = body.model_dump(exclude_unset=True)
+
+    if "name" in provided:
+        update_data["name"] = body.name
+    if "client_user_id" in provided:
+        update_data["client_user_id"] = str(body.client_user_id) if body.client_user_id else None
+
+    if not update_data:
+        # No changes, return current state
+        count_result = (
+            supabase.table("account_assignments")
+            .select("account_id", count="exact")
+            .eq("account_id", account_id)
+            .execute()
+        )
+        return AdminAccountResponse(
+            id=old_account["id"],
+            account_code=old_account["account_code"],
+            name=old_account.get("name"),
+            client_user_id=old_account.get("client_user_id"),
+            assignment_count=count_result.count or 0,
+            created_at=old_account.get("created_at"),
+        )
+
+    result = (
+        supabase.table("accounts").update(update_data).eq("id", account_id).execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to update account")
+
+    new_account = result.data[0]
+
+    # Audit log
+    await write_audit_log(
+        supabase,
+        actor_user_id=actor_user_id,
+        action="account.update",
+        resource_type="account",
+        resource_id=account_id,
+        before={"name": old_account.get("name"), "client_user_id": old_account.get("client_user_id")},
+        after={"name": new_account.get("name"), "client_user_id": new_account.get("client_user_id")},
+        request=request,
+    )
+
+    # Get assignment count
+    count_result = (
+        supabase.table("account_assignments")
+        .select("account_id", count="exact")
+        .eq("account_id", account_id)
+        .execute()
+    )
+
+    return AdminAccountResponse(
+        id=new_account["id"],
+        account_code=new_account["account_code"],
+        name=new_account.get("name"),
+        client_user_id=new_account.get("client_user_id"),
+        assignment_count=count_result.count or 0,
+        created_at=new_account.get("created_at"),
+    )
+
+
+@router.delete("/accounts/{account_id}")
+async def delete_account(
+    account_id: str,
+    request: Request,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    Delete an account (cascades to assignments).
+
+    Requires admin.accounts permission (admin role).
+    """
+    supabase = get_supabase()
+    actor_user_id = user["user_id"]
+
+    # Fetch current account for audit
+    current_result = (
+        supabase.table("accounts").select("*").eq("id", account_id).execute()
+    )
+
+    if not current_result.data:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    old_account = current_result.data[0]
+
+    # Check for existing bookkeeping records (existence check only)
+    records_result = (
+        supabase.table("bookkeeping_records")
+        .select("id")
+        .eq("account_id", account_id)
+        .limit(1)
+        .execute()
+    )
+    if records_result.data and len(records_result.data) > 0:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "HAS_RECORDS",
+                "message": "Cannot delete account with bookkeeping records. Archive or reassign records first.",
+            },
+        )
+
+    # Delete account (assignments cascade via FK)
+    supabase.table("accounts").delete().eq("id", account_id).execute()
+
+    # Audit log
+    await write_audit_log(
+        supabase,
+        actor_user_id=actor_user_id,
+        action="account.delete",
+        resource_type="account",
+        resource_id=account_id,
+        before={"account_code": old_account["account_code"], "name": old_account.get("name")},
+        after=None,
+        request=request,
+    )
+
+    return {"status": "deleted"}
+
+
+@router.get("/accounts/{account_id}/assignments", response_model=list[AccountAssignmentResponse])
+async def list_account_assignments(
+    account_id: str,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    List all VA assignments for an account.
+
+    Requires admin.accounts permission (admin role).
+    """
+    supabase = get_supabase()
+
+    # Verify account exists
+    account_result = (
+        supabase.table("accounts").select("id").eq("id", account_id).execute()
+    )
+
+    if not account_result.data:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # Fetch assignments
+    result = (
+        supabase.table("account_assignments")
+        .select("*")
+        .eq("account_id", account_id)
+        .order("created_at")
+        .execute()
+    )
+
+    return [
+        AccountAssignmentResponse(
+            account_id=a["account_id"],
+            user_id=a["user_id"],
+            can_write=a["can_write"],
+            created_at=a.get("created_at"),
+        )
+        for a in (result.data or [])
+    ]
+
+
+@router.post("/accounts/{account_id}/assignments", response_model=AccountAssignmentResponse)
+async def create_account_assignment(
+    account_id: str,
+    body: AccountAssignmentCreate,
+    request: Request,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    Assign a user (VA) to an account.
+
+    Requires admin.accounts permission (admin role).
+    """
+    supabase = get_supabase()
+    actor_user_id = user["user_id"]
+
+    # Verify account exists
+    account_result = (
+        supabase.table("accounts").select("id, account_code").eq("id", account_id).execute()
+    )
+
+    if not account_result.data:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # Insert assignment
+    try:
+        result = (
+            supabase.table("account_assignments")
+            .insert({
+                "account_id": account_id,
+                "user_id": str(body.user_id),
+                "can_write": body.can_write,
+            })
+            .execute()
+        )
+    except APIError as e:
+        payload = e.args[0] if e.args else {}
+        msg = str(payload.get("message", "")) if isinstance(payload, dict) else str(e)
+        if "duplicate key" in msg.lower():
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "ALREADY_ASSIGNED",
+                    "message": "This user is already assigned to this account",
+                },
+            )
+        if "violates foreign key" in msg.lower():
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "INVALID_USER",
+                    "message": "User not found",
+                },
+            )
+        raise
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create assignment")
+
+    assignment = result.data[0]
+
+    # Audit log
+    await write_audit_log(
+        supabase,
+        actor_user_id=actor_user_id,
+        action="account_assignment.create",
+        resource_type="account_assignment",
+        resource_id=f"{account_id}:{body.user_id}",
+        before=None,
+        after={"account_id": account_id, "user_id": str(body.user_id), "can_write": body.can_write},
+        request=request,
+    )
+
+    return AccountAssignmentResponse(
+        account_id=assignment["account_id"],
+        user_id=assignment["user_id"],
+        can_write=assignment["can_write"],
+        created_at=assignment.get("created_at"),
+    )
+
+
+@router.patch("/accounts/{account_id}/assignments/{user_id}", response_model=AccountAssignmentResponse)
+async def update_account_assignment(
+    account_id: str,
+    user_id: str,
+    body: AccountAssignmentUpdate,
+    request: Request,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    Update an account assignment (can_write flag).
+
+    Requires admin.accounts permission (admin role).
+    """
+    supabase = get_supabase()
+    actor_user_id = user["user_id"]
+
+    # Fetch current assignment
+    current_result = (
+        supabase.table("account_assignments")
+        .select("*")
+        .eq("account_id", account_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not current_result.data:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    old_assignment = current_result.data[0]
+
+    # Update assignment
+    result = (
+        supabase.table("account_assignments")
+        .update({"can_write": body.can_write})
+        .eq("account_id", account_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to update assignment")
+
+    new_assignment = result.data[0]
+
+    # Audit log
+    await write_audit_log(
+        supabase,
+        actor_user_id=actor_user_id,
+        action="account_assignment.update",
+        resource_type="account_assignment",
+        resource_id=f"{account_id}:{user_id}",
+        before={"can_write": old_assignment["can_write"]},
+        after={"can_write": new_assignment["can_write"]},
+        request=request,
+    )
+
+    return AccountAssignmentResponse(
+        account_id=new_assignment["account_id"],
+        user_id=new_assignment["user_id"],
+        can_write=new_assignment["can_write"],
+        created_at=new_assignment.get("created_at"),
+    )
+
+
+@router.delete("/accounts/{account_id}/assignments/{user_id}")
+async def delete_account_assignment(
+    account_id: str,
+    user_id: str,
+    request: Request,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    Remove a user assignment from an account.
+
+    Requires admin.accounts permission (admin role).
+    """
+    supabase = get_supabase()
+    actor_user_id = user["user_id"]
+
+    # Fetch current assignment for audit
+    current_result = (
+        supabase.table("account_assignments")
+        .select("*")
+        .eq("account_id", account_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not current_result.data:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    old_assignment = current_result.data[0]
+
+    # Delete assignment
+    supabase.table("account_assignments").delete().eq("account_id", account_id).eq("user_id", user_id).execute()
+
+    # Audit log
+    await write_audit_log(
+        supabase,
+        actor_user_id=actor_user_id,
+        action="account_assignment.delete",
+        resource_type="account_assignment",
+        resource_id=f"{account_id}:{user_id}",
+        before={"account_id": account_id, "user_id": user_id, "can_write": old_assignment["can_write"]},
+        after=None,
+        request=request,
+    )
+
+    return {"status": "deleted"}
