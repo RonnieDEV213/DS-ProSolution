@@ -31,7 +31,7 @@ export default function RootLayout({
       >
         <TooltipProvider>
           {children}
-          <Toaster position="top-right" richColors />
+          <Toaster position="top-right" richColors duration={5000} closeButton />
         </TooltipProvider>
       </body>
     </html>

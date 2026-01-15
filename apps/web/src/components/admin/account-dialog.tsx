@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +42,7 @@ interface Account {
   client_user_id: string | null;
   assignment_count: number;
   created_at: string | null;
+  admin_remarks: string | null;
 }
 
 interface User {
@@ -82,6 +85,7 @@ export function AccountDialog({
   const [accountCode, setAccountCode] = useState("");
   const [name, setName] = useState("");
   const [clientUserId, setClientUserId] = useState<string | null>(null);
+  const [adminRemarks, setAdminRemarks] = useState("");
 
   // Tab state
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -155,6 +159,7 @@ export function AccountDialog({
         setAccountCode(account.account_code);
         setName(account.name || "");
         setClientUserId(account.client_user_id);
+        setAdminRemarks(account.admin_remarks || "");
         setActiveTab("profile");
         fetchAssignments();
         setPendingVAIds(new Set());
@@ -162,6 +167,7 @@ export function AccountDialog({
         setAccountCode("");
         setName("");
         setClientUserId(null);
+        setAdminRemarks("");
         setActiveTab("profile");
         setAssignments([]);
         setPendingVAIds(new Set());
@@ -204,11 +210,17 @@ export function AccountDialog({
         if (clientUserId !== account.client_user_id) {
           body.client_user_id = clientUserId;
         }
+        // Check if admin remarks changed
+        const originalRemarks = account.admin_remarks || "";
+        if (adminRemarks !== originalRemarks) {
+          body.admin_remarks = adminRemarks;
+        }
       } else {
         // Include all fields for create
         body.account_code = accountCode.trim();
         if (name) body.name = name;
         if (clientUserId) body.client_user_id = clientUserId;
+        if (adminRemarks) body.admin_remarks = adminRemarks;
       }
 
       const url = isEditing
@@ -378,6 +390,9 @@ export function AccountDialog({
             {/* Header */}
             <DialogHeader className="p-4 border-b border-gray-800">
               <DialogTitle>{isEditing ? "Edit Account" : "Create Account"}</DialogTitle>
+              <DialogDescription className="sr-only">
+                Form to create or edit an account
+              </DialogDescription>
             </DialogHeader>
 
             {/* Tab Navigation */}
@@ -476,6 +491,20 @@ export function AccountDialog({
                     </Select>
                     <p className="text-xs text-gray-500">
                       The client owner can view this account and its orders.
+                    </p>
+                  </div>
+
+                  {/* Admin Remarks */}
+                  <div className="space-y-2">
+                    <Label>Admin Remarks</Label>
+                    <Textarea
+                      value={adminRemarks}
+                      onChange={(e) => setAdminRemarks(e.target.value)}
+                      className="bg-gray-800 border-gray-700 min-h-[100px]"
+                      placeholder="Internal notes (only visible to admins)"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Internal notes. Only visible to admins.
                     </p>
                   </div>
                 </div>

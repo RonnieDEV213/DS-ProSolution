@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -24,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -59,6 +61,7 @@ interface DepartmentRole {
   position: number;
   permissions: string[];
   created_at: string | null;
+  admin_remarks: string | null;
 }
 
 interface VA {
@@ -76,7 +79,7 @@ interface VA {
   };
 }
 
-type Tab = "permissions" | "manage-vas";
+type Tab = "profile" | "permissions" | "manage-vas";
 
 interface DepartmentRoleDialogProps {
   open: boolean;
@@ -97,6 +100,7 @@ export function DepartmentRoleDialog({
 }: DepartmentRoleDialogProps) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
+  const [adminRemarks, setAdminRemarks] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
 
   // Tab and search state
@@ -173,11 +177,12 @@ export function DepartmentRoleDialog({
   // Reset form when dialog opens or role changes
   useEffect(() => {
     if (open) {
-      setActiveTab("permissions");
+      setActiveTab("profile");
       setSearchQuery("");
 
       if (role) {
         setName(role.name);
+        setAdminRemarks(role.admin_remarks || "");
         setSelectedPermissions(new Set(role.permissions));
 
         // Fetch VAs for edit mode
@@ -188,6 +193,7 @@ export function DepartmentRoleDialog({
         });
       } else {
         setName("");
+        setAdminRemarks("");
         setSelectedPermissions(new Set());
         setAssignedVAIds(new Set());
         setOriginalVAIds(new Set());
@@ -284,10 +290,20 @@ export function DepartmentRoleDialog({
         "Content-Type": "application/json",
       };
 
-      const body = {
+      const body: Record<string, unknown> = {
         name: name.trim(),
         permissions: Array.from(selectedPermissions),
       };
+
+      // Include admin_remarks if it changed (for edit) or has content (for create)
+      if (isEditing) {
+        const originalRemarks = role.admin_remarks || "";
+        if (adminRemarks !== originalRemarks) {
+          body.admin_remarks = adminRemarks;
+        }
+      } else if (adminRemarks) {
+        body.admin_remarks = adminRemarks;
+      }
 
       const url = isEditing
         ? `${API_BASE}/admin/orgs/${orgId}/department-roles/${role.id}`
@@ -395,21 +411,24 @@ export function DepartmentRoleDialog({
                 <DialogTitle className="text-base">
                   {isEditing ? "Edit Profile" : "Create Profile"}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Form to create or edit an access profile
+                </DialogDescription>
               </DialogHeader>
-
-              {/* Profile Name Input */}
-              <div className="p-4 border-b border-gray-800">
-                <Label className="text-xs text-gray-400">Profile Name</Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1.5 bg-gray-800 border-gray-700 h-9"
-                  placeholder="Enter name"
-                />
-              </div>
 
               {/* Tab Navigation */}
               <nav className="flex-1 p-2 space-y-1">
+                <button
+                  onClick={() => setActiveTab("profile")}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded text-sm transition-colors",
+                    activeTab === "profile"
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800"
+                  )}
+                >
+                  Profile
+                </button>
                 <button
                   onClick={() => setActiveTab("permissions")}
                   className={cn(
@@ -430,7 +449,7 @@ export function DepartmentRoleDialog({
                       : "text-gray-300 hover:bg-gray-800"
                   )}
                 >
-                  Manage VAs
+                  Assigned VAs
                 </button>
               </nav>
 
@@ -453,6 +472,38 @@ export function DepartmentRoleDialog({
             <div className="flex-1 flex flex-col">
               {/* Content Area */}
               <div className="flex-1 overflow-y-auto p-6">
+                {/* Profile Tab */}
+                {activeTab === "profile" && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Profile Name</Label>
+                      <Input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="bg-gray-800 border-gray-700"
+                        placeholder="Enter profile name"
+                      />
+                      <p className="text-xs text-gray-500">
+                        The name used to identify this access profile.
+                      </p>
+                    </div>
+
+                    {/* Admin Remarks */}
+                    <div className="space-y-2">
+                      <Label>Admin Remarks</Label>
+                      <Textarea
+                        value={adminRemarks}
+                        onChange={(e) => setAdminRemarks(e.target.value)}
+                        className="bg-gray-800 border-gray-700 min-h-[100px]"
+                        placeholder="Internal notes (only visible to admins)"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Internal notes. Only visible to admins.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Permissions Tab */}
                 {activeTab === "permissions" && (
                   <div className="space-y-4">
@@ -497,7 +548,7 @@ export function DepartmentRoleDialog({
                                   onClick={() => handlePermissionToggle(perm.key)}
                                 >
                                   <Checkbox checked={selectedPermissions.has(perm.key)} />
-                                  <span className="text-sm text-gray-300">{perm.label}</span>
+                                  <span className="text-base text-gray-300">{perm.label}</span>
                                 </div>
                               ))}
                             </div>

@@ -42,19 +42,34 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
   const [loading, setLoading] = useState(true);
   const [inviteToRevoke, setInviteToRevoke] = useState<Invite | null>(null);
   const [revoking, setRevoking] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 20;
 
   const loadInvites = useCallback(async () => {
+    setLoading(true);
     const supabase = createClient();
+
+    // Get total count
+    const { count } = await supabase
+      .from("invites")
+      .select("*", { count: "exact", head: true });
+    setTotal(count ?? 0);
+
+    // Get paginated data
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
     const { data, error } = await supabase
       .from("invites")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (!error && data) {
       setInvites(data);
     }
     setLoading(false);
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on mount/refresh
@@ -130,7 +145,7 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
 
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
-      <Table>
+      <Table aria-label="Pending and past invitations">
         <TableHeader>
           <TableRow className="border-gray-800 hover:bg-gray-900">
             <TableHead className="text-gray-400">Email</TableHead>
@@ -175,6 +190,36 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
           ))}
         </TableBody>
       </Table>
+
+      {/* Pagination */}
+      {total > pageSize && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
+          <div className="text-sm text-gray-400">
+            Showing {(page - 1) * pageSize + 1} to{" "}
+            {Math.min(page * pageSize, total)} of {total} invites
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(Math.ceil(total / pageSize), p + 1))}
+              disabled={page >= Math.ceil(total / pageSize)}
+              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Revoke Confirmation Dialog */}
       <AlertDialog open={!!inviteToRevoke} onOpenChange={(open) => !open && handleCancelRevoke()}>

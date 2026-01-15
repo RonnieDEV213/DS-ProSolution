@@ -197,22 +197,27 @@ export function normalizeForCompare(value: unknown): unknown {
 }
 
 /**
- * Format value for display:
- * - null/undefined/empty string => "-"
+ * Format text value for display:
+ * - null/undefined/empty string => "N/A"
  * - other => String(value)
- * Note: 0 and false display as "0" and "false", not "-"
+ * Note: 0 and false display as "0" and "false", not "N/A"
  */
 export function displayValue(value: unknown): string {
-  if (value === null || value === undefined) return "-";
+  if (value === null || value === undefined) return "N/A";
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed === "" ? "-" : trimmed;
+    return trimmed === "" ? "N/A" : trimmed;
   }
   return String(value);
 }
 
+/**
+ * Format cents to dollars for display:
+ * - null/undefined => "$0.00" (treat missing as zero for money fields)
+ * - number => "$X.XX"
+ */
 export function formatCents(cents: number | null | undefined): string {
-  if (cents == null) return "-";
+  if (cents == null) return "$0.00";
   return `$${(cents / 100).toFixed(2)}`;
 }
 
@@ -220,6 +225,22 @@ export function parseDollars(value: string): number | null {
   const num = parseFloat(value.replace(/[^0-9.-]/g, ""));
   if (isNaN(num)) return null;
   return Math.round(num * 100);
+}
+
+/**
+ * Format date for display:
+ * - null/undefined/invalid => "—"
+ * - valid date => "Jan 15, 2026" format
+ */
+export function formatDisplayDate(date?: string | Date | null): string {
+  if (!date) return "—";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(d);
 }
 
 export interface UserRole {

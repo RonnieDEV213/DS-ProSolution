@@ -24,6 +24,7 @@ interface Account {
   client_user_id: string | null;
   assignment_count: number;
   created_at: string | null;
+  admin_remarks: string | null;
 }
 
 interface User {

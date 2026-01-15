@@ -2,6 +2,7 @@
 
 import { useState, Fragment } from "react";
 import { toast } from "sonner";
+import { Check, X, RotateCcw, PackageX } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -20,6 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +56,14 @@ const STATUS_OPTIONS: { value: BookkeepingStatus; label: string }[] = [
 ];
 
 const STRIKE_CLASS = "line-through text-gray-500";
+
+// Status icons for accessibility (aria-hidden, text label remains)
+const STATUS_ICONS: Record<BookkeepingStatus, React.ReactNode> = {
+  SUCCESSFUL: <Check className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
+  RETURN_LABEL_PROVIDED: <RotateCcw className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
+  RETURN_CLOSED: <X className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
+  REFUND_NO_RETURN: <PackageX className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
+};
 
 // Field configuration for editing
 type FieldType = "text" | "date" | "number" | "cents";
@@ -350,20 +364,20 @@ export function RecordsTable({
           {error}
         </div>
       )}
-      <Table>
+      <Table aria-label="Order tracking records">
         <TableHeader>
           <TableRow className="border-gray-800 hover:bg-gray-900">
-            <TableHead className="text-gray-400 w-8"></TableHead>
-            <TableHead className="text-gray-400">Date</TableHead>
-            <TableHead className="text-gray-400">eBay Order</TableHead>
-            <TableHead className="text-gray-400">Item</TableHead>
-            <TableHead className="text-gray-400 text-center">Qty</TableHead>
-            <TableHead className="text-gray-400 text-right">Earnings</TableHead>
-            <TableHead className="text-gray-400 text-right">COGS</TableHead>
-            <TableHead className="text-gray-400 text-right">Profit</TableHead>
-            <TableHead className="text-gray-400">Amazon Order</TableHead>
-            <TableHead className="text-gray-400">Status</TableHead>
-            <TableHead className="text-gray-400 w-[50px]"></TableHead>
+            <TableHead scope="col" className="text-gray-400 w-8"><span className="sr-only">Expand</span></TableHead>
+            <TableHead scope="col" className="text-gray-400">Date</TableHead>
+            <TableHead scope="col" className="text-gray-400">eBay Order</TableHead>
+            <TableHead scope="col" className="text-gray-400">Item</TableHead>
+            <TableHead scope="col" className="text-gray-400 text-center">Qty</TableHead>
+            <TableHead scope="col" className="text-gray-400 text-right">Earnings</TableHead>
+            <TableHead scope="col" className="text-gray-400 text-right">COGS</TableHead>
+            <TableHead scope="col" className="text-gray-400 text-right">Profit</TableHead>
+            <TableHead scope="col" className="text-gray-400">Amazon Order</TableHead>
+            <TableHead scope="col" className="text-gray-400">Status</TableHead>
+            <TableHead scope="col" className="text-gray-400 w-[50px]"><span className="sr-only">Actions</span></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -387,6 +401,8 @@ export function RecordsTable({
                       size="sm"
                       className="h-6 w-6 p-0 text-gray-400"
                       onClick={() => toggleExpanded(record.id)}
+                      aria-label={isExpanded ? "Collapse row details" : "Expand row details"}
+                      aria-expanded={isExpanded}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -438,10 +454,23 @@ export function RecordsTable({
                   </TableCell>
 
                   {/* Earnings (Net) */}
-                  <TableCell
-                    className={`text-right ${strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-white"}`}
-                  >
-                    {formatCents(record.earnings_net_cents)}
+                  <TableCell className="text-right">
+                    {(strikeSalesFees || strikeAll) ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={STRIKE_CLASS}>
+                            {formatCents(record.earnings_net_cents)}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {record.status === "RETURN_CLOSED"
+                            ? "Return closed - excluded from totals"
+                            : "Refunded - excluded from totals"}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="text-white">{formatCents(record.earnings_net_cents)}</span>
+                    )}
                   </TableCell>
 
                   {/* COGS Total */}
@@ -490,12 +519,13 @@ export function RecordsTable({
                             }
                             disabled={isPending}
                           >
-                            <SelectTrigger className="w-[140px] h-7 text-xs bg-gray-800 border-gray-700">
+                            <SelectTrigger className="min-w-[160px] h-7 text-xs bg-gray-800 border-gray-700" aria-label="Order status">
                               <SelectValue>
                                 <Badge
                                   variant={getStatusBadgeVariant(displayStatus)}
                                   className="pointer-events-none"
                                 >
+                                  {STATUS_ICONS[displayStatus]}
                                   {STATUS_LABELS[displayStatus]}
                                 </Badge>
                               </SelectValue>
@@ -516,6 +546,7 @@ export function RecordsTable({
                       })()
                     ) : (
                       <Badge variant={getStatusBadgeVariant(record.status)}>
+                        {STATUS_ICONS[record.status]}
                         {STATUS_LABELS[record.status]}
                       </Badge>
                     )}
@@ -556,6 +587,11 @@ export function RecordsTable({
                 {isExpanded && (
                   <TableRow key={`${record.id}-details`} className="bg-gray-900/50">
                     <TableCell colSpan={11} className="p-4">
+                      {/* Quantity info */}
+                      <div className="mb-4 text-sm">
+                        <span className="text-gray-400">Quantity: </span>
+                        <span className="text-white font-medium">{record.qty}</span>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Earnings Breakdown */}
                         <div className="space-y-2">
@@ -639,25 +675,7 @@ export function RecordsTable({
                                 )}
                               </span>
                             </div>
-                            <div className="flex justify-between border-t border-gray-700 pt-1">
-                              <span className="text-gray-300 font-medium">COGS (Total):</span>
-                              <span
-                                className={`font-medium ${strikeAll ? STRIKE_CLASS : "text-white"}`}
-                              >
-                                {formatCents(record.cogs_total_cents)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Returns / Service */}
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-gray-400 mb-3">
-                            Returns / Service
-                          </h4>
-                          <div className="space-y-3 text-sm">
-                            {/* Return Label Cost - only show when not REFUND_NO_RETURN */}
-                            {record.status !== "REFUND_NO_RETURN" && (
+                            {record.status !== "SUCCESSFUL" && (
                               <div className="flex justify-between">
                                 <span className="text-gray-400">Return Label Cost:</span>
                                 <span className={strikeAll ? STRIKE_CLASS : "text-white"}>
@@ -670,14 +688,26 @@ export function RecordsTable({
                                 </span>
                               </div>
                             )}
+                            <div className="flex justify-between border-t border-gray-700 pt-1">
+                              <span className="text-gray-300 font-medium">COGS (Total):</span>
+                              <span
+                                className={`font-medium ${strikeAll ? STRIKE_CLASS : "text-white"}`}
+                              >
+                                {formatCents(record.cogs_total_cents)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
-                            {/* Order Remark - visibility controlled by backend permission_keys */}
+                        {/* Remarks */}
+                        <div className="space-y-3 text-sm">
+                          {/* Order Remark - visibility controlled by backend permission_keys */}
                             <div>
                               <span className="text-gray-400 block mb-1">Order Remark:</span>
                               {renderEditableCell(
                                 record,
                                 "order_remark",
-                                record.order_remark || "(none)",
+                                record.order_remark || <span className="text-gray-500 italic">No remarks</span>,
                                 "text-gray-300 text-sm block"
                               )}
                             </div>
@@ -688,11 +718,10 @@ export function RecordsTable({
                               {renderEditableCell(
                                 record,
                                 "service_remark",
-                                record.service_remark || "(none)",
+                                record.service_remark || <span className="text-gray-500 italic">No remarks</span>,
                                 "text-gray-300 text-sm block"
                               )}
                             </div>
-                          </div>
                         </div>
                       </div>
                     </TableCell>

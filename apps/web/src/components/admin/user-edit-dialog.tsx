@@ -8,9 +8,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +47,7 @@ interface User {
     email: string;
     display_name: string | null;
     created_at: string | null;
+    admin_remarks: string | null;
   };
   membership: {
     id: string;
@@ -60,6 +68,7 @@ interface DepartmentRole {
   name: string;
   position: number;
   permissions: string[];
+  admin_remarks?: string | null;
 }
 
 interface UserEditDialogProps {
@@ -85,6 +94,7 @@ export function UserEditDialog({
 }: UserEditDialogProps) {
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState("");
+  const [adminRemarks, setAdminRemarks] = useState("");
   const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
@@ -164,6 +174,7 @@ export function UserEditDialog({
   useEffect(() => {
     if (user) {
       setRole(user.membership.role);
+      setAdminRemarks(user.profile.admin_remarks || "");
       setActiveTab("profile");
 
       // Fetch department roles if user is a VA
@@ -205,6 +216,12 @@ export function UserEditDialog({
 
       if (role !== user.membership.role) {
         updates.role = role;
+      }
+
+      // Check if admin remarks changed
+      const originalRemarks = user.profile.admin_remarks || "";
+      if (adminRemarks !== originalRemarks) {
+        updates.admin_remarks = adminRemarks;
       }
 
       // Check if department roles changed
@@ -403,7 +420,15 @@ export function UserEditDialog({
                     <Badge className="bg-red-600 hover:bg-red-600 text-xs">Suspended</Badge>
                   )}
                 </div>
-                <p className="text-sm text-gray-400 truncate">{user.profile.email}</p>
+                <DialogDescription className="sr-only">
+                  Form to edit user details and permissions
+                </DialogDescription>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-sm text-gray-400 truncate cursor-default">{user.profile.email}</p>
+                  </TooltipTrigger>
+                  <TooltipContent>{user.profile.email}</TooltipContent>
+                </Tooltip>
               </DialogHeader>
 
               {/* Tab Navigation */}
@@ -496,6 +521,20 @@ export function UserEditDialog({
                       </Select>
                       <p className="text-xs text-gray-500">
                         Changing user type affects their permissions and access.
+                      </p>
+                    </div>
+
+                    {/* Admin Remarks */}
+                    <div className="space-y-2">
+                      <Label>Admin Remarks</Label>
+                      <Textarea
+                        value={adminRemarks}
+                        onChange={(e) => setAdminRemarks(e.target.value)}
+                        className="bg-gray-800 border-gray-700 min-h-[100px]"
+                        placeholder="Internal notes (only visible to admins)"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Internal notes. Only visible to admins.
                       </p>
                     </div>
                   </div>

@@ -32,6 +32,7 @@ class UserMembershipUpdate(BaseModel):
 
     role: Optional[UserRole] = None
     status: Optional[MembershipStatus] = None
+    admin_remarks: Optional[str] = None
 
 
 class MembershipResponse(BaseModel):
@@ -54,6 +55,7 @@ class ProfileResponse(BaseModel):
     email: str
     display_name: Optional[str] = None
     created_at: Optional[datetime] = None
+    admin_remarks: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -113,6 +115,7 @@ class DepartmentRoleCreate(BaseModel):
 
     name: str
     permissions: list[str]  # permission keys
+    admin_remarks: Optional[str] = None
 
 
 class DepartmentRoleUpdate(BaseModel):
@@ -121,6 +124,7 @@ class DepartmentRoleUpdate(BaseModel):
     name: Optional[str] = None
     permissions: Optional[list[str]] = None
     position: Optional[int] = None
+    admin_remarks: Optional[str] = None
 
 
 class DepartmentRoleResponse(BaseModel):
@@ -132,6 +136,7 @@ class DepartmentRoleResponse(BaseModel):
     position: int
     permissions: list[str]
     created_at: Optional[datetime] = None
+    admin_remarks: Optional[str] = None
 
 
 class DepartmentRoleListResponse(BaseModel):
@@ -181,6 +186,26 @@ class RecordCreate(BaseModel):
     order_remark: Optional[str] = None  # Stored separately in order_remarks table
     status: BookkeepingStatus = BookkeepingStatus.SUCCESSFUL
     # Note: return_label_cost_cents and service_remark not in create (service fields)
+
+    @field_validator("qty")
+    @classmethod
+    def qty_must_be_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("qty must be at least 1")
+        return v
+
+    @field_validator(
+        "sale_price_cents",
+        "ebay_fees_cents",
+        "amazon_price_cents",
+        "amazon_tax_cents",
+        "amazon_shipping_cents",
+    )
+    @classmethod
+    def cents_must_be_non_negative(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 0:
+            raise ValueError("cents values cannot be negative")
+        return v
 
 
 class RecordUpdate(BaseModel):
@@ -274,12 +299,13 @@ class RecordResponse(BaseModel):
 
         # Compute profit based on status
         if status == "RETURN_CLOSED":
-            profit = 0
-        elif status == "REFUND_NO_RETURN":
-            # eBay fees refunded, return_label forced to 0 by trigger
-            profit = -cogs_total
+            # Profit should equal return label cost impact.
+            # return_label_cost_cents is stored as a positive COST, so profit impact is negative.
+            profit = -return_label
+        elif status == "SUCCESSFUL":
+            profit = sale - fees - amazon_price - amazon_tax - amazon_shipping
         else:
-            # SUCCESSFUL or RETURN_LABEL_PROVIDED
+            # Includes REFUND_NO_RETURN and any other non-successful statuses
             profit = sale - fees - amazon_price - amazon_tax - amazon_shipping - return_label
 
         return cls(
@@ -316,6 +342,7 @@ class AccountCreate(BaseModel):
     account_code: str
     name: Optional[str] = None
     client_user_id: Optional[UUID] = None
+    admin_remarks: Optional[str] = None
 
 
 class AccountUpdate(BaseModel):
@@ -323,6 +350,7 @@ class AccountUpdate(BaseModel):
 
     name: Optional[str] = None
     client_user_id: Optional[UUID] = None
+    admin_remarks: Optional[str] = None
 
 
 class AccountAssignmentCreate(BaseModel):
@@ -348,6 +376,7 @@ class AdminAccountResponse(BaseModel):
     client_user_id: Optional[UUID] = None
     assignment_count: int = 0
     created_at: Optional[datetime] = None
+    admin_remarks: Optional[str] = None
 
 
 class AdminAccountListResponse(BaseModel):

@@ -29,6 +29,7 @@ interface User {
     email: string;
     display_name: string | null;
     created_at: string | null;
+    admin_remarks: string | null;
   };
   membership: {
     id: string;
@@ -208,7 +209,7 @@ export function UsersTable({
   return (
     <>
       <div className="rounded-lg border border-gray-800 bg-gray-900">
-        <Table>
+        <Table aria-label="Organization users">
           <TableHeader>
             <TableRow className="border-gray-800 hover:bg-gray-900">
               <TableHead className="text-gray-400">Name</TableHead>
@@ -235,6 +236,9 @@ export function UsersTable({
                 <TableRow key={user.profile.user_id} className="border-gray-800">
                   <TableCell className="text-white font-medium">
                     {user.profile.display_name || "-"}
+                    <span className="text-gray-500 text-xs ml-1">
+                      ({user.profile.email.split("@")[0]})
+                    </span>
                   </TableCell>
                   <TableCell className="text-gray-300">{user.profile.email}</TableCell>
                   <TableCell>{getRoleBadge(user)}</TableCell>

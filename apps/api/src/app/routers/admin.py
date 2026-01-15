@@ -49,6 +49,7 @@ def _build_user_response(
     profile: dict,
     membership: dict,
     role_perms: dict | None,
+    admin_remarks: str | None = None,
 ) -> UserResponse:
     """Build a UserResponse from database rows."""
     # Compute effective permissions from role defaults
@@ -62,6 +63,7 @@ def _build_user_response(
             email=profile["email"],
             display_name=profile.get("display_name"),
             created_at=profile.get("created_at"),
+            admin_remarks=admin_remarks,
         ),
         membership=MembershipResponse(
             id=membership["id"],
@@ -146,14 +148,25 @@ async def list_users(
         )
         role_perms_map = {row["role"]: row for row in (role_perms_result.data or [])}
 
+        # Fetch admin notes in ONE bulk query (avoid N+1)
+        user_ids = [row["user_id"] for row in result.data]
+        notes_result = (
+            supabase.table("profile_admin_notes")
+            .select("user_id, admin_remarks")
+            .in_("user_id", user_ids)
+            .execute()
+        )
+        notes_map = {n["user_id"]: n["admin_remarks"] for n in (notes_result.data or [])}
+
         # Build response
         users = []
         for row in result.data:
             profile = row["profiles"]
             membership = {k: v for k, v in row.items() if k != "profiles"}
             role_perms = role_perms_map.get(row["role"])
+            admin_remarks = notes_map.get(row["user_id"])
 
-            users.append(_build_user_response(profile, membership, role_perms))
+            users.append(_build_user_response(profile, membership, role_perms, admin_remarks))
 
         return UserListResponse(
             users=users,
@@ -214,7 +227,17 @@ async def get_user(
     )
     role_perms = role_perms_result.data[0] if role_perms_result.data else None
 
-    return _build_user_response(profile, membership, role_perms)
+    # Fetch admin notes
+    notes_result = (
+        supabase.table("profile_admin_notes")
+        .select("admin_remarks")
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+
+    return _build_user_response(profile, membership, role_perms, admin_remarks)
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -384,6 +407,14 @@ async def update_user(
     else:
         new_membership = old_membership
 
+    # Upsert admin remarks if provided
+    if body.admin_remarks is not None:
+        supabase.table("profile_admin_notes").upsert({
+            "user_id": user_id,
+            "admin_remarks": body.admin_remarks,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+
     # Fetch profile for response
     profile_result = (
         supabase.table("profiles").select("*").eq("user_id", user_id).execute()
@@ -399,7 +430,17 @@ async def update_user(
     )
     role_perms = role_perms_result.data[0] if role_perms_result.data else None
 
-    return _build_user_response(profile, new_membership, role_perms)
+    # Fetch admin notes for response
+    notes_result = (
+        supabase.table("profile_admin_notes")
+        .select("admin_remarks")
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+
+    return _build_user_response(profile, new_membership, role_perms, admin_remarks)
 
 
 # ============================================================
@@ -514,7 +555,11 @@ async def transfer_ownership(
 # ============================================================
 
 
-def _build_department_role_response(role: dict, permissions: list[str]) -> DepartmentRoleResponse:
+def _build_department_role_response(
+    role: dict,
+    permissions: list[str],
+    admin_remarks: str | None = None,
+) -> DepartmentRoleResponse:
     """Build a DepartmentRoleResponse from database rows."""
     return DepartmentRoleResponse(
         id=role["id"],
@@ -523,6 +568,7 @@ def _build_department_role_response(role: dict, permissions: list[str]) -> Depar
         position=role["position"],
         permissions=permissions,
         created_at=role.get("created_at"),
+        admin_remarks=admin_remarks,
     )
 
 
@@ -566,9 +612,18 @@ async def list_department_roles(
             perms_map[p["role_id"]] = []
         perms_map[p["role_id"]].append(p["permission_key"])
 
+    # Fetch admin notes in ONE bulk query (avoid N+1)
+    notes_result = (
+        supabase.table("department_role_admin_notes")
+        .select("department_role_id, admin_remarks")
+        .in_("department_role_id", role_ids)
+        .execute()
+    )
+    notes_map = {n["department_role_id"]: n["admin_remarks"] for n in (notes_result.data or [])}
+
     # Build response
     roles = [
-        _build_department_role_response(r, perms_map.get(r["id"], []))
+        _build_department_role_response(r, perms_map.get(r["id"], []), notes_map.get(r["id"]))
         for r in roles_result.data
     ]
 
@@ -660,6 +715,14 @@ async def create_department_role(
         ]
         supabase.table("department_role_permissions").insert(perms_data).execute()
 
+    # Insert admin remarks if provided
+    if body.admin_remarks is not None:
+        supabase.table("department_role_admin_notes").upsert({
+            "department_role_id": role["id"],
+            "admin_remarks": body.admin_remarks,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+
     # Audit log
     await write_audit_log(
         supabase,
@@ -672,7 +735,7 @@ async def create_department_role(
         request=request,
     )
 
-    return _build_department_role_response(role, body.permissions)
+    return _build_department_role_response(role, body.permissions, body.admin_remarks)
 
 
 @router.patch("/orgs/{org_id}/department-roles/{role_id}", response_model=DepartmentRoleResponse)
@@ -787,6 +850,24 @@ async def update_department_role(
     else:
         new_permissions = old_permissions
 
+    # Upsert admin remarks if provided
+    if body.admin_remarks is not None:
+        supabase.table("department_role_admin_notes").upsert({
+            "department_role_id": role_id,
+            "admin_remarks": body.admin_remarks,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+
+    # Fetch admin notes for response
+    notes_result = (
+        supabase.table("department_role_admin_notes")
+        .select("admin_remarks")
+        .eq("department_role_id", role_id)
+        .maybe_single()
+        .execute()
+    )
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+
     # Audit log
     await write_audit_log(
         supabase,
@@ -799,7 +880,7 @@ async def update_department_role(
         request=request,
     )
 
-    return _build_department_role_response(new_role, new_permissions)
+    return _build_department_role_response(new_role, new_permissions, admin_remarks)
 
 
 @router.delete("/orgs/{org_id}/department-roles/{role_id}")
@@ -1158,6 +1239,15 @@ async def list_accounts(
             acc_id = row["account_id"]
             assignment_counts[acc_id] = assignment_counts.get(acc_id, 0) + 1
 
+    # Fetch admin notes in ONE bulk query (avoid N+1)
+    notes_result = (
+        supabase.table("account_admin_notes")
+        .select("account_id, admin_remarks")
+        .in_("account_id", account_ids)
+        .execute()
+    )
+    notes_map = {n["account_id"]: n["admin_remarks"] for n in (notes_result.data or [])}
+
     # Build response
     accounts = [
         AdminAccountResponse(
@@ -1167,6 +1257,7 @@ async def list_accounts(
             client_user_id=acc.get("client_user_id"),
             assignment_count=assignment_counts.get(acc["id"], 0),
             created_at=acc.get("created_at"),
+            admin_remarks=notes_map.get(acc["id"]),
         )
         for acc in result.data
     ]
@@ -1222,6 +1313,14 @@ async def create_account(
 
     account = result.data[0]
 
+    # Insert admin remarks if provided
+    if body.admin_remarks is not None:
+        supabase.table("account_admin_notes").upsert({
+            "account_id": account["id"],
+            "admin_remarks": body.admin_remarks,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+
     # Audit log
     await write_audit_log(
         supabase,
@@ -1241,6 +1340,7 @@ async def create_account(
         client_user_id=account.get("client_user_id"),
         assignment_count=0,
         created_at=account.get("created_at"),
+        admin_remarks=body.admin_remarks,
     )
 
 
@@ -1271,6 +1371,16 @@ async def get_account(
         .execute()
     )
 
+    # Fetch admin notes
+    notes_result = (
+        supabase.table("account_admin_notes")
+        .select("admin_remarks")
+        .eq("account_id", account_id)
+        .maybe_single()
+        .execute()
+    )
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+
     return AdminAccountResponse(
         id=account["id"],
         account_code=account["account_code"],
@@ -1278,6 +1388,7 @@ async def get_account(
         client_user_id=account.get("client_user_id"),
         assignment_count=count_result.count or 0,
         created_at=account.get("created_at"),
+        admin_remarks=admin_remarks,
     )
 
 
@@ -1315,7 +1426,10 @@ async def update_account(
     if "client_user_id" in provided:
         update_data["client_user_id"] = str(body.client_user_id) if body.client_user_id else None
 
-    if not update_data:
+    # Check if admin_remarks should be updated (separate table)
+    has_remarks_update = "admin_remarks" in provided
+
+    if not update_data and not has_remarks_update:
         # No changes, return current state
         count_result = (
             supabase.table("account_assignments")
@@ -1323,6 +1437,14 @@ async def update_account(
             .eq("account_id", account_id)
             .execute()
         )
+        notes_result = (
+            supabase.table("account_admin_notes")
+            .select("admin_remarks")
+            .eq("account_id", account_id)
+            .maybe_single()
+            .execute()
+        )
+        admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
         return AdminAccountResponse(
             id=old_account["id"],
             account_code=old_account["account_code"],
@@ -1330,28 +1452,41 @@ async def update_account(
             client_user_id=old_account.get("client_user_id"),
             assignment_count=count_result.count or 0,
             created_at=old_account.get("created_at"),
+            admin_remarks=admin_remarks,
         )
 
-    result = (
-        supabase.table("accounts").update(update_data).eq("id", account_id).execute()
-    )
+    # Update account if there are account-level changes
+    if update_data:
+        result = (
+            supabase.table("accounts").update(update_data).eq("id", account_id).execute()
+        )
 
-    if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to update account")
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to update account")
 
-    new_account = result.data[0]
+        new_account = result.data[0]
 
-    # Audit log
-    await write_audit_log(
-        supabase,
-        actor_user_id=actor_user_id,
-        action="account.update",
-        resource_type="account",
-        resource_id=account_id,
-        before={"name": old_account.get("name"), "client_user_id": old_account.get("client_user_id")},
-        after={"name": new_account.get("name"), "client_user_id": new_account.get("client_user_id")},
-        request=request,
-    )
+        # Audit log
+        await write_audit_log(
+            supabase,
+            actor_user_id=actor_user_id,
+            action="account.update",
+            resource_type="account",
+            resource_id=account_id,
+            before={"name": old_account.get("name"), "client_user_id": old_account.get("client_user_id")},
+            after={"name": new_account.get("name"), "client_user_id": new_account.get("client_user_id")},
+            request=request,
+        )
+    else:
+        new_account = old_account
+
+    # Upsert admin remarks if provided
+    if has_remarks_update:
+        supabase.table("account_admin_notes").upsert({
+            "account_id": account_id,
+            "admin_remarks": body.admin_remarks,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
 
     # Get assignment count
     count_result = (
@@ -1361,6 +1496,16 @@ async def update_account(
         .execute()
     )
 
+    # Fetch admin notes for response
+    notes_result = (
+        supabase.table("account_admin_notes")
+        .select("admin_remarks")
+        .eq("account_id", account_id)
+        .maybe_single()
+        .execute()
+    )
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+
     return AdminAccountResponse(
         id=new_account["id"],
         account_code=new_account["account_code"],
@@ -1368,6 +1513,7 @@ async def update_account(
         client_user_id=new_account.get("client_user_id"),
         assignment_count=count_result.count or 0,
         created_at=new_account.get("created_at"),
+        admin_remarks=admin_remarks,
     )
 
 

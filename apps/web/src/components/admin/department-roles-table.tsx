@@ -38,6 +38,7 @@ interface DepartmentRole {
   position: number;
   permissions: string[];
   created_at: string | null;
+  admin_remarks: string | null;
 }
 
 interface DepartmentRolesTableProps {
@@ -85,14 +86,22 @@ export function DepartmentRolesTable({
       const data = await res.json();
       setRoles(data.roles);
 
-      // Fetch assignment counts for all roles
+      // Fetch assignment counts in a single batch query (avoids N+1)
+      const roleIds = data.roles.map((r: DepartmentRole) => r.id);
       const counts: Record<string, number> = {};
-      for (const role of data.roles) {
-        const { count } = await supabase
+      // Initialize all counts to 0
+      roleIds.forEach((id: string) => { counts[id] = 0; });
+
+      if (roleIds.length > 0) {
+        const { data: assignments } = await supabase
           .from("membership_department_roles")
-          .select("*", { count: "exact", head: true })
-          .eq("role_id", role.id);
-        counts[role.id] = count ?? 0;
+          .select("role_id")
+          .in("role_id", roleIds);
+
+        // Count client-side
+        assignments?.forEach((a: { role_id: string }) => {
+          counts[a.role_id] = (counts[a.role_id] || 0) + 1;
+        });
       }
       setAssignmentCounts(counts);
     } catch (err) {
@@ -151,7 +160,7 @@ export function DepartmentRolesTable({
       </div>
 
       <div className="rounded-lg border border-gray-800 bg-gray-900">
-        <Table>
+        <Table aria-label="Access profiles">
           <TableHeader>
             <TableRow className="border-gray-800 hover:bg-gray-900">
               <TableHead className="text-gray-400 w-8"></TableHead>
