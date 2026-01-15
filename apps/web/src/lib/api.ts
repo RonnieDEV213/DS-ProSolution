@@ -197,22 +197,27 @@ export function normalizeForCompare(value: unknown): unknown {
 }
 
 /**
- * Format value for display:
- * - null/undefined/empty string => "-"
+ * Format text value for display:
+ * - null/undefined/empty string => "N/A"
  * - other => String(value)
- * Note: 0 and false display as "0" and "false", not "-"
+ * Note: 0 and false display as "0" and "false", not "N/A"
  */
 export function displayValue(value: unknown): string {
-  if (value === null || value === undefined) return "-";
+  if (value === null || value === undefined) return "N/A";
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed === "" ? "-" : trimmed;
+    return trimmed === "" ? "N/A" : trimmed;
   }
   return String(value);
 }
 
+/**
+ * Format cents to dollars for display:
+ * - null/undefined => "$0.00" (treat missing as zero for money fields)
+ * - number => "$X.XX"
+ */
 export function formatCents(cents: number | null | undefined): string {
-  if (cents == null) return "-";
+  if (cents == null) return "$0.00";
   return `$${(cents / 100).toFixed(2)}`;
 }
 
@@ -222,21 +227,33 @@ export function parseDollars(value: string): number | null {
   return Math.round(num * 100);
 }
 
+/**
+ * Format date for display:
+ * - null/undefined/invalid => "—"
+ * - valid date => "Jan 15, 2026" format
+ */
+export function formatDisplayDate(date?: string | Date | null): string {
+  if (!date) return "—";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(d);
+}
+
 export interface UserRole {
+  role: string | null;
   isAdmin: boolean;
-  isOrderDept: boolean;
-  isServiceDept: boolean;
-  canAccessOrderRemark: boolean;
-  canAccessServiceRemark: boolean;
-  department: string | null;
+  hasAccessProfile: boolean;
 }
 
 export function exportToCSV(
   records: BookkeepingRecord[],
-  accountCode: string,
-  userRole?: UserRole
+  accountCode: string
 ): void {
-  // Build headers based on role
+  // All columns - remarks are server-filtered based on permissions
   const headers = [
     "Sale Date",
     "eBay Order ID",
@@ -251,45 +268,33 @@ export function exportToCSV(
     "COGS Total",
     "Return Label Cost",
     "Status",
+    "Order Remark",
+    "Service Remark",
+    "Profit",
+    "Amazon Order ID",
+    "Account ID",
   ];
 
-  // Add remark columns based on access
-  const includeOrderRemark = !userRole || userRole.canAccessOrderRemark;
-  const includeServiceRemark = !userRole || userRole.canAccessServiceRemark;
-
-  if (includeOrderRemark) headers.push("Order Remark");
-  if (includeServiceRemark) headers.push("Service Remark");
-
-  headers.push("Profit", "Amazon Order ID", "Account ID");
-
-  const rows = records.map((r) => {
-    const row = [
-      r.sale_date,
-      r.ebay_order_id,
-      r.item_name,
-      r.qty.toString(),
-      formatCents(r.sale_price_cents),
-      formatCents(r.ebay_fees_cents),
-      formatCents(r.earnings_net_cents),
-      formatCents(r.amazon_price_cents),
-      formatCents(r.amazon_tax_cents),
-      formatCents(r.amazon_shipping_cents),
-      formatCents(r.cogs_total_cents),
-      formatCents(r.return_label_cost_cents),
-      STATUS_LABELS[r.status] || r.status,
-    ];
-
-    if (includeOrderRemark) row.push(r.order_remark || "");
-    if (includeServiceRemark) row.push(r.service_remark || "");
-
-    row.push(
-      formatCents(r.profit_cents),
-      r.amazon_order_id || "",
-      r.account_id
-    );
-
-    return row;
-  });
+  const rows = records.map((r) => [
+    r.sale_date,
+    r.ebay_order_id,
+    r.item_name,
+    r.qty.toString(),
+    formatCents(r.sale_price_cents),
+    formatCents(r.ebay_fees_cents),
+    formatCents(r.earnings_net_cents),
+    formatCents(r.amazon_price_cents),
+    formatCents(r.amazon_tax_cents),
+    formatCents(r.amazon_shipping_cents),
+    formatCents(r.cogs_total_cents),
+    formatCents(r.return_label_cost_cents),
+    STATUS_LABELS[r.status] || r.status,
+    r.order_remark || "",
+    r.service_remark || "",
+    formatCents(r.profit_cents),
+    r.amazon_order_id || "",
+    r.account_id,
+  ]);
 
   const csvContent = [
     headers.join(","),
@@ -302,7 +307,7 @@ export function exportToCSV(
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `bookkeeping-${accountCode}-${new Date().toISOString().split("T")[0]}.csv`;
+  link.download = `order-tracking-${accountCode}-${new Date().toISOString().split("T")[0]}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }

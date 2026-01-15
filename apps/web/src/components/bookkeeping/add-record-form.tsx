@@ -116,10 +116,7 @@ export function AddRecordForm({
         amazon_tax_cents: amazonTax,
         amazon_shipping_cents: amazonShipping,
         amazon_order_id: formData.amazon_order_id || null,
-        order_remark:
-          userRole.canAccessOrderRemark && formData.order_remark
-            ? formData.order_remark
-            : null,
+        order_remark: formData.order_remark || null,
         status: formData.status,
       });
 
@@ -311,20 +308,18 @@ export function AddRecordForm({
           </Select>
         </div>
 
-        {userRole.canAccessOrderRemark && (
-          <div className="space-y-2 col-span-2">
-            <Label htmlFor="order_remark" className="text-gray-300">
-              Order Remark
-            </Label>
-            <Textarea
-              id="order_remark"
-              value={formData.order_remark}
-              onChange={(e) => handleChange("order_remark", e.target.value)}
-              className="bg-gray-800 border-gray-700 min-h-[60px]"
-              placeholder="Notes about this order..."
-            />
-          </div>
-        )}
+        <div className="space-y-2 col-span-2">
+          <Label htmlFor="order_remark" className="text-gray-300">
+            Order Remark
+          </Label>
+          <Textarea
+            id="order_remark"
+            value={formData.order_remark}
+            onChange={(e) => handleChange("order_remark", e.target.value)}
+            className="bg-gray-800 border-gray-700 min-h-[60px]"
+            placeholder="Notes about this order..."
+          />
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 mt-4">

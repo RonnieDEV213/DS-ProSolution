@@ -3,14 +3,31 @@ import { createClient } from "@/lib/supabase/server";
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
-  // Get some stats
-  const { count: inviteCount } = await supabase
-    .from("invites")
-    .select("*", { count: "exact", head: true });
+  let inviteCount: number | null = null;
+  let memberCount: number | null = null;
+  let loadError = false;
 
-  const { count: memberCount } = await supabase
-    .from("memberships")
-    .select("*", { count: "exact", head: true });
+  try {
+    const { count, error } = await supabase
+      .from("invites")
+      .select("*", { count: "exact", head: true });
+    if (error) throw error;
+    inviteCount = count ?? 0;
+  } catch (e) {
+    console.error("[admin/page] Failed to load invite count:", e);
+    loadError = true;
+  }
+
+  try {
+    const { count, error } = await supabase
+      .from("memberships")
+      .select("*", { count: "exact", head: true });
+    if (error) throw error;
+    memberCount = count ?? 0;
+  } catch (e) {
+    console.error("[admin/page] Failed to load member count:", e);
+    loadError = true;
+  }
 
   return (
     <div className="space-y-8">
@@ -21,15 +38,25 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
+      {loadError && (
+        <div className="bg-yellow-900/50 border border-yellow-700 text-yellow-200 px-4 py-3 rounded">
+          Unable to load some dashboard data. Please refresh the page.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
           <h3 className="text-sm font-medium text-gray-400">Total Invites</h3>
-          <p className="text-3xl font-bold text-white mt-2">{inviteCount ?? 0}</p>
+          <p className="text-3xl font-bold text-white mt-2">
+            {inviteCount !== null ? inviteCount : "—"}
+          </p>
         </div>
 
         <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
           <h3 className="text-sm font-medium text-gray-400">Total Members</h3>
-          <p className="text-3xl font-bold text-white mt-2">{memberCount ?? 0}</p>
+          <p className="text-3xl font-bold text-white mt-2">
+            {memberCount !== null ? memberCount : "—"}
+          </p>
         </div>
 
         <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">

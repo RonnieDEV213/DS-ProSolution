@@ -1,24 +1,47 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/hooks/use-user-role";
 
 const navItems = [
   { href: "/va", label: "Dashboard", icon: "home" },
-  { href: "/va/bookkeeping", label: "Bookkeeping", icon: "book" },
+  { href: "/va/order-tracking", label: "Order Tracking", icon: "book" },
 ];
 
 export default function VALayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { role, hasAccessProfile, loading } = useUserRole();
+
+  const navItemsToShow =
+    role === "va" && !hasAccessProfile
+      ? navItems.filter((item) => item.href === "/va")
+      : navItems;
+
+  useEffect(() => {
+    if (!loading && role === "va" && !hasAccessProfile && pathname !== "/va") {
+      router.replace("/va");
+    }
+  }, [loading, role, hasAccessProfile, pathname, router]);
 
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  // Show loading state while checking user role
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="text-gray-400">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-950">
@@ -29,7 +52,7 @@ export default function VALayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => {
+          {navItemsToShow.map((item) => {
             const isActive =
               item.href === "/va"
                 ? pathname === "/va"

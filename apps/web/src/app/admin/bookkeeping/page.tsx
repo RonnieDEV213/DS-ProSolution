@@ -1,5 +1,6 @@
-import { BookkeepingContent } from "@/components/bookkeeping/bookkeeping-content";
+import { redirect } from "next/navigation";
 
+// Redirect old path to new path
 export default function AdminBookkeepingPage() {
-  return <BookkeepingContent />;
+  redirect("/admin/order-tracking");
 }

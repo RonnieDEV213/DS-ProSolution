@@ -28,7 +28,7 @@ export function AccountSelector({
       onValueChange={onSelect}
       disabled={disabled}
     >
-      <SelectTrigger className="w-[280px] bg-gray-800 border-gray-700">
+      <SelectTrigger className="w-[280px] bg-gray-800 border-gray-700" aria-label="Select account">
         <SelectValue placeholder="Select an account..." />
       </SelectTrigger>
       <SelectContent className="bg-gray-800 border-gray-700">

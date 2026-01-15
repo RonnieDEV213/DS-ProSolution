@@ -16,7 +16,18 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(npx tsc:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(python:*)",
+      "Bash(ruff check:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(findstr:*)",
+      "Bash(.venv/Scripts/python -m ruff check src)",
+      "Bash(.venv/Scripts/python:*)"
     ]
   }
 }

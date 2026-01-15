@@ -13,11 +13,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const ACCOUNT_TYPES = ["admin", "va", "client"] as const;
-const DEPARTMENTS = ["ordering", "listing", "cs", "returns", "general"] as const;
+const USER_TYPES = ["admin", "va", "client"] as const;
 
-type AccountType = (typeof ACCOUNT_TYPES)[number];
-type Department = (typeof DEPARTMENTS)[number];
+type UserType = (typeof USER_TYPES)[number];
+
+const EXPIRATION_OPTIONS = [
+  { label: "1 hour", value: 1 * 60 * 60 * 1000 },
+  { label: "6 hours", value: 6 * 60 * 60 * 1000 },
+  { label: "12 hours", value: 12 * 60 * 60 * 1000 },
+  { label: "24 hours", value: 24 * 60 * 60 * 1000 },
+  { label: "3 days", value: 3 * 24 * 60 * 60 * 1000 },
+  { label: "7 days", value: 7 * 24 * 60 * 60 * 1000 },
+] as const;
 
 interface CreateInviteFormProps {
   onInviteCreated?: () => void;
@@ -25,33 +32,33 @@ interface CreateInviteFormProps {
 
 export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
   const [email, setEmail] = useState("");
-  const [accountType, setAccountType] = useState<AccountType>("client");
-  const [department, setDepartment] = useState<Department | "">("");
+  const [userType, setUserType] = useState<UserType>("client");
+  const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!expiresIn) {
+      setError("Please select an expiration time");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccess(false);
 
     const supabase = createClient();
 
-    const inviteData: {
-      email: string;
-      account_type: AccountType;
-      department?: Department;
-    } = {
-      email: email.toLowerCase().trim(),
-      account_type: accountType,
-    };
+    const expiresAt = new Date(Date.now() + expiresIn).toISOString();
 
-    // Only include department for VA role
-    if (accountType === "va" && department) {
-      inviteData.department = department;
-    }
+    const inviteData = {
+      email: email.toLowerCase().trim(),
+      user_type: userType,
+      expires_at: expiresAt,
+    };
 
     const { error: insertError } = await supabase
       .from("invites")
@@ -66,8 +73,8 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
     } else {
       setSuccess(true);
       setEmail("");
-      setAccountType("client");
-      setDepartment("");
+      setUserType("client");
+      setExpiresIn(null);
       onInviteCreated?.();
     }
 
@@ -94,7 +101,7 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-1">
+        <div>
           <Label htmlFor="email" className="text-gray-300">
             Email
           </Label>
@@ -110,15 +117,12 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
         </div>
 
         <div>
-          <Label htmlFor="accountType" className="text-gray-300">
-            Role
+          <Label htmlFor="userType" className="text-gray-300">
+            User Type
           </Label>
           <Select
-            value={accountType}
-            onValueChange={(v) => {
-              setAccountType(v as AccountType);
-              if (v !== "va") setDepartment("");
-            }}
+            value={userType}
+            onValueChange={(v) => setUserType(v as UserType)}
           >
             <SelectTrigger className="mt-1">
               <SelectValue />
@@ -131,28 +135,26 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
           </Select>
         </div>
 
-        {accountType === "va" && (
-          <div>
-            <Label htmlFor="department" className="text-gray-300">
-              Department
-            </Label>
-            <Select
-              value={department}
-              onValueChange={(v) => setDepartment(v as Department)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select department" />
-              </SelectTrigger>
-              <SelectContent>
-                {DEPARTMENTS.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept.charAt(0).toUpperCase() + dept.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div>
+          <Label htmlFor="expiresIn" className="text-gray-300">
+            Expires In
+          </Label>
+          <Select
+            value={expiresIn?.toString() ?? ""}
+            onValueChange={(v) => setExpiresIn(Number(v))}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select duration" />
+            </SelectTrigger>
+            <SelectContent>
+              {EXPIRATION_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value.toString()}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Button type="submit" disabled={loading}>
