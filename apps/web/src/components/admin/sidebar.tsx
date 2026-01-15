@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: "home" },
   { href: "/admin/users", label: "Users", icon: "users-group" },
-  { href: "/admin/department-roles", label: "Department Roles", icon: "shield" },
+  { href: "/admin/department-roles", label: "Access Profiles", icon: "shield" },
   { href: "/admin/accounts", label: "Accounts", icon: "folder" },
   { href: "/admin/invites", label: "Invites", icon: "users" },
   { href: "/admin/order-tracking", label: "Order Tracking", icon: "book" },

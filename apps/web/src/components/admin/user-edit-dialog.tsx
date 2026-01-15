@@ -3,12 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -73,6 +72,8 @@ interface UserEditDialogProps {
   ownerUserId?: string | null;
 }
 
+type Tab = "profile" | "access-profiles";
+
 export function UserEditDialog({
   user,
   open,
@@ -85,6 +86,7 @@ export function UserEditDialog({
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState("");
   const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   // Department roles state
   const [availableDeptRoles, setAvailableDeptRoles] = useState<DepartmentRole[]>([]);
@@ -162,6 +164,7 @@ export function UserEditDialog({
   useEffect(() => {
     if (user) {
       setRole(user.membership.role);
+      setActiveTab("profile");
 
       // Fetch department roles if user is a VA
       if (user.membership.role === "va") {
@@ -174,6 +177,13 @@ export function UserEditDialog({
       }
     }
   }, [user, fetchAvailableDeptRoles, fetchAssignedDeptRoles]);
+
+  // Switch to profile tab if role changes from VA
+  useEffect(() => {
+    if (role !== "va" && activeTab === "access-profiles") {
+      setActiveTab("profile");
+    }
+  }, [role, activeTab]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -379,133 +389,172 @@ export function UserEditDialog({
   const canUnsuspend = !isProtected && isSuspended;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-800 text-white">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <DialogTitle>Edit User</DialogTitle>
-            {isSuspended && (
-              <Badge className="bg-red-600 hover:bg-red-600">Suspended</Badge>
-            )}
-          </div>
-          <DialogDescription className="text-gray-400">
-            {user.profile.email}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent hideCloseButton className="sm:max-w-3xl p-0 bg-gray-900 border-gray-800 text-white overflow-hidden">
+          <div className="flex h-[500px]">
+            {/* Sidebar */}
+            <div className="w-52 border-r border-gray-800 flex flex-col bg-gray-950">
+              {/* Header */}
+              <DialogHeader className="p-4 border-b border-gray-800">
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="text-base">Edit User</DialogTitle>
+                  {isSuspended && (
+                    <Badge className="bg-red-600 hover:bg-red-600 text-xs">Suspended</Badge>
+                  )}
+                </div>
+                <p className="text-sm text-gray-400 truncate">{user.profile.email}</p>
+              </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Lockout Prevention Warning */}
-          {isProtected && (
-            <div className="rounded-lg bg-amber-900/30 border border-amber-700 p-3">
-              <p className="text-sm text-amber-200">
-                {isSelf
-                  ? "You cannot change your own role."
-                  : isOwner
-                    ? "This user is the organization owner. Transfer ownership to modify."
-                    : "This is the last admin. Role cannot be changed."}
-              </p>
-            </div>
-          )}
+              {/* Tab Navigation */}
+              <nav className="flex-1 p-2 space-y-1">
+                <button
+                  onClick={() => setActiveTab("profile")}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded text-sm transition-colors",
+                    activeTab === "profile"
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800"
+                  )}
+                >
+                  Profile
+                </button>
+                {role === "va" && (
+                  <button
+                    onClick={() => setActiveTab("access-profiles")}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded text-sm transition-colors",
+                      activeTab === "access-profiles"
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-300 hover:bg-gray-800"
+                    )}
+                  >
+                    Access Profiles
+                  </button>
+                )}
+              </nav>
 
-          {/* User Type */}
-          <div className="space-y-2">
-            <Label>User Type</Label>
-            <Select value={role} onValueChange={setRole} disabled={isProtected}>
-              <SelectTrigger className="bg-gray-800 border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="va">VA</SelectItem>
-                <SelectItem value="client">Client</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Department Roles (for VAs) */}
-          {role === "va" && (
-            <div className="space-y-3">
-              <Label>Department Roles</Label>
-              <p className="text-sm text-gray-400">
-                Assign department roles to grant specific permissions.
-              </p>
-              {loadingDeptRoles ? (
-                <p className="text-sm text-gray-500">Loading roles...</p>
-              ) : availableDeptRoles.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No department roles available. Create roles in the Department Roles page.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {availableDeptRoles.map((deptRole) => (
-                    <div
-                      key={deptRole.id}
-                      className="flex items-center gap-3 p-2 rounded bg-gray-800 cursor-pointer hover:bg-gray-750"
-                      onClick={() => handleDeptRoleToggle(deptRole.id)}
+              {/* Suspend/Unsuspend Button */}
+              {(canSuspend || canUnsuspend) && (
+                <div className="p-3 border-t border-gray-800">
+                  {canSuspend && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleSuspendClick}
+                      disabled={saving}
                     >
-                      <Checkbox checked={assignedDeptRoleIds.has(deptRole.id)} />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium">{deptRole.name}</span>
-                        {deptRole.permissions.length > 0 && (
-                          <p className="text-xs text-gray-400">
-                            {deptRole.permissions.length} permission{deptRole.permissions.length !== 1 ? "s" : ""}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                      Suspend User
+                    </Button>
+                  )}
+                  {canUnsuspend && (
+                    <Button
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      onClick={handleUnsuspend}
+                      disabled={saving}
+                    >
+                      Unsuspend User
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
-          )}
 
-          {/* Suspend/Unsuspend Section */}
-          {(canSuspend || canUnsuspend) && (
-            <div className="border-t border-gray-800 pt-4">
-              <Label className="text-gray-400">Account Status</Label>
-              <div className="mt-2">
-                {canSuspend && (
-                  <Button
-                    variant="destructive"
-                    onClick={handleSuspendClick}
-                    disabled={saving}
-                    className="w-full"
-                  >
-                    Suspend User
-                  </Button>
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col">
+              <div className="flex-1 overflow-y-auto p-6">
+                {/* Profile Tab */}
+                {activeTab === "profile" && (
+                  <div className="space-y-4">
+                    {/* Lockout Prevention Warning */}
+                    {isProtected && (
+                      <div className="rounded-lg bg-amber-900/30 border border-amber-700 p-3">
+                        <p className="text-sm text-amber-200">
+                          {isSelf
+                            ? "You cannot change your own role."
+                            : isOwner
+                              ? "This user is the organization owner. Transfer ownership to modify."
+                              : "This is the last admin. Role cannot be changed."}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* User Type */}
+                    <div className="space-y-2">
+                      <Label>User Type</Label>
+                      <Select value={role} onValueChange={setRole} disabled={isProtected}>
+                        <SelectTrigger className="bg-gray-800 border-gray-700">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="va">VA</SelectItem>
+                          <SelectItem value="client">Client</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">
+                        Changing user type affects their permissions and access.
+                      </p>
+                    </div>
+                  </div>
                 )}
-                {canUnsuspend && (
-                  <Button
-                    onClick={handleUnsuspend}
-                    disabled={saving}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    Unsuspend User
-                  </Button>
+
+                {/* Access Profiles Tab */}
+                {activeTab === "access-profiles" && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-400">
+                      Assign access profiles to grant specific permissions.
+                    </p>
+                    {loadingDeptRoles ? (
+                      <p className="text-sm text-gray-500">Loading profiles...</p>
+                    ) : availableDeptRoles.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No access profiles available. Create profiles in the Access Profiles page.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {availableDeptRoles.map((deptRole) => (
+                          <div
+                            key={deptRole.id}
+                            className="flex items-center gap-3 p-3 rounded bg-gray-800 cursor-pointer hover:bg-gray-750"
+                            onClick={() => handleDeptRoleToggle(deptRole.id)}
+                          >
+                            <Checkbox checked={assignedDeptRoleIds.has(deptRole.id)} />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium">{deptRole.name}</span>
+                              {deptRole.permissions.length > 0 && (
+                                <p className="text-xs text-gray-400">
+                                  {deptRole.permissions.length} permission{deptRole.permissions.length !== 1 ? "s" : ""}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {isSuspended
-                  ? "Unsuspending will restore the user to active status."
-                  : "Suspending will immediately block the user from accessing the application."}
-              </p>
-            </div>
-          )}
-        </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="border-gray-700 text-gray-300 hover:bg-gray-800"
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+              {/* Footer */}
+              <div className="border-t border-gray-800 p-4 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Suspend Confirmation Dialog */}
       <AlertDialog open={suspendConfirmOpen} onOpenChange={setSuspendConfirmOpen}>
@@ -528,6 +577,6 @@ export function UserEditDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Dialog>
+    </>
   );
 }

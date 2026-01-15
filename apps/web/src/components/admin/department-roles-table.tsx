@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import {
@@ -13,16 +13,6 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { DepartmentRoleDialog } from "./department-role-dialog";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -65,10 +55,8 @@ export function DepartmentRolesTable({
   const [loading, setLoading] = useState(true);
   const [editingRole, setEditingRole] = useState<DepartmentRole | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
-  const [roleToDelete, setRoleToDelete] = useState<DepartmentRole | null>(null);
-  const [assignedCount, setAssignedCount] = useState<number>(0);
-  const [loadingCount, setLoadingCount] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [assignmentCounts, setAssignmentCounts] = useState<Record<string, number>>({});
 
   const fetchRoles = useCallback(async () => {
     setLoading(true);
@@ -96,6 +84,17 @@ export function DepartmentRolesTable({
 
       const data = await res.json();
       setRoles(data.roles);
+
+      // Fetch assignment counts for all roles
+      const counts: Record<string, number> = {};
+      for (const role of data.roles) {
+        const { count } = await supabase
+          .from("membership_department_roles")
+          .select("*", { count: "exact", head: true })
+          .eq("role_id", role.id);
+        counts[role.id] = count ?? 0;
+      }
+      setAssignmentCounts(counts);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to fetch department roles");
     } finally {
@@ -103,73 +102,19 @@ export function DepartmentRolesTable({
     }
   }, [orgId]);
 
+  const toggleExpanded = (id: string) => {
+    const next = new Set(expandedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setExpandedIds(next);
+  };
+
   useEffect(() => {
     fetchRoles();
   }, [fetchRoles, refreshTrigger]);
-
-  const fetchAssignmentCount = async (roleId: string): Promise<number> => {
-    try {
-      const supabase = createClient();
-      const { count } = await supabase
-        .from("membership_department_roles")
-        .select("*", { count: "exact", head: true })
-        .eq("role_id", roleId);
-      return count ?? 0;
-    } catch {
-      return 0;
-    }
-  };
-
-  const handleDeleteClick = async (role: DepartmentRole) => {
-    setLoadingCount(true);
-    setRoleToDelete(role);
-    const count = await fetchAssignmentCount(role.id);
-    setAssignedCount(count);
-    setLoadingCount(false);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!roleToDelete) return;
-
-    setDeletingRoleId(roleToDelete.id);
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      const res = await fetch(`${API_BASE}/admin/orgs/${orgId}/department-roles/${roleToDelete.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: "Failed to delete role" }));
-        throw new Error(error.detail || "Failed to delete role");
-      }
-
-      toast.success("Access profile deleted");
-      onRoleUpdated();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete role");
-    } finally {
-      setDeletingRoleId(null);
-      setRoleToDelete(null);
-      setAssignedCount(0);
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setRoleToDelete(null);
-    setAssignedCount(0);
-  };
 
   const getPermissionBadges = (permissions: string[]) => {
     if (permissions.length === 0) {
@@ -209,9 +154,10 @@ export function DepartmentRolesTable({
         <Table>
           <TableHeader>
             <TableRow className="border-gray-800 hover:bg-gray-900">
+              <TableHead className="text-gray-400 w-8"></TableHead>
               <TableHead className="text-gray-400 w-12">#</TableHead>
               <TableHead className="text-gray-400">Name</TableHead>
-              <TableHead className="text-gray-400">Permissions</TableHead>
+              <TableHead className="text-gray-400">Assigned VAs</TableHead>
               <TableHead className="text-gray-400">Created</TableHead>
               <TableHead className="text-gray-400 text-right">Actions</TableHead>
             </TableRow>
@@ -219,46 +165,92 @@ export function DepartmentRolesTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : roles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                   No access profiles found. Create one to get started.
                 </TableCell>
               </TableRow>
             ) : (
-              roles.map((role, index) => (
-                <TableRow key={role.id} className="border-gray-800">
-                  <TableCell className="text-gray-500">{index + 1}</TableCell>
-                  <TableCell className="text-white font-medium">{role.name}</TableCell>
-                  <TableCell>{getPermissionBadges(role.permissions)}</TableCell>
-                  <TableCell className="text-gray-400">{formatDate(role.created_at)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingRole(role)}
-                        className="text-gray-400 hover:text-white"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteClick(role)}
-                        disabled={deletingRoleId === role.id || (loadingCount && roleToDelete?.id === role.id)}
-                        className="text-red-400 hover:text-red-300 disabled:opacity-50"
-                      >
-                        {deletingRoleId === role.id ? "Deleting..." : "Delete"}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              roles.map((role, index) => {
+                const isExpanded = expandedIds.has(role.id);
+                return (
+                  <Fragment key={role.id}>
+                    {/* Main Row */}
+                    <TableRow className="border-gray-800">
+                      {/* Expand Toggle */}
+                      <TableCell className="p-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-gray-400"
+                          onClick={() => toggleExpanded(role.id)}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                          >
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-gray-500">{index + 1}</TableCell>
+                      <TableCell className="text-white font-medium">{role.name}</TableCell>
+                      <TableCell className="text-gray-300">
+                        {assignmentCounts[role.id] ?? 0} VA{(assignmentCounts[role.id] ?? 0) !== 1 ? "s" : ""}
+                      </TableCell>
+                      <TableCell className="text-gray-400">{formatDate(role.created_at)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingRole(role)}
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                            <path d="m15 5 4 4" />
+                          </svg>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Expanded Details Row */}
+                    {isExpanded && (
+                      <TableRow key={`${role.id}-details`} className="bg-gray-900/50">
+                        <TableCell colSpan={6} className="p-4">
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-gray-400">Permissions</h4>
+                            {getPermissionBadges(role.permissions)}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -286,42 +278,11 @@ export function DepartmentRolesTable({
           setEditingRole(null);
           onRoleUpdated();
         }}
+        onDeleted={() => {
+          setEditingRole(null);
+          onRoleUpdated();
+        }}
       />
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!roleToDelete && !loadingCount} onOpenChange={(open) => !open && handleCancelDelete()}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {assignedCount > 0 ? "Warning: Users Assigned" : "Delete Access Profile"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {assignedCount > 0 ? (
-                <>
-                  Deleting &quot;{roleToDelete?.name}&quot; will remove this access profile from{" "}
-                  <span className="text-amber-400 font-medium">
-                    {assignedCount} user{assignedCount !== 1 ? "s" : ""}
-                  </span>
-                  . This action cannot be undone.
-                </>
-              ) : (
-                <>
-                  Are you sure you want to delete &quot;{roleToDelete?.name}&quot;? This action cannot be undone.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className={assignedCount > 0 ? "bg-red-600 hover:bg-red-700" : ""}
-            >
-              {assignedCount > 0 ? "Delete Profile" : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

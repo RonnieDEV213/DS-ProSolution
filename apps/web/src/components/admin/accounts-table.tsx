@@ -13,18 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { AccountDialog } from "./account-dialog";
-import { AccountAssignmentsDialog } from "./account-assignments-dialog";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -66,9 +55,6 @@ export function AccountsTable({
   const [page, setPage] = useState(1);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [assignmentsAccount, setAssignmentsAccount] = useState<Account | null>(null);
-  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
-  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
   const pageSize = 20;
 
   const fetchUsers = useCallback(async () => {
@@ -146,51 +132,6 @@ export function AccountsTable({
     return () => clearTimeout(debounce);
   }, [fetchAccounts, refreshTrigger]);
 
-  const handleDeleteClick = (account: Account) => {
-    setAccountToDelete(account);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!accountToDelete) return;
-
-    setDeletingAccountId(accountToDelete.id);
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      const res = await fetch(`${API_BASE}/admin/accounts/${accountToDelete.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: "Failed to delete account" }));
-        throw new Error(error.detail || "Failed to delete account");
-      }
-
-      toast.success("Account deleted");
-      onAccountUpdated();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete account");
-    } finally {
-      setDeletingAccountId(null);
-      setAccountToDelete(null);
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setAccountToDelete(null);
-  };
-
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleDateString();
@@ -256,33 +197,27 @@ export function AccountsTable({
                     {formatDate(account.created_at)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setAssignmentsAccount(account)}
-                        className="text-blue-400 hover:text-blue-300"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingAccount(account)}
+                      className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        Assignments
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingAccount(account)}
-                        className="text-gray-400 hover:text-white"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteClick(account)}
-                        disabled={deletingAccountId === account.id}
-                        className="text-red-400 hover:text-red-300 disabled:opacity-50"
-                      >
-                        {deletingAccountId === account.id ? "Deleting..." : "Delete"}
-                      </Button>
-                    </div>
+                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                        <path d="m15 5 4 4" />
+                      </svg>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -342,42 +277,11 @@ export function AccountsTable({
           setEditingAccount(null);
           onAccountUpdated();
         }}
+        onDeleted={() => {
+          setEditingAccount(null);
+          onAccountUpdated();
+        }}
       />
-
-      {/* Assignments Dialog */}
-      {assignmentsAccount && (
-        <AccountAssignmentsDialog
-          open={!!assignmentsAccount}
-          onOpenChange={(open) => !open && setAssignmentsAccount(null)}
-          account={assignmentsAccount}
-          users={users}
-          onSaved={() => {
-            onAccountUpdated();
-          }}
-        />
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!accountToDelete} onOpenChange={(open) => !open && handleCancelDelete()}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              Deleting &quot;{accountToDelete?.account_code}&quot; will permanently remove this
-              account and all VA assignments. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
