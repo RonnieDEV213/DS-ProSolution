@@ -13,6 +13,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { UserEditDialog } from "./user-edit-dialog";
 import { TransferOwnershipDialog } from "./transfer-ownership-dialog";
 
@@ -164,7 +169,14 @@ export function UsersTable({
         case "admin":
           return <Badge className="bg-purple-600 hover:bg-purple-600">Admin</Badge>;
         case "va":
-          return <Badge className="bg-blue-600 hover:bg-blue-600">VA</Badge>;
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className="bg-blue-600 hover:bg-blue-600 cursor-help">VA</Badge>
+              </TooltipTrigger>
+              <TooltipContent>Virtual Assistant</TooltipContent>
+            </Tooltip>
+          );
         case "client":
           return <Badge className="bg-gray-600 hover:bg-gray-600">Client</Badge>;
         default:

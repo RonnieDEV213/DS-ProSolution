@@ -22,6 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -74,6 +84,7 @@ export function UserEditDialog({
 }: UserEditDialogProps) {
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState("");
+  const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
 
   // Department roles state
   const [availableDeptRoles, setAvailableDeptRoles] = useState<DepartmentRole[]>([]);
@@ -279,11 +290,13 @@ export function UserEditDialog({
     });
   };
 
-  const handleSuspend = async () => {
+  const handleSuspendClick = () => {
+    setSuspendConfirmOpen(true);
+  };
+
+  const handleConfirmSuspend = async () => {
     if (!user) return;
-    if (!window.confirm(`Are you sure you want to suspend ${user.profile.email}? They will be immediately blocked from accessing the application.`)) {
-      return;
-    }
+    setSuspendConfirmOpen(false);
 
     setSaving(true);
     try {
@@ -454,7 +467,7 @@ export function UserEditDialog({
                 {canSuspend && (
                   <Button
                     variant="destructive"
-                    onClick={handleSuspend}
+                    onClick={handleSuspendClick}
                     disabled={saving}
                     className="w-full"
                   >
@@ -493,6 +506,28 @@ export function UserEditDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Suspend Confirmation Dialog */}
+      <AlertDialog open={suspendConfirmOpen} onOpenChange={setSuspendConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Suspend User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to suspend {user?.profile.email}? They will be immediately blocked from accessing the application.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSuspend}
+              disabled={saving}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {saving ? "Suspending..." : "Suspend"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

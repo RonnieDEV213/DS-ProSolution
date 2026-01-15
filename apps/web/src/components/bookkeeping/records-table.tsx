@@ -21,6 +21,16 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   api,
   displayValue,
   formatCents,
@@ -83,6 +93,8 @@ export function RecordsTable({
     id: string;
     status: BookkeepingStatus;
   } | null>(null);
+  const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const toggleExpanded = (id: string) => {
     const next = new Set(expandedIds);
@@ -217,6 +229,7 @@ export function RecordsTable({
     try {
       const updated = await api.updateRecord(recordId, { status: newStatus });
       onRecordUpdated(updated);
+      toast.success(`Status updated to ${STATUS_LABELS[newStatus]}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update status");
     } finally {
@@ -225,19 +238,27 @@ export function RecordsTable({
     }
   };
 
-  const handleDelete = async (recordId: string) => {
-    if (!confirm("Are you sure you want to delete this record?")) return;
+  const handleDeleteClick = (recordId: string) => {
+    setRecordToDelete(recordId);
+  };
 
-    setSaving(true);
+  const handleConfirmDelete = async () => {
+    if (!recordToDelete) return;
+    setDeleting(true);
     try {
-      await api.deleteRecord(recordId);
-      onRecordDeleted(recordId);
+      await api.deleteRecord(recordToDelete);
       toast.success("Record deleted");
+      onRecordDeleted(recordToDelete);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete");
     } finally {
-      setSaving(false);
+      setDeleting(false);
+      setRecordToDelete(null);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setRecordToDelete(null);
   };
 
   const getStatusBadgeVariant = (status: BookkeepingStatus) => {
@@ -507,7 +528,7 @@ export function RecordsTable({
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0 text-gray-400 hover:text-red-400 hover:bg-red-900/20"
-                        onClick={() => handleDelete(record.id)}
+                        onClick={() => handleDeleteClick(record.id)}
                         disabled={saving}
                         title="Delete record"
                       >
@@ -682,6 +703,28 @@ export function RecordsTable({
           })}
         </TableBody>
       </Table>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!recordToDelete} onOpenChange={(open) => !open && handleCancelDelete()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Record</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this record? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

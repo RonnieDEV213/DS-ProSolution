@@ -1,7 +1,10 @@
+import logging
 from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+
+logger = logging.getLogger(__name__)
 
 from app.auth import get_current_user_with_membership, require_permission_key
 from app.database import get_supabase_for_user
@@ -133,8 +136,9 @@ async def get_records(
             )
             for row in response.data
         ]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to list records")
+        raise HTTPException(status_code=500, detail="Failed to fetch records")
 
 
 @router.post("", response_model=RecordResponse, status_code=201)
@@ -241,7 +245,8 @@ async def create_record(
                 status_code=409,
                 detail="Record with this eBay order ID already exists for this account",
             )
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Failed to create record")
+        raise HTTPException(status_code=500, detail="Failed to create record")
 
 
 @router.patch("/{record_id}", response_model=RecordResponse)
@@ -349,7 +354,8 @@ async def update_record(
                 status_code=409,
                 detail="eBay order ID already exists for this account",
             )
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Failed to update record %s", record_id)
+        raise HTTPException(status_code=500, detail="Failed to update record")
 
 
 @router.delete("/{record_id}", status_code=204)
@@ -372,8 +378,9 @@ async def delete_record(
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to delete record %s", record_id)
+        raise HTTPException(status_code=500, detail="Failed to delete record")
 
 
 # ============================================================
