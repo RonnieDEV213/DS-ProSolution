@@ -27,6 +27,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -76,6 +86,7 @@ export function AccountAssignmentsDialog({
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+  const [assignmentToRemove, setAssignmentToRemove] = useState<string | null>(null);
 
   // Build user lookup map
   const usersMap = new Map(users.map((u) => [u.profile.user_id, u]));
@@ -175,8 +186,14 @@ export function AccountAssignmentsDialog({
     }
   };
 
-  const handleRemove = async (userId: string) => {
-    setRemovingUserId(userId);
+  const handleRemoveClick = (userId: string) => {
+    setAssignmentToRemove(userId);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!assignmentToRemove) return;
+
+    setRemovingUserId(assignmentToRemove);
     try {
       const supabase = createClient();
       const {
@@ -188,7 +205,7 @@ export function AccountAssignmentsDialog({
         return;
       }
 
-      const res = await fetch(`${API_BASE}/admin/accounts/${account.id}/assignments/${userId}`, {
+      const res = await fetch(`${API_BASE}/admin/accounts/${account.id}/assignments/${assignmentToRemove}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -207,7 +224,12 @@ export function AccountAssignmentsDialog({
       toast.error(err instanceof Error ? err.message : "Failed to remove assignment");
     } finally {
       setRemovingUserId(null);
+      setAssignmentToRemove(null);
     }
+  };
+
+  const handleCancelRemove = () => {
+    setAssignmentToRemove(null);
   };
 
   const getUserDisplay = (userId: string) => {
@@ -296,7 +318,7 @@ export function AccountAssignmentsDialog({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleRemove(assignment.user_id)}
+                            onClick={() => handleRemoveClick(assignment.user_id)}
                             disabled={removingUserId === assignment.user_id}
                             className="text-red-400 hover:text-red-300 disabled:opacity-50"
                           >
@@ -312,6 +334,29 @@ export function AccountAssignmentsDialog({
           </div>
         </div>
       </DialogContent>
+
+      {/* Remove Confirmation Dialog */}
+      <AlertDialog open={!!assignmentToRemove} onOpenChange={(open) => !open && handleCancelRemove()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove VA Assignment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove{" "}
+              &quot;{assignmentToRemove ? getUserDisplay(assignmentToRemove) : ""}&quot; from this account?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRemove}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

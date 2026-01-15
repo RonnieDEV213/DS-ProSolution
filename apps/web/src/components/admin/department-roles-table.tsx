@@ -13,6 +13,16 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DepartmentRoleDialog } from "./department-role-dialog";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -56,6 +66,9 @@ export function DepartmentRolesTable({
   const [editingRole, setEditingRole] = useState<DepartmentRole | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
+  const [roleToDelete, setRoleToDelete] = useState<DepartmentRole | null>(null);
+  const [assignedCount, setAssignedCount] = useState<number>(0);
+  const [loadingCount, setLoadingCount] = useState(false);
 
   const fetchRoles = useCallback(async () => {
     setLoading(true);
@@ -94,8 +107,31 @@ export function DepartmentRolesTable({
     fetchRoles();
   }, [fetchRoles, refreshTrigger]);
 
-  const handleDelete = async (roleId: string) => {
-    setDeletingRoleId(roleId);
+  const fetchAssignmentCount = async (roleId: string): Promise<number> => {
+    try {
+      const supabase = createClient();
+      const { count } = await supabase
+        .from("membership_department_roles")
+        .select("*", { count: "exact", head: true })
+        .eq("role_id", roleId);
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const handleDeleteClick = async (role: DepartmentRole) => {
+    setLoadingCount(true);
+    setRoleToDelete(role);
+    const count = await fetchAssignmentCount(role.id);
+    setAssignedCount(count);
+    setLoadingCount(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!roleToDelete) return;
+
+    setDeletingRoleId(roleToDelete.id);
     try {
       const supabase = createClient();
       const {
@@ -107,7 +143,7 @@ export function DepartmentRolesTable({
         return;
       }
 
-      const res = await fetch(`${API_BASE}/admin/orgs/${orgId}/department-roles/${roleId}`, {
+      const res = await fetch(`${API_BASE}/admin/orgs/${orgId}/department-roles/${roleToDelete.id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -125,7 +161,14 @@ export function DepartmentRolesTable({
       toast.error(err instanceof Error ? err.message : "Failed to delete role");
     } finally {
       setDeletingRoleId(null);
+      setRoleToDelete(null);
+      setAssignedCount(0);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setRoleToDelete(null);
+    setAssignedCount(0);
   };
 
   const getPermissionBadges = (permissions: string[]) => {
@@ -206,8 +249,8 @@ export function DepartmentRolesTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(role.id)}
-                        disabled={deletingRoleId === role.id}
+                        onClick={() => handleDeleteClick(role)}
+                        disabled={deletingRoleId === role.id || (loadingCount && roleToDelete?.id === role.id)}
                         className="text-red-400 hover:text-red-300 disabled:opacity-50"
                       >
                         {deletingRoleId === role.id ? "Deleting..." : "Delete"}
@@ -244,6 +287,41 @@ export function DepartmentRolesTable({
           onRoleUpdated();
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!roleToDelete && !loadingCount} onOpenChange={(open) => !open && handleCancelDelete()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {assignedCount > 0 ? "Warning: Users Assigned" : "Delete Access Profile"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {assignedCount > 0 ? (
+                <>
+                  Deleting &quot;{roleToDelete?.name}&quot; will remove this access profile from{" "}
+                  <span className="text-amber-400 font-medium">
+                    {assignedCount} user{assignedCount !== 1 ? "s" : ""}
+                  </span>
+                  . This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete &quot;{roleToDelete?.name}&quot;? This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className={assignedCount > 0 ? "bg-red-600 hover:bg-red-700" : ""}
+            >
+              {assignedCount > 0 ? "Delete Profile" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

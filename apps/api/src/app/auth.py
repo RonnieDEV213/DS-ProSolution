@@ -239,7 +239,7 @@ async def get_current_user_with_membership(
 
     membership_result = (
         supabase.table("memberships")
-        .select("id, role, last_seen_at, org_id")
+        .select("id, role, status, last_seen_at, org_id")
         .eq("user_id", user_id)
         .eq("org_id", DEFAULT_ORG_ID)
         .execute()
@@ -252,6 +252,13 @@ async def get_current_user_with_membership(
         )
 
     membership = membership_result.data[0]
+
+    # Check if user is suspended
+    if membership.get("status") == "suspended":
+        raise HTTPException(
+            status_code=403,
+            detail="Account suspended. Contact an administrator.",
+        )
 
     # Fetch role permissions
     role_perms_result = (

@@ -30,6 +30,7 @@ interface User {
     user_id: string;
     org_id: string;
     role: string;
+    status: string;
     last_seen_at: string | null;
     created_at: string | null;
     updated_at: string | null;
@@ -59,9 +60,9 @@ export function UsersTable({
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const pageSize = 20;
 
-  // Count active admins in the current user list
+  // Count active admins in the current user list (only count non-suspended admins)
   const activeAdminCount = users.filter(
-    (u) => u.membership.role === "admin"
+    (u) => u.membership.role === "admin" && u.membership.status === "active"
   ).length;
 
   const fetchUsers = useCallback(async () => {
@@ -120,8 +121,6 @@ export function UsersTable({
         return;
       }
 
-      console.log("[DEBUG] Fetching org:", orgId, "API_BASE:", API_BASE);
-
       const res = await fetch(`${API_BASE}/admin/orgs/${orgId}`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -129,18 +128,14 @@ export function UsersTable({
       });
 
       if (!res.ok) {
-        const errText = await res.text();
-        console.error("[DEBUG] Org fetch failed:", res.status, errText);
         setOrgLoadError(`org fetch failed: ${res.status}`);
         return;
       }
 
       const org = await res.json();
-      console.log("[DEBUG] Org loaded:", org, "currentUserId:", session.user.id);
       setOwnerUserId(org.owner_user_id);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "org fetch failed";
-      console.error("[DEBUG] Org fetch error:", msg);
       setOrgLoadError(msg);
     }
   }, []);
@@ -163,6 +158,7 @@ export function UsersTable({
   const getRoleBadge = (user: User) => {
     // Only show owner badge if ownerUserId is definitively loaded (not null)
     const isOwner = ownerUserId !== null && user.profile.user_id === ownerUserId;
+    const isSuspended = user.membership.status === "suspended";
     const roleBadge = (() => {
       switch (user.membership.role) {
         case "admin":
@@ -176,20 +172,23 @@ export function UsersTable({
       }
     })();
 
-    if (isOwner) {
-      return (
-        <div className="flex gap-1">
-          <Badge className="bg-yellow-600 hover:bg-yellow-600">Owner</Badge>
-          {roleBadge}
-        </div>
+    const badges = [];
+    if (isSuspended) {
+      badges.push(
+        <Badge key="suspended" className="bg-red-600 hover:bg-red-600">Suspended</Badge>
       );
     }
-    return roleBadge;
-  };
+    if (isOwner) {
+      badges.push(
+        <Badge key="owner" className="bg-yellow-600 hover:bg-yellow-600">Owner</Badge>
+      );
+    }
+    badges.push(<span key="role">{roleBadge}</span>);
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString();
+    if (badges.length > 1) {
+      return <div className="flex gap-1">{badges}</div>;
+    }
+    return roleBadge;
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -203,20 +202,19 @@ export function UsersTable({
               <TableHead className="text-gray-400">Name</TableHead>
               <TableHead className="text-gray-400">Email</TableHead>
               <TableHead className="text-gray-400">User Type</TableHead>
-              <TableHead className="text-gray-400">Last Seen</TableHead>
               <TableHead className="text-gray-400 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={4} className="text-center text-gray-500 py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={4} className="text-center text-gray-500 py-8">
                   No users found
                 </TableCell>
               </TableRow>
@@ -228,9 +226,6 @@ export function UsersTable({
                   </TableCell>
                   <TableCell className="text-gray-300">{user.profile.email}</TableCell>
                   <TableCell>{getRoleBadge(user)}</TableCell>
-                  <TableCell className="text-gray-400">
-                    {formatDate(user.membership.last_seen_at)}
-                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
@@ -310,7 +305,7 @@ export function UsersTable({
           orgId={users[0].membership.org_id}
           currentOwnerId={ownerUserId}
           activeAdmins={users.filter(
-            (u) => u.membership.role === "admin"
+            (u) => u.membership.role === "admin" && u.membership.status === "active"
           )}
           onTransferred={() => {
             setOwnerUserId(null); // Reset to refetch

@@ -1,5 +1,7 @@
 """Admin endpoints for user management."""
 
+import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -37,6 +39,10 @@ from app.models import (
 from app.permissions import DEPT_ROLE_PERMISSION_KEYS, FORBIDDEN_DEPT_ROLE_PERMISSIONS
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger(__name__)
+
+# Regex for safe search characters: alphanumeric, spaces, @, -, _, ., +, '
+SAFE_SEARCH_PATTERN = re.compile(r"^[a-zA-Z0-9\s@._+'-]+$")
 
 
 def _build_user_response(
@@ -62,6 +68,7 @@ def _build_user_response(
             user_id=membership["user_id"],
             org_id=membership["org_id"],
             role=membership["role"],
+            status=membership.get("status", "active"),
             last_seen_at=membership.get("last_seen_at"),
             created_at=membership.get("created_at"),
             updated_at=membership.get("updated_at"),
@@ -83,56 +90,83 @@ async def list_users(
     Requires can_manage_users permission.
     Returns profiles joined with memberships for the default org.
     """
+    # Validate and sanitize search input
+    sanitized_search: Optional[str] = None
+    if search:
+        search = search.strip()
+        if len(search) == 0:
+            search = None
+        elif len(search) > 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Search term too long (max 100 characters)",
+            )
+        elif not SAFE_SEARCH_PATTERN.match(search):
+            raise HTTPException(
+                status_code=400,
+                detail="Search contains invalid characters. Use letters, numbers, spaces, @, ., -, _, +, or '",
+            )
+        else:
+            sanitized_search = search
+
     supabase = get_supabase()
 
-    # Build query for memberships (with org_id filter)
-    query = (
-        supabase.table("memberships")
-        .select("*, profiles!inner(*)", count="exact")
-        .eq("org_id", DEFAULT_ORG_ID)
-    )
-
-    # Apply search filter (on profiles.email or profiles.display_name)
-    if search:
-        # Use ilike for case-insensitive search
-        query = query.or_(
-            f"profiles.email.ilike.%{search}%,profiles.display_name.ilike.%{search}%"
+    try:
+        # Build query for memberships (with org_id filter)
+        query = (
+            supabase.table("memberships")
+            .select("*, profiles!inner(*)", count="exact")
+            .eq("org_id", DEFAULT_ORG_ID)
         )
 
-    # Apply pagination
-    offset = (page - 1) * page_size
-    query = query.range(offset, offset + page_size - 1)
+        # Apply search filter (on profiles.email or profiles.display_name)
+        if sanitized_search:
+            # Use ilike for case-insensitive search with reference_table for joined table
+            query = query.or_(
+                f"email.ilike.%{sanitized_search}%,display_name.ilike.%{sanitized_search}%",
+                reference_table="profiles"
+            )
 
-    # Order by created_at desc
-    query = query.order("created_at", desc=True)
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.range(offset, offset + page_size - 1)
 
-    result = query.execute()
+        # Order by created_at desc
+        query = query.order("created_at", desc=True)
 
-    if not result.data:
-        return UserListResponse(users=[], total=0, page=page, page_size=page_size)
+        result = query.execute()
 
-    # Fetch role permissions for all unique roles
-    roles = list(set(row["role"] for row in result.data))
-    role_perms_result = (
-        supabase.table("role_permissions").select("*").in_("role", roles).execute()
-    )
-    role_perms_map = {row["role"]: row for row in (role_perms_result.data or [])}
+        if not result.data:
+            return UserListResponse(users=[], total=0, page=page, page_size=page_size)
 
-    # Build response
-    users = []
-    for row in result.data:
-        profile = row["profiles"]
-        membership = {k: v for k, v in row.items() if k != "profiles"}
-        role_perms = role_perms_map.get(row["role"])
+        # Fetch role permissions for all unique roles
+        roles = list(set(row["role"] for row in result.data))
+        role_perms_result = (
+            supabase.table("role_permissions").select("*").in_("role", roles).execute()
+        )
+        role_perms_map = {row["role"]: row for row in (role_perms_result.data or [])}
 
-        users.append(_build_user_response(profile, membership, role_perms))
+        # Build response
+        users = []
+        for row in result.data:
+            profile = row["profiles"]
+            membership = {k: v for k, v in row.items() if k != "profiles"}
+            role_perms = role_perms_map.get(row["role"])
 
-    return UserListResponse(
-        users=users,
-        total=result.count or len(users),
-        page=page,
-        page_size=page_size,
-    )
+            users.append(_build_user_response(profile, membership, role_perms))
+
+        return UserListResponse(
+            users=users,
+            total=result.count or len(users),
+            page=page,
+            page_size=page_size,
+        )
+    except APIError as e:
+        logger.exception("Database error in list_users: %s", e)
+        raise HTTPException(status_code=500, detail={"code": "DB_ERROR", "message": "Failed to fetch users"})
+    except Exception as e:
+        logger.exception("Unexpected error in list_users: %s", e)
+        raise HTTPException(status_code=500, detail={"code": "SERVER_ERROR", "message": "Failed to fetch users"})
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -217,12 +251,17 @@ async def update_user(
     # Get provided fields (exclude_unset to distinguish missing vs explicit values)
     provided_fields = body.model_dump(exclude_unset=True)
 
-    # ===== SELF-PROTECTION: Block self-demotion =====
+    # ===== SELF-PROTECTION: Block self-demotion and self-suspension =====
     if str(actor_user_id) == user_id:
         if "role" in provided_fields and provided_fields["role"] != UserRole.ADMIN:
             raise HTTPException(
                 status_code=403,
                 detail={"code": "SELF_DEMOTION", "message": "Cannot demote yourself"},
+            )
+        if "status" in provided_fields and provided_fields["status"].value == "suspended":
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "SELF_SUSPENSION", "message": "Cannot suspend yourself"},
             )
 
     # ===== OWNER PROTECTION: Block modifying the org owner =====
@@ -232,9 +271,13 @@ async def update_user(
         .eq("id", old_membership["org_id"])
         .execute()
     )
-    if org_result.data and org_result.data[0]["owner_user_id"] == user_id:
+    is_owner = org_result.data and org_result.data[0]["owner_user_id"] == user_id
+    if is_owner:
         losing_privilege = False
         if "role" in provided_fields and provided_fields["role"] != UserRole.ADMIN:
+            losing_privilege = True
+        # Cannot suspend the owner
+        if "status" in provided_fields and provided_fields["status"].value == "suspended":
             losing_privilege = True
         if losing_privilege:
             raise HTTPException(
@@ -245,21 +288,26 @@ async def update_user(
                 },
             )
 
-    # ===== ORPHAN PREVENTION: Block removing last admin =====
+    # ===== ORPHAN PREVENTION: Block removing/suspending last active admin =====
     target_is_admin = old_membership["role"] == "admin"
+    target_is_active = old_membership.get("status", "active") == "active"
 
-    if target_is_admin:
+    if target_is_admin and target_is_active:
         losing_privilege = False
         if "role" in provided_fields and provided_fields["role"] != UserRole.ADMIN:
             losing_privilege = True
+        # Suspending an admin also loses admin privilege effectively
+        if "status" in provided_fields and provided_fields["status"].value == "suspended":
+            losing_privilege = True
 
         if losing_privilege:
-            # Count remaining admins in this org (excluding target)
+            # Count remaining active admins in this org (excluding target)
             count_result = (
                 supabase.table("memberships")
                 .select("user_id", count="exact")
                 .eq("org_id", old_membership["org_id"])
                 .eq("role", "admin")
+                .eq("status", "active")
                 .neq("user_id", user_id)
                 .execute()
             )
@@ -267,13 +315,15 @@ async def update_user(
             if (count_result.count or 0) < 1:
                 raise HTTPException(
                     status_code=409,
-                    detail={"code": "ADMIN_ORPHAN", "message": "Cannot remove the last admin"},
+                    detail={"code": "ADMIN_ORPHAN", "message": "Cannot remove or suspend the last active admin"},
                 )
 
     # Build update data for membership (only include provided fields)
     membership_update = {}
     if body.role is not None:
         membership_update["role"] = body.role.value
+    if body.status is not None:
+        membership_update["status"] = body.status.value
 
     # Update membership if there are changes
     if membership_update:
@@ -323,9 +373,11 @@ async def update_user(
             resource_id=old_membership["id"],
             before={
                 "role": old_membership["role"],
+                "status": old_membership.get("status", "active"),
             },
             after={
                 "role": new_membership["role"],
+                "status": new_membership.get("status", "active"),
             },
             request=request,
         )

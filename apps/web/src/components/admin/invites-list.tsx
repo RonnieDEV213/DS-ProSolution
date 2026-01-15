@@ -12,6 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Invite {
   id: string;
@@ -30,6 +40,8 @@ interface InvitesListProps {
 export function InvitesList({ refreshTrigger }: InvitesListProps) {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inviteToRevoke, setInviteToRevoke] = useState<Invite | null>(null);
+  const [revoking, setRevoking] = useState(false);
 
   const loadInvites = useCallback(async () => {
     const supabase = createClient();
@@ -45,14 +57,30 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
   }, []);
 
   useEffect(() => {
-    loadInvites();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on mount/refresh
+    void loadInvites();
   }, [loadInvites, refreshTrigger]);
 
-  const handleRevoke = async (id: string) => {
-    const supabase = createClient();
-    await supabase.from("invites").update({ status: "revoked" }).eq("id", id);
+  const handleRevokeClick = (invite: Invite) => {
+    setInviteToRevoke(invite);
+  };
 
-    loadInvites();
+  const handleConfirmRevoke = async () => {
+    if (!inviteToRevoke) return;
+
+    setRevoking(true);
+    try {
+      const supabase = createClient();
+      await supabase.from("invites").update({ status: "revoked" }).eq("id", inviteToRevoke.id);
+      loadInvites();
+    } finally {
+      setRevoking(false);
+      setInviteToRevoke(null);
+    }
+  };
+
+  const handleCancelRevoke = () => {
+    setInviteToRevoke(null);
   };
 
   const getStatusBadge = (invite: Invite) => {
@@ -120,7 +148,7 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
                 {invite.email}
               </TableCell>
               <TableCell>
-                <Badge variant="outline" className="capitalize">
+                <Badge variant="outline" className="uppercase">
                   {invite.user_type}
                 </Badge>
               </TableCell>
@@ -136,9 +164,10 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleRevoke(invite.id)}
+                    onClick={() => handleRevokeClick(invite)}
+                    disabled={revoking && inviteToRevoke?.id === invite.id}
                   >
-                    Revoke
+                    {revoking && inviteToRevoke?.id === invite.id ? "Revoking..." : "Revoke"}
                   </Button>
                 )}
               </TableCell>
@@ -146,6 +175,28 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
           ))}
         </TableBody>
       </Table>
+
+      {/* Revoke Confirmation Dialog */}
+      <AlertDialog open={!!inviteToRevoke} onOpenChange={(open) => !open && handleCancelRevoke()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke Invite</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately invalidate the invite link for &quot;{inviteToRevoke?.email}&quot;.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRevoke}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Revoke
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ interface User {
     user_id: string;
     org_id: string;
     role: string;
+    status: string;
     last_seen_at: string | null;
     created_at: string | null;
     updated_at: string | null;
@@ -277,13 +279,102 @@ export function UserEditDialog({
     });
   };
 
+  const handleSuspend = async () => {
+    if (!user) return;
+    if (!window.confirm(`Are you sure you want to suspend ${user.profile.email}? They will be immediately blocked from accessing the application.`)) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/admin/users/${user.profile.user_id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "suspended" }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: "Failed to suspend user" }));
+        throw new Error(error.detail?.message || error.detail || "Failed to suspend user");
+      }
+
+      toast.success("User suspended");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to suspend user");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUnsuspend = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/admin/users/${user.profile.user_id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "active" }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: "Failed to unsuspend user" }));
+        throw new Error(error.detail?.message || error.detail || "Failed to unsuspend user");
+      }
+
+      toast.success("User unsuspended");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to unsuspend user");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!user) return null;
+
+  const isSuspended = user.membership.status === "suspended";
+  // Can only suspend/unsuspend if not protected (self, owner, last admin)
+  const canSuspend = !isProtected && !isSuspended;
+  const canUnsuspend = !isProtected && isSuspended;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-800 text-white">
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
+          <div className="flex items-center gap-2">
+            <DialogTitle>Edit User</DialogTitle>
+            {isSuspended && (
+              <Badge className="bg-red-600 hover:bg-red-600">Suspended</Badge>
+            )}
+          </div>
           <DialogDescription className="text-gray-400">
             {user.profile.email}
           </DialogDescription>
@@ -352,6 +443,39 @@ export function UserEditDialog({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Suspend/Unsuspend Section */}
+          {(canSuspend || canUnsuspend) && (
+            <div className="border-t border-gray-800 pt-4">
+              <Label className="text-gray-400">Account Status</Label>
+              <div className="mt-2">
+                {canSuspend && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleSuspend}
+                    disabled={saving}
+                    className="w-full"
+                  >
+                    Suspend User
+                  </Button>
+                )}
+                {canUnsuspend && (
+                  <Button
+                    onClick={handleUnsuspend}
+                    disabled={saving}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    Unsuspend User
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {isSuspended
+                  ? "Unsuspending will restore the user to active status."
+                  : "Suspending will immediately block the user from accessing the application."}
+              </p>
             </div>
           )}
         </div>

@@ -13,6 +13,16 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AccountDialog } from "./account-dialog";
 import { AccountAssignmentsDialog } from "./account-assignments-dialog";
 
@@ -58,12 +68,8 @@ export function AccountsTable({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [assignmentsAccount, setAssignmentsAccount] = useState<Account | null>(null);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
   const pageSize = 20;
-
-  // Build user lookup map
-  const usersMap = new Map(
-    users.map((u) => [u.profile.user_id, u])
-  );
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -140,12 +146,14 @@ export function AccountsTable({
     return () => clearTimeout(debounce);
   }, [fetchAccounts, refreshTrigger]);
 
-  const handleDelete = async (accountId: string) => {
-    if (!confirm("Are you sure you want to delete this account? This will also remove all VA assignments.")) {
-      return;
-    }
+  const handleDeleteClick = (account: Account) => {
+    setAccountToDelete(account);
+  };
 
-    setDeletingAccountId(accountId);
+  const handleConfirmDelete = async () => {
+    if (!accountToDelete) return;
+
+    setDeletingAccountId(accountToDelete.id);
     try {
       const supabase = createClient();
       const {
@@ -157,7 +165,7 @@ export function AccountsTable({
         return;
       }
 
-      const res = await fetch(`${API_BASE}/admin/accounts/${accountId}`, {
+      const res = await fetch(`${API_BASE}/admin/accounts/${accountToDelete.id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -175,20 +183,12 @@ export function AccountsTable({
       toast.error(err instanceof Error ? err.message : "Failed to delete account");
     } finally {
       setDeletingAccountId(null);
+      setAccountToDelete(null);
     }
   };
 
-  const getClientDisplay = (clientUserId: string | null) => {
-    if (!clientUserId) return <span className="text-gray-500">-</span>;
-
-    const user = usersMap.get(clientUserId);
-    if (!user) return <span className="text-gray-400">{clientUserId.slice(0, 8)}...</span>;
-
-    return (
-      <span className="text-gray-300">
-        {user.profile.display_name || user.profile.email}
-      </span>
-    );
+  const handleCancelDelete = () => {
+    setAccountToDelete(null);
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -213,7 +213,6 @@ export function AccountsTable({
             <TableRow className="border-gray-800 hover:bg-gray-900">
               <TableHead className="text-gray-400">Account Code</TableHead>
               <TableHead className="text-gray-400">Name</TableHead>
-              <TableHead className="text-gray-400">Client</TableHead>
               <TableHead className="text-gray-400">VAs Assigned</TableHead>
               <TableHead className="text-gray-400">Created</TableHead>
               <TableHead className="text-gray-400 text-right">Actions</TableHead>
@@ -222,13 +221,13 @@ export function AccountsTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                   No accounts found. Create one to get started.
                 </TableCell>
               </TableRow>
@@ -241,7 +240,6 @@ export function AccountsTable({
                   <TableCell className="text-gray-300">
                     {account.name || <span className="text-gray-500">-</span>}
                   </TableCell>
-                  <TableCell>{getClientDisplay(account.client_user_id)}</TableCell>
                   <TableCell>
                     <Badge
                       variant="secondary"
@@ -278,7 +276,7 @@ export function AccountsTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(account.id)}
+                        onClick={() => handleDeleteClick(account)}
                         disabled={deletingAccountId === account.id}
                         className="text-red-400 hover:text-red-300 disabled:opacity-50"
                       >
@@ -358,6 +356,28 @@ export function AccountsTable({
           }}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!accountToDelete} onOpenChange={(open) => !open && handleCancelDelete()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deleting &quot;{accountToDelete?.account_code}&quot; will permanently remove this
+              account and all VA assignments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

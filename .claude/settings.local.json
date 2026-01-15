@@ -24,7 +24,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(findstr:*)",
+      "Bash(.venv/Scripts/python -m ruff check src)",
+      "Bash(.venv/Scripts/python:*)"
     ]
   }
 }

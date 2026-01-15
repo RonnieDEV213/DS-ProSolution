@@ -22,10 +22,16 @@ class UserRole(str, Enum):
 # ============================================================
 
 
+class MembershipStatus(str, Enum):
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+
+
 class UserMembershipUpdate(BaseModel):
     """Request body for updating a user's membership."""
 
     role: Optional[UserRole] = None
+    status: Optional[MembershipStatus] = None
 
 
 class MembershipResponse(BaseModel):
@@ -35,6 +41,7 @@ class MembershipResponse(BaseModel):
     user_id: str
     org_id: str
     role: UserRole
+    status: str = "active"
     last_seen_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

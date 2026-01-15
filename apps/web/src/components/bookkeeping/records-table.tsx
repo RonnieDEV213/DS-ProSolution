@@ -602,7 +602,7 @@ export function RecordsTable({
                                 {renderEditableCell(
                                   record,
                                   "amazon_tax_cents",
-                                  formatCents(record.amazon_tax_cents),
+                                  formatCents(record.amazon_tax_cents ?? 0),
                                   strikeAll ? STRIKE_CLASS : "text-white"
                                 )}
                               </span>
