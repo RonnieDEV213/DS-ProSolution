@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import accounts_router, admin_router, auth_router, records_router
+from app.routers import accounts_router, admin_router, auth_router, automation_router, records_router
 
 app = FastAPI(title="DS-ProSolution API", version="0.1.0")
 
@@ -18,6 +18,7 @@ app.add_middleware(
 app.include_router(accounts_router)
 app.include_router(admin_router)
 app.include_router(auth_router)
+app.include_router(automation_router)
 app.include_router(records_router)
 
 

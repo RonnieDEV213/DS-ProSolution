@@ -386,3 +386,271 @@ class AdminAccountListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# ============================================================
+# Automation Hub Models
+# ============================================================
+
+
+class AgentRole(str, Enum):
+    EBAY_AGENT = "EBAY_AGENT"
+    AMAZON_AGENT = "AMAZON_AGENT"
+
+
+class AgentStatus(str, Enum):
+    ONLINE = "online"
+    OFFLINE = "offline"
+    PAUSED = "paused"
+    ERROR = "error"
+
+
+class JobStatus(str, Enum):
+    QUEUED = "QUEUED"
+    CLAIMED = "CLAIMED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED_RETRYABLE = "FAILED_RETRYABLE"
+    FAILED_NEEDS_ATTENTION = "FAILED_NEEDS_ATTENTION"
+    EXPIRED = "EXPIRED"
+
+
+# ============================================================
+# Pairing Request Models (Extension-initiated flow)
+# ============================================================
+
+
+class PairingRequestCreate(BaseModel):
+    """Request body for extension requesting pairing."""
+
+    install_instance_id: str
+
+
+class PairingRequestResponse(BaseModel):
+    """Response from pairing request endpoint."""
+
+    device_status: str  # 'blocked', 'cooldown', 'pending', 'created'
+    request_id: Optional[UUID] = None
+    status: Optional[str] = None
+    next_allowed_at: datetime
+    cooldown_seconds: int
+    lifetime_request_count: int
+
+
+class PendingRequestResponse(BaseModel):
+    """Pending pairing request for admin view."""
+
+    id: UUID
+    install_instance_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    lifetime_request_count: int  # From automation_devices
+
+
+class PendingRequestListResponse(BaseModel):
+    """List of pending pairing requests."""
+
+    requests: list[PendingRequestResponse]
+
+
+class ApprovalRequest(BaseModel):
+    """Request body for approving a pairing request."""
+
+    label: Optional[str] = None
+
+
+class ApprovalResponse(BaseModel):
+    """Response from approving a pairing request."""
+
+    code: str  # 6-digit code (plaintext, shown only once)
+    expires_at: datetime
+
+
+class RejectionRequest(BaseModel):
+    """Request body for rejecting a pairing request."""
+
+    reason: Optional[str] = None
+    block_device: bool = False
+
+
+# ============================================================
+# Blocked Device Models
+# ============================================================
+
+
+class BlockedDeviceCreate(BaseModel):
+    """Request body for blocking a device."""
+
+    install_instance_id: str
+    reason: Optional[str] = None
+
+
+class BlockedDeviceResponse(BaseModel):
+    """Blocked device data in API responses."""
+
+    install_instance_id: str
+    blocked_at: datetime
+    blocked_reason: Optional[str] = None
+
+
+class BlockedDeviceListResponse(BaseModel):
+    """List of blocked devices."""
+
+    devices: list[BlockedDeviceResponse]
+
+
+# ============================================================
+# Agent Models
+# ============================================================
+
+
+class AgentRedeemRequest(BaseModel):
+    """Request body for redeeming a pairing code."""
+
+    code: str
+    install_instance_id: str
+
+
+class AgentRedeemResponse(BaseModel):
+    """Response from redeeming a pairing code."""
+
+    agent_id: UUID
+    install_token: str
+    label: Optional[str] = None
+    is_new: bool
+    # Note: role is null until VA sets it via PATCH /agents/me/role
+
+
+class AgentRoleUpdate(BaseModel):
+    """Request body for setting agent role."""
+
+    role: AgentRole
+
+
+class AgentStatusUpdate(BaseModel):
+    """Request body for updating agent status."""
+
+    status: AgentStatus
+
+
+class AgentResponse(BaseModel):
+    """Agent data in API responses."""
+
+    id: UUID
+    org_id: UUID
+    role: Optional[AgentRole] = None  # Nullable until VA sets it
+    label: Optional[str] = None
+    install_instance_id: str
+    status: AgentStatus
+    last_seen_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class AgentListResponse(BaseModel):
+    """List of agents."""
+
+    agents: list[AgentResponse]
+
+
+# Job Models
+class JobCreate(BaseModel):
+    """Request body for creating a job (eBay agent)."""
+
+    ebay_order_id: str
+    item_name: Optional[str] = None
+    qty: int = 1
+    sale_price_cents: Optional[int] = None
+    ebay_fees_cents: Optional[int] = None
+    sale_date: Optional[date] = None
+    auto_order_url: str
+
+    @field_validator("qty")
+    @classmethod
+    def qty_must_be_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("qty must be at least 1")
+        return v
+
+
+class JobCreateResponse(BaseModel):
+    """Response from creating a job."""
+
+    job_id: UUID
+    status: JobStatus
+
+
+class JobClaimResponse(BaseModel):
+    """Response from claiming a job."""
+
+    job: Optional["JobResponse"] = None
+
+
+class JobComplete(BaseModel):
+    """Request body for completing a job."""
+
+    amazon_order_id: str
+    amazon_price_cents: int
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
+
+    @field_validator("amazon_price_cents")
+    @classmethod
+    def price_must_be_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("amazon_price_cents cannot be negative")
+        return v
+
+
+class JobFail(BaseModel):
+    """Request body for reporting a job failure."""
+
+    reason: str
+    details: Optional[str] = None
+
+
+class JobFailResponse(BaseModel):
+    """Response from failing a job."""
+
+    ok: bool
+    requeued: bool
+    status: JobStatus
+
+
+class JobResponse(BaseModel):
+    """Job data in API responses."""
+
+    id: UUID
+    org_id: UUID
+    status: JobStatus
+    attempt_count: int
+    ebay_order_id: str
+    item_name: Optional[str] = None
+    qty: Optional[int] = None
+    sale_price_cents: Optional[int] = None
+    ebay_fees_cents: Optional[int] = None
+    sale_date: Optional[date] = None
+    auto_order_url: str
+    amazon_order_id: Optional[str] = None
+    amazon_price_cents: Optional[int] = None
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
+    created_by_agent_id: Optional[UUID] = None
+    claimed_by_agent_id: Optional[UUID] = None
+    claimed_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    failure_reason: Optional[str] = None
+    failure_details: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class JobListResponse(BaseModel):
+    """Paginated list of jobs."""
+
+    jobs: list[JobResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+# Update forward reference
+JobClaimResponse.model_rebuild()

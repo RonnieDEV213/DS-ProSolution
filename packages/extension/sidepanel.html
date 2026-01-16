@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DS-Pro Automation Hub</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <h1>DS-Pro Hub</h1>
+      <div id="status-badge" class="status-badge stopped">Stopped</div>
+    </header>
+
+    <!-- Pairing Section (shown when not paired) -->
+    <section id="pairing-section" class="section">
+      <h2>Pair Extension</h2>
+      <p class="help-text">Enter the 6-digit code from admin dashboard</p>
+      <div class="input-group">
+        <input type="text" id="pairing-code" maxlength="6" placeholder="000000" pattern="[0-9]{6}">
+        <button id="btn-pair" class="btn btn-primary">Pair</button>
+      </div>
+      <div id="pairing-error" class="error hidden"></div>
+    </section>
+
+    <!-- Main Hub (shown when paired) -->
+    <div id="hub-section" class="hidden">
+      <!-- Agent Info -->
+      <section class="section agent-info">
+        <div class="label">Agent</div>
+        <div id="agent-label" class="value">—</div>
+        <div id="agent-role" class="badge">—</div>
+      </section>
+
+      <!-- Global Stats -->
+      <section class="section stats">
+        <div class="stat">
+          <div class="stat-value" id="stat-active">0</div>
+          <div class="stat-label">Active</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-queued">0</div>
+          <div class="stat-label">Queued</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-attention">0</div>
+          <div class="stat-label">Attention</div>
+        </div>
+      </section>
+
+      <!-- Current Task -->
+      <section class="section current-task hidden" id="current-task-section">
+        <h2>Current Task</h2>
+        <div class="task-card">
+          <div class="task-header">
+            <span id="task-type" class="task-type">—</span>
+            <span id="task-elapsed" class="task-elapsed">0:00</span>
+          </div>
+          <div class="task-stage">
+            <span class="label">Stage:</span>
+            <span id="task-stage-value">—</span>
+          </div>
+          <div class="task-action">
+            <span class="label">Last:</span>
+            <span id="task-last-action">—</span>
+          </div>
+          <div class="task-controls">
+            <button id="btn-pause" class="btn btn-secondary">Pause</button>
+            <button id="btn-focus-tab" class="btn btn-secondary">Focus Tab</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Attention Items -->
+      <section class="section attention" id="attention-section">
+        <h2>
+          Needs Attention
+          <span id="attention-count" class="count-badge">0</span>
+        </h2>
+        <div id="attention-list" class="attention-list">
+          <div class="empty-state">No items need attention</div>
+        </div>
+      </section>
+
+      <!-- Queue -->
+      <section class="section queue">
+        <h2>
+          Queue
+          <span id="queue-count" class="count-badge">0</span>
+        </h2>
+        <div id="queue-list" class="queue-list">
+          <div class="empty-state">No tasks queued</div>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="section actions">
+        <h2>Quick Actions</h2>
+        <div class="action-buttons">
+          <button id="btn-start" class="btn btn-primary">Start</button>
+          <button id="btn-pause-all" class="btn btn-secondary">Pause All</button>
+          <button id="btn-emergency-stop" class="btn btn-danger">Emergency Stop</button>
+        </div>
+        <div class="action-buttons" style="margin-top: 8px;">
+          <button id="btn-queue-fake" class="btn btn-secondary btn-small">+ Fake Task</button>
+        </div>
+      </section>
+
+      <!-- Hotkeys Info -->
+      <section class="section hotkeys">
+        <h3>Hotkeys</h3>
+        <div class="hotkey-row">
+          <kbd>Ctrl+Shift+P</kbd>
+          <span>Pause All</span>
+        </div>
+        <div class="hotkey-row">
+          <kbd>Ctrl+Shift+X</kbd>
+          <span>Emergency Stop</span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
