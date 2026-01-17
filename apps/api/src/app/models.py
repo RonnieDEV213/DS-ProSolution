@@ -399,10 +399,18 @@ class AgentRole(str, Enum):
 
 
 class AgentStatus(str, Enum):
-    ONLINE = "online"
-    OFFLINE = "offline"
+    ACTIVE = "active"
     PAUSED = "paused"
-    ERROR = "error"
+    REVOKED = "revoked"
+    OFFLINE = "offline"
+
+
+class ApprovalStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    REVOKED = "revoked"
+    REPLACING = "replacing"
 
 
 class JobStatus(str, Enum):
@@ -424,17 +432,30 @@ class PairingRequestCreate(BaseModel):
     """Request body for extension requesting pairing."""
 
     install_instance_id: str
+    ebay_account_key: Optional[str] = None
+    amazon_account_key: Optional[str] = None
+    ebay_account_display: Optional[str] = None
+    amazon_account_display: Optional[str] = None
 
 
 class PairingRequestResponse(BaseModel):
     """Response from pairing request endpoint."""
 
-    device_status: str  # 'blocked', 'cooldown', 'pending', 'created'
+    device_status: str  # 'cooldown', 'pending', 'created', 'auto_approved'
     request_id: Optional[UUID] = None
     status: Optional[str] = None
-    next_allowed_at: datetime
-    cooldown_seconds: int
-    lifetime_request_count: int
+    next_allowed_at: Optional[datetime] = None
+    cooldown_seconds: int = 0
+    lifetime_request_count: int = 0
+    expires_at: Optional[datetime] = None  # When request expires (15 min)
+    # Auto-approve response fields
+    agent_id: Optional[UUID] = None
+    install_token: Optional[str] = None
+    role: Optional[AgentRole] = None
+    label: Optional[str] = None
+    account_name: Optional[str] = None
+    requires_checkin: bool = False
+    checkin_deadline_seconds: int = 0
 
 
 class PendingRequestResponse(BaseModel):
@@ -444,7 +465,14 @@ class PendingRequestResponse(BaseModel):
     install_instance_id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None  # When request expires (15 min)
     lifetime_request_count: int  # From automation_devices
+    # Detected account info
+    ebay_account_key: Optional[str] = None
+    amazon_account_key: Optional[str] = None
+    ebay_account_display: Optional[str] = None
+    amazon_account_display: Optional[str] = None
+    detected_role: Optional[AgentRole] = None
 
 
 class PendingRequestListResponse(BaseModel):
@@ -456,47 +484,76 @@ class PendingRequestListResponse(BaseModel):
 class ApprovalRequest(BaseModel):
     """Request body for approving a pairing request."""
 
+    account_id: Optional[UUID] = None  # Required for EBAY_AGENT (or auto-created)
+    ebay_agent_id: Optional[UUID] = None  # Required for AMAZON_AGENT
+    role: AgentRole
     label: Optional[str] = None
 
 
 class ApprovalResponse(BaseModel):
     """Response from approving a pairing request."""
 
-    code: str  # 6-digit code (plaintext, shown only once)
-    expires_at: datetime
+    agent_id: UUID
+    message: str = "Request approved and agent created"
 
 
 class RejectionRequest(BaseModel):
     """Request body for rejecting a pairing request."""
 
     reason: Optional[str] = None
-    block_device: bool = False
 
 
 # ============================================================
-# Blocked Device Models
+# Available Accounts for Automation (from existing accounts table)
 # ============================================================
 
 
-class BlockedDeviceCreate(BaseModel):
-    """Request body for blocking a device."""
+class AvailableAccountResponse(BaseModel):
+    """Account available for agent assignment (from existing accounts table)."""
 
-    install_instance_id: str
-    reason: Optional[str] = None
-
-
-class BlockedDeviceResponse(BaseModel):
-    """Blocked device data in API responses."""
-
-    install_instance_id: str
-    blocked_at: datetime
-    blocked_reason: Optional[str] = None
+    id: UUID
+    account_code: str
+    name: Optional[str] = None
 
 
-class BlockedDeviceListResponse(BaseModel):
-    """List of blocked devices."""
+class AvailableAccountListResponse(BaseModel):
+    """List of available accounts for automation agent assignment."""
 
-    devices: list[BlockedDeviceResponse]
+    accounts: list[AvailableAccountResponse]
+
+
+class AvailableEbayAgentResponse(BaseModel):
+    """eBay agent available for Amazon agent assignment."""
+
+    id: UUID
+    account_id: UUID
+    account_code: str
+    account_name: Optional[str] = None
+    label: Optional[str] = None
+
+
+class AvailableEbayAgentListResponse(BaseModel):
+    """List of available eBay agents for Amazon agent assignment."""
+
+    ebay_agents: list[AvailableEbayAgentResponse]
+
+
+# ============================================================
+# Pairing Status Poll Models (for extension)
+# ============================================================
+
+
+class PairingPollResponse(BaseModel):
+    """Response from polling pairing status (extension)."""
+
+    status: str  # 'pending', 'approved', 'rejected', 'expired', 'not_found'
+    agent_id: Optional[UUID] = None
+    install_token: Optional[str] = None
+    role: Optional[AgentRole] = None
+    label: Optional[str] = None
+    account_name: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    expires_at: Optional[datetime] = None
 
 
 # ============================================================
@@ -504,31 +561,15 @@ class BlockedDeviceListResponse(BaseModel):
 # ============================================================
 
 
-class AgentRedeemRequest(BaseModel):
-    """Request body for redeeming a pairing code."""
+class AgentUpdate(BaseModel):
+    """Request body for updating an agent."""
 
-    code: str
-    install_instance_id: str
-
-
-class AgentRedeemResponse(BaseModel):
-    """Response from redeeming a pairing code."""
-
-    agent_id: UUID
-    install_token: str
     label: Optional[str] = None
-    is_new: bool
-    # Note: role is null until VA sets it via PATCH /agents/me/role
-
-
-class AgentRoleUpdate(BaseModel):
-    """Request body for setting agent role."""
-
-    role: AgentRole
+    status: Optional[AgentStatus] = None
 
 
 class AgentStatusUpdate(BaseModel):
-    """Request body for updating agent status."""
+    """Request body for updating agent status (by agent itself)."""
 
     status: AgentStatus
 
@@ -538,10 +579,21 @@ class AgentResponse(BaseModel):
 
     id: UUID
     org_id: UUID
-    role: Optional[AgentRole] = None  # Nullable until VA sets it
+    account_id: Optional[UUID] = None  # For eBay agents (links to accounts)
+    account_code: Optional[str] = None  # From accounts table
+    account_name: Optional[str] = None  # From accounts table (may be null)
+    ebay_agent_id: Optional[UUID] = None  # For Amazon agents (links to eBay agent)
+    role: Optional[AgentRole] = None
     label: Optional[str] = None
     install_instance_id: str
     status: AgentStatus
+    approval_status: ApprovalStatus = ApprovalStatus.APPROVED
+    ebay_account_key: Optional[str] = None
+    amazon_account_key: Optional[str] = None
+    ebay_account_display: Optional[str] = None
+    amazon_account_display: Optional[str] = None
+    replaced_by_id: Optional[UUID] = None
+    replaced_at: Optional[datetime] = None
     last_seen_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
@@ -654,3 +706,52 @@ class JobListResponse(BaseModel):
 
 # Update forward reference
 JobClaimResponse.model_rebuild()
+
+
+# ============================================================
+# Blocked Account Models
+# ============================================================
+
+
+class BlockedAccountProvider(str, Enum):
+    EBAY = "ebay"
+    AMAZON = "amazon"
+
+
+class BlockAccountRequest(BaseModel):
+    """Request body for blocking an account."""
+
+    provider: BlockedAccountProvider
+    account_key: str
+    reason: Optional[str] = None
+
+
+class BlockedAccountResponse(BaseModel):
+    """Blocked account data in API responses."""
+
+    id: UUID
+    org_id: UUID
+    provider: BlockedAccountProvider
+    account_key: str
+    reason: Optional[str] = None
+    created_at: Optional[datetime] = None
+    created_by: Optional[UUID] = None
+
+
+class BlockedAccountListResponse(BaseModel):
+    """List of blocked accounts."""
+
+    blocked_accounts: list[BlockedAccountResponse]
+
+
+# ============================================================
+# Agent Checkin Models
+# ============================================================
+
+
+class AgentCheckinResponse(BaseModel):
+    """Response from agent checkin endpoint."""
+
+    ok: bool
+    status: ApprovalStatus
+    message: str = ""

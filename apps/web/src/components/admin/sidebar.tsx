@@ -13,6 +13,7 @@ const navItems = [
   { href: "/admin/accounts", label: "Accounts", icon: "folder" },
   { href: "/admin/invites", label: "Invites", icon: "users" },
   { href: "/admin/order-tracking", label: "Order Tracking", icon: "book" },
+  { href: "/admin/automation", label: "Extension Hub", icon: "bolt" },
 ];
 
 export function AdminSidebar() {
@@ -54,10 +55,15 @@ export function AdminSidebar() {
 
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => {
-          const isActive =
-            item.href === "/admin"
+          const itemWithIndent = item as { href: string; indent?: boolean };
+          // For indented items (sub-nav), exact match only
+          // For parent items, match exact or children, but not if a child item matches exactly
+          const isActive = itemWithIndent.indent
+            ? pathname === item.href
+            : item.href === "/admin"
               ? pathname === "/admin"
-              : pathname.startsWith(item.href);
+              : pathname === item.href ||
+                (pathname.startsWith(item.href + "/") && !navItems.some(ni => ni.href === pathname && (ni as { indent?: boolean }).indent));
 
           return (
             <Link
@@ -67,7 +73,8 @@ export function AdminSidebar() {
                 "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
                 isActive
                   ? "bg-blue-600 text-white"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white",
+                (item as { indent?: boolean }).indent && "ml-4 text-xs"
               )}
             >
               {item.icon === "home" && (
@@ -157,6 +164,36 @@ export function AdminSidebar() {
                     strokeLinejoin="round"
                     strokeWidth={2}
                     d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                  />
+                </svg>
+              )}
+              {item.icon === "bolt" && (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              )}
+              {item.icon === "ban" && (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
                   />
                 </svg>
               )}

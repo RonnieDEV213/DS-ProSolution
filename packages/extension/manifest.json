@@ -11,13 +11,15 @@
     "tabGroups",
     "bookmarks",
     "scripting",
-    "sidePanel"
+    "sidePanel",
+    "windows"
   ],
 
   "host_permissions": [
     "https://www.ebay.com/*",
     "https://www.amazon.com/*",
-    "https://*.ecomsniper.com/*"
+    "https://*.ecomsniper.com/*",
+    "http://localhost:8000/*"
   ],
 
   "background": {

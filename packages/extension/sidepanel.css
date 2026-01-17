@@ -119,6 +119,64 @@ body {
   font-weight: 500;
 }
 
+/* Agent Info Card (new simplified layout) */
+.agent-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.agent-info-row .label {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.agent-info-row .value {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* Device ID Display */
+.device-id-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.device-id-row .label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.device-id-row code {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+/* Rejected/Expired States */
+.rejected-state,
+.expired-state {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.rejected-state p,
+.expired-state p {
+  margin-bottom: 12px;
+}
+
 .badge {
   font-size: 10px;
   font-weight: 600;
@@ -372,4 +430,198 @@ kbd {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* Full-width button */
+.btn-full {
+  width: 100%;
+}
+
+/* Pending/Cooldown States */
+.pending-state,
+.cooldown-state {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.pending-state p,
+.cooldown-state p {
+  margin-bottom: 8px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--bg-tertiary);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.countdown {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-yellow);
+  margin: 8px 0;
+}
+
+/* Blocked State */
+.blocked-text {
+  color: var(--accent-red);
+  font-weight: 500;
+}
+
+/* Role Selection */
+.role-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.role-option {
+  cursor: pointer;
+}
+
+.role-option input {
+  display: none;
+}
+
+.role-card {
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.role-option input:checked + .role-card {
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.role-option:hover .role-card {
+  border-color: var(--border-color);
+}
+
+.role-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.role-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.role-warning {
+  padding: 8px 12px;
+  background: rgba(234, 179, 8, 0.1);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--accent-yellow);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+/* Confirmation Dialog */
+.confirm-dialog {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.confirm-dialog p {
+  margin-bottom: 8px;
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.confirm-buttons .btn {
+  flex: 1;
+}
+
+/* Detected Accounts */
+.detected-accounts {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+}
+
+.detected-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.detected-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.provider-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.provider-badge.ebay {
+  background: #e53935;
+  color: white;
+}
+
+.provider-badge.amazon {
+  background: #ff9900;
+  color: black;
+}
+
+/* Auto-Approved Success State */
+.success-state {
+  text-align: center;
+  padding: 24px;
+}
+
+.success-icon {
+  font-size: 48px;
+  color: var(--accent-green);
+  margin-bottom: 12px;
+}
+
+.success-state .account-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 8px;
+}
+
+/* Detecting State */
+.detecting-content {
+  text-align: center;
+  padding: 24px 12px;
+}
+
+.detecting-content h3 {
+  margin: 12px 0 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.text-small {
+  font-size: 10px;
+  margin-top: 4px;
 }

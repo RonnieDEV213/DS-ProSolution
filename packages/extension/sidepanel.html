@@ -14,24 +14,108 @@
       <div id="status-badge" class="status-badge stopped">Stopped</div>
     </header>
 
-    <!-- Pairing Section (shown when not paired) -->
-    <section id="pairing-section" class="section">
-      <h2>Pair Extension</h2>
-      <p class="help-text">Enter the 6-digit code from admin dashboard</p>
-      <div class="input-group">
-        <input type="text" id="pairing-code" maxlength="6" placeholder="000000" pattern="[0-9]{6}">
-        <button id="btn-pair" class="btn btn-primary">Pair</button>
+    <!-- Request Access Section (initial state when unpaired) -->
+    <section id="request-access-section" class="section hidden">
+      <h2>Connect Extension</h2>
+      <p class="help-text">Request access to connect this extension to the automation hub</p>
+      <div class="device-id-row">
+        <span class="label">Device ID:</span>
+        <code id="device-id-display">—</code>
       </div>
-      <div id="pairing-error" class="error hidden"></div>
+      <!-- Detected Accounts -->
+      <div id="detected-accounts" class="detected-accounts hidden">
+        <p class="detected-label">Detected Accounts:</p>
+        <div id="detected-ebay" class="detected-account hidden">
+          <span class="provider-badge ebay">eBay</span>
+          <span id="detected-ebay-name"></span>
+        </div>
+        <div id="detected-amazon" class="detected-account hidden">
+          <span class="provider-badge amazon">Amazon</span>
+          <span id="detected-amazon-name"></span>
+        </div>
+      </div>
+      <button id="btn-request-access" class="btn btn-primary btn-full">Request Access</button>
+      <div id="request-error" class="error hidden"></div>
+    </section>
+
+    <!-- Detecting Accounts Section (shown while detection window is open) -->
+    <section id="detecting-section" class="section hidden">
+      <div class="detecting-content">
+        <div class="spinner"></div>
+        <h3>Detecting Accounts</h3>
+        <p class="help-text">Opening eBay and Amazon to detect logged-in accounts...</p>
+        <p class="help-text text-small">This may take a few seconds.</p>
+      </div>
+    </section>
+
+    <!-- Pending Approval Section (polling for admin approval) -->
+    <section id="pending-section" class="section hidden">
+      <h2>Pending Approval</h2>
+      <div class="pending-state">
+        <div class="spinner"></div>
+        <p>Waiting for admin approval...</p>
+        <div class="device-id-row">
+          <span class="label">Device ID:</span>
+          <code id="pending-device-id">—</code>
+        </div>
+        <p class="help-text">Expires in: <span id="expiration-timer">--:--</span></p>
+      </div>
+    </section>
+
+    <!-- Cooldown Section (rate limited) -->
+    <section id="cooldown-section" class="section hidden">
+      <h2>Please Wait</h2>
+      <div class="cooldown-state">
+        <p>You can request access again in:</p>
+        <div id="cooldown-timer" class="countdown">--:--</div>
+      </div>
+    </section>
+
+    <!-- Rejected Section -->
+    <section id="rejected-section" class="section hidden">
+      <h2>Request Rejected</h2>
+      <div class="rejected-state">
+        <p class="blocked-text">Your access request was rejected.</p>
+        <p id="rejected-reason" class="help-text"></p>
+        <button class="btn btn-secondary btn-full btn-try-again">Try Again</button>
+      </div>
+    </section>
+
+    <!-- Expired Section -->
+    <section id="expired-section" class="section hidden">
+      <h2>Request Expired</h2>
+      <div class="expired-state">
+        <p class="help-text">Your access request expired. Please try again.</p>
+        <button class="btn btn-primary btn-full btn-try-again">Request Access Again</button>
+      </div>
+    </section>
+
+    <!-- Auto-Approved Section (auto-reconnect success) -->
+    <section id="auto-approved-section" class="section hidden">
+      <h2>Connected!</h2>
+      <div class="success-state">
+        <div class="success-icon">✓</div>
+        <p>Recognized your account and connected automatically.</p>
+        <p id="auto-approved-account" class="account-name"></p>
+      </div>
     </section>
 
     <!-- Main Hub (shown when paired) -->
     <div id="hub-section" class="hidden">
       <!-- Agent Info -->
-      <section class="section agent-info">
-        <div class="label">Agent</div>
-        <div id="agent-label" class="value">—</div>
-        <div id="agent-role" class="badge">—</div>
+      <section class="section agent-info-card">
+        <div class="agent-info-row">
+          <span class="label">Label:</span>
+          <span id="agent-label" class="value">—</span>
+        </div>
+        <div class="agent-info-row">
+          <span class="label">Account:</span>
+          <span id="account-name" class="value">—</span>
+        </div>
+        <div class="agent-info-row">
+          <span class="label">Role:</span>
+          <span id="agent-role" class="badge">—</span>
+        </div>
       </section>
 
       <!-- Global Stats -->

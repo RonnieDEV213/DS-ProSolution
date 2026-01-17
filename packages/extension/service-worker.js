@@ -49,11 +49,21 @@ async function getState() {
     'install_token',
     'agent_role',
     'label',
+    'account_name',
     'tasks',
     'locks',
     'attention_items',
     'active_tabs',
     'scheduler_status',
+    // Pairing flow state
+    'pairing_request_id',
+    'pairing_status',
+    'device_status',
+    'next_allowed_at',
+    'cooldown_seconds',
+    'lifetime_request_count',
+    'pairing_error',
+    'pairing_expires_at',
   ]);
   return {
     install_instance_id: data.install_instance_id || null,
@@ -61,11 +71,21 @@ async function getState() {
     install_token: data.install_token || null,
     agent_role: data.agent_role || null,
     label: data.label || null,
+    account_name: data.account_name || null,
     tasks: data.tasks || {},
     locks: data.locks || {},
     attention_items: data.attention_items || [],
     active_tabs: data.active_tabs || {},
     scheduler_status: data.scheduler_status || 'stopped',
+    // Pairing flow state
+    pairing_request_id: data.pairing_request_id || null,
+    pairing_status: data.pairing_status || null,
+    device_status: data.device_status || null,
+    next_allowed_at: data.next_allowed_at || null,
+    cooldown_seconds: data.cooldown_seconds || 0,
+    lifetime_request_count: data.lifetime_request_count || 0,
+    pairing_error: data.pairing_error || null,
+    pairing_expires_at: data.pairing_expires_at || null,
   };
 }
 
@@ -94,6 +114,7 @@ async function broadcastState() {
 
 /**
  * Build summary for side panel display
+ * NOTE: Never include install_token or other secrets here
  */
 function buildStateSummary(state) {
   const tasks = Object.values(state.tasks);
@@ -104,6 +125,8 @@ function buildStateSummary(state) {
     paired: !!state.agent_id,
     agent_role: state.agent_role,
     label: state.label,
+    account_name: state.account_name,
+    install_instance_id: state.install_instance_id,  // For display
     scheduler_status: state.scheduler_status,
     running_task: runningTask ? {
       id: runningTask.id,
@@ -115,6 +138,15 @@ function buildStateSummary(state) {
     pending_count: pendingTasks.length,
     attention_count: state.attention_items.length,
     attention_items: state.attention_items,
+    // Pairing flow state (no secrets)
+    pairing_request_id: state.pairing_request_id,
+    pairing_status: state.pairing_status,
+    device_status: state.device_status,
+    next_allowed_at: state.next_allowed_at,
+    cooldown_seconds: state.cooldown_seconds,
+    lifetime_request_count: state.lifetime_request_count,
+    pairing_error: state.pairing_error,
+    pairing_expires_at: state.pairing_expires_at,
   };
 }
 
@@ -686,6 +718,563 @@ async function createAttentionBookmark(taskId, url, reason) {
 }
 
 // =============================================================================
+// API HELPER
+// =============================================================================
+
+/**
+ * Make an API request with auth and error handling
+ * @returns {{ ok: true, data: any } | { ok: false, status: number, error: string }}
+ */
+async function apiRequest(endpoint, options = {}) {
+  const state = await getState();
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.install_token) {
+    headers['Authorization'] = `Bearer ${state.install_token}`;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+    // Central 401 handling
+    if (response.status === 401) {
+      await handleTokenExpiry();
+      return { ok: false, status: 401, error: 'Unauthorized' };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { ok: false, status: response.status, error: errorData.detail || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { ok: true, data };
+  } catch (err) {
+    console.warn('[SW] API request error:', err.message);
+    return { ok: false, status: 0, error: 'Network error' };
+  }
+}
+
+/**
+ * Handle token expiry - clear credentials and notify user
+ */
+async function handleTokenExpiry() {
+  await updateState({
+    agent_id: null,
+    install_token: null,
+    agent_role: null,
+    label: null,
+    scheduler_status: 'stopped',
+    pairing_error: 'Session expired. Please pair again.',
+  });
+  console.log('[SW] Token expired, credentials cleared');
+}
+
+// =============================================================================
+// ACCOUNT DETECTION
+// =============================================================================
+
+// Invalid identifier patterns (generic greetings)
+const INVALID_IDENTIFIERS = [
+  'hello,',
+  'sign in',
+  'register',
+  'hi there',
+  'hi,',
+  'welcome',
+  'guest',
+];
+
+/**
+ * Check if value is a valid unique identifier
+ */
+function isValidIdentifier(value) {
+  if (!value || value.length < 3) return false;
+  const lower = value.toLowerCase();
+  return !INVALID_IDENTIFIERS.some(invalid => lower.startsWith(invalid));
+}
+
+/**
+ * Detect eBay store name from Seller Hub page
+ * @param {number|null} specificTabId - If provided, only check this tab
+ */
+async function detectEbayAccount(specificTabId = null) {
+  try {
+    let tabs;
+    if (specificTabId) {
+      const tab = await chrome.tabs.get(specificTabId);
+      tabs = [tab];
+    } else {
+      tabs = await chrome.tabs.query({ url: '*://*.ebay.com/*' });
+    }
+    for (const tab of tabs) {
+      try {
+        const result = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            // Seller Hub page - store name in header
+            // Structure: <a class="shui-header__link">storename<span class="clipped">View profile</span></a>
+            const el = document.querySelector('.shui-header__user-profile > a.shui-header__link');
+            if (el) {
+              // Clone and remove the <span class="clipped"> to get just the store name
+              const clone = el.cloneNode(true);
+              const clipped = clone.querySelector('.clipped');
+              if (clipped) clipped.remove();
+              const storeName = clone.textContent?.trim();
+              if (storeName) return storeName;
+            }
+            return null;
+          }
+        });
+        const value = result[0]?.result;
+        if (value && isValidIdentifier(value)) {
+          return { key: value.toLowerCase().trim(), display: value };
+        }
+      } catch (e) {
+        // Tab might not be accessible, continue
+        console.warn('[SW] eBay detection script error:', e);
+      }
+    }
+  } catch (e) {
+    console.warn('[SW] Error detecting eBay account:', e);
+  }
+  return null;
+}
+
+/**
+ * Detect Amazon account from open tabs or a specific tab
+ * @param {number|null} specificTabId - If provided, only check this tab
+ */
+async function detectAmazonAccount(specificTabId = null) {
+  try {
+    let tabs;
+    if (specificTabId) {
+      const tab = await chrome.tabs.get(specificTabId);
+      tabs = [tab];
+    } else {
+      tabs = await chrome.tabs.query({ url: '*://*.amazon.com/*' });
+    }
+    for (const tab of tabs) {
+      try {
+        const result = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            // Try multiple selectors for Amazon account name
+            const selectors = [
+              '#nav-link-accountList .nav-line-1',
+              '#nav-tools .nav-line-1',
+              '#nav-link-accountList-nav-line-1',
+            ];
+            for (const sel of selectors) {
+              const el = document.querySelector(sel);
+              if (el?.textContent?.trim()) {
+                // Amazon shows "Hello, Name" format
+                const text = el.textContent.trim();
+                // Extract name after "Hello, " if present
+                const match = text.match(/Hello,\s*(.+)/i);
+                if (match && match[1]) {
+                  return match[1].trim();
+                }
+                return text;
+              }
+            }
+            return null;
+          }
+        });
+        const value = result[0]?.result;
+        if (value && isValidIdentifier(value)) {
+          return { key: value.toLowerCase().trim(), display: value };
+        }
+      } catch (e) {
+        // Tab might not be accessible, continue
+      }
+    }
+  } catch (e) {
+    console.warn('[SW] Error detecting Amazon account:', e);
+  }
+  return null;
+}
+
+/**
+ * Opens a minimized window with eBay and Amazon tabs for account detection.
+ *
+ * URLs opened:
+ * - https://www.ebay.com (to detect eBay username from page header)
+ * - https://www.amazon.com (to detect Amazon username from "Hello, Name" in nav)
+ */
+async function openDetectionWindow() {
+  try {
+    console.log('[SW] Creating detection window with eBay and Amazon tabs...');
+
+    // Create window first (without state parameter to avoid API conflict)
+    const win = await chrome.windows.create({
+      url: ['https://www.ebay.com/sh/ord', 'https://www.amazon.com'],
+      type: 'normal',
+      width: 800,
+      height: 600,
+      focused: false
+    });
+
+    console.log('[SW] Window created:', win.id, 'with', win.tabs?.length, 'tabs');
+
+    // Minimize window after creation (workaround for API restriction)
+    await chrome.windows.update(win.id, { state: 'minimized' });
+
+    // Pin both tabs
+    for (const tab of win.tabs) {
+      await chrome.tabs.update(tab.id, { pinned: true });
+      console.log('[SW] Tab:', tab.id, 'URL:', tab.url || tab.pendingUrl);
+    }
+
+    return {
+      windowId: win.id,
+      tabIds: win.tabs.map(t => t.id),
+      ebayTabId: win.tabs.find(t => (t.url || t.pendingUrl)?.includes('ebay'))?.id,
+      amazonTabId: win.tabs.find(t => (t.url || t.pendingUrl)?.includes('amazon'))?.id
+    };
+  } catch (e) {
+    console.error('[SW] Error opening detection window:', e);
+    return null;
+  }
+}
+
+/**
+ * Closes the detection window.
+ */
+async function closeDetectionWindow(windowId) {
+  try {
+    await chrome.windows.remove(windowId);
+    console.log('[SW] Closed detection window');
+  } catch (e) {
+    // Window may already be closed
+  }
+}
+
+/**
+ * Wait for a tab to finish loading
+ */
+function waitForTabLoad(tabId, timeoutMs = 10000) {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+
+    const checkTab = async () => {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        if (tab.status === 'complete') {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - startTime > timeoutMs) {
+          resolve(false);
+          return;
+        }
+        setTimeout(checkTab, 500);
+      } catch (e) {
+        resolve(false);
+      }
+    };
+
+    checkTab();
+  });
+}
+
+// =============================================================================
+// PAIRING API
+// =============================================================================
+
+/**
+ * Request pairing from backend with account detection
+ * Opens minimized eBay/Amazon windows to detect logged-in usernames
+ */
+async function requestPairing() {
+  const state = await getState();
+  let detectionWindow = null;
+
+  try {
+    // Show detecting state in UI immediately
+    await updateState({
+      device_status: 'detecting',
+      pairing_error: null,
+    });
+
+    // Open minimized window with eBay and Amazon to detect logged-in accounts
+    console.log('[SW] Opening detection window...');
+    detectionWindow = await openDetectionWindow();
+
+    let ebay = null;
+    let amazon = null;
+
+    if (detectionWindow) {
+      // Wait for both tabs to load
+      const loadPromises = [];
+      if (detectionWindow.ebayTabId) {
+        loadPromises.push(waitForTabLoad(detectionWindow.ebayTabId, 15000));
+      }
+      if (detectionWindow.amazonTabId) {
+        loadPromises.push(waitForTabLoad(detectionWindow.amazonTabId, 15000));
+      }
+      await Promise.all(loadPromises);
+
+      // Extra delay for page rendering and login state to appear
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Detect logged-in usernames from the pages
+      if (detectionWindow.ebayTabId) {
+        ebay = await detectEbayAccount(detectionWindow.ebayTabId);
+      }
+      if (detectionWindow.amazonTabId) {
+        amazon = await detectAmazonAccount(detectionWindow.amazonTabId);
+      }
+
+      console.log('[SW] Detected - eBay store:', ebay?.display || 'not found', '| Amazon account:', amazon?.display || 'not found');
+
+      // If BOTH detected, discard Amazon (eBay takes priority)
+      // Accounts represent eBay sellers only - Amazon agents don't have accounts
+      if (ebay && amazon) {
+        console.log('[SW] Both eBay and Amazon detected - discarding Amazon, using eBay only');
+        amazon = null;
+      }
+    } else {
+      console.log('[SW] Failed to open detection window');
+    }
+
+    // If NEITHER account detected, show error and don't proceed
+    if (!ebay && !amazon) {
+      console.log('[SW] Detection failed - neither eBay nor Amazon account found');
+      await updateState({
+        pairing_error: 'Could not detect eBay or Amazon account. Please ensure you are logged in to eBay Seller Hub and/or Amazon.',
+        pairing_status: null,
+        device_status: null,  // Clear detecting state
+      });
+      return { ok: false, error: 'Detection failed' };
+    }
+
+    // Clear detecting state before proceeding with API request
+    await updateState({ device_status: null });
+
+    // Proceed with pairing request - backend handles auto-approve vs pending
+    const result = await apiRequest('/automation/pairing/request', {
+      method: 'POST',
+      body: {
+        install_instance_id: state.install_instance_id,
+        ebay_account_key: ebay?.key,
+        amazon_account_key: amazon?.key,
+        ebay_account_display: ebay?.display,
+        amazon_account_display: amazon?.display,
+      },
+    });
+
+    if (result.ok) {
+      // Check if auto-approved
+      if (result.data.device_status === 'auto_approved') {
+        console.log('[SW] Auto-approved! Agent:', result.data.agent_id);
+
+        // Store credentials immediately
+        await updateState({
+          agent_id: result.data.agent_id,
+          install_token: result.data.install_token,
+          agent_role: result.data.role,
+          label: result.data.label,
+          account_name: result.data.account_name,
+          pairing_request_id: null,
+          pairing_status: null,
+          device_status: 'auto_approved',
+          pairing_error: null,
+          pairing_expires_at: null,
+        });
+
+        // Immediately call checkin to confirm replacement
+        const checkinResult = await apiRequest('/automation/agents/me/checkin', {
+          method: 'POST',
+        });
+        console.log('[SW] Checkin result:', checkinResult);
+
+        if (checkinResult.ok) {
+          await updateState({
+            device_status: null,
+            pairing_status: null,
+          });
+        }
+      } else {
+        // Pending approval flow
+        await updateState({
+          pairing_request_id: result.data.request_id,
+          pairing_status: result.data.status,
+          device_status: result.data.device_status,
+          next_allowed_at: result.data.next_allowed_at,
+          cooldown_seconds: result.data.cooldown_seconds,
+          lifetime_request_count: result.data.lifetime_request_count,
+          pairing_expires_at: result.data.expires_at,
+          pairing_error: null,
+        });
+        // Start polling for approval
+        startPairingPoll();
+      }
+    } else if (result.status === 403) {
+      await updateState({ device_status: 'blocked', pairing_error: result.error });
+    } else {
+      await updateState({ pairing_error: result.error, device_status: null });
+    }
+    return result;
+  } catch (e) {
+    console.error('[SW] requestPairing error:', e);
+    await updateState({
+      device_status: null,
+      pairing_error: 'Detection failed: ' + e.message,
+    });
+    return { ok: false, error: e.message };
+  } finally {
+    // Always clean up detection window if we opened one
+    if (detectionWindow) {
+      await closeDetectionWindow(detectionWindow.windowId);
+    }
+  }
+}
+
+/**
+ * Poll for pairing approval status
+ */
+async function pollPairingStatus() {
+  const state = await getState();
+
+  // Don't poll if already paired or no pending request
+  if (state.agent_id || state.pairing_status !== 'pending') {
+    stopPairingPoll();
+    return;
+  }
+
+  console.log('[SW] Polling pairing status...');
+  const result = await apiRequest(`/automation/pairing/status/${state.install_instance_id}`, {
+    method: 'GET',
+  });
+
+  if (!result.ok) {
+    console.warn('[SW] Poll failed:', result.error);
+    return;
+  }
+
+  const { status, agent_id, install_token, role, label, account_name, rejection_reason, expires_at } = result.data;
+
+  if (status === 'approved' && agent_id && install_token) {
+    // Success! Store credentials and stop polling
+    await updateState({
+      agent_id,
+      install_token,
+      agent_role: role,
+      label,
+      account_name,
+      pairing_request_id: null,
+      pairing_status: null,
+      device_status: null,
+      next_allowed_at: null,
+      cooldown_seconds: 0,
+      pairing_error: null,
+      pairing_expires_at: null,
+    });
+    stopPairingPoll();
+    console.log('[SW] Pairing approved! Agent:', agent_id);
+  } else if (status === 'rejected') {
+    await updateState({
+      pairing_status: 'rejected',
+      pairing_error: rejection_reason || 'Request was rejected',
+      pairing_request_id: null,
+      pairing_expires_at: null,
+    });
+    stopPairingPoll();
+    console.log('[SW] Pairing rejected:', rejection_reason);
+  } else if (status === 'expired') {
+    await updateState({
+      pairing_status: 'expired',
+      pairing_error: 'Request expired. Please try again.',
+      pairing_request_id: null,
+      pairing_expires_at: null,
+    });
+    stopPairingPoll();
+    console.log('[SW] Pairing request expired');
+  }
+  // If still pending, keep polling
+}
+
+let pairingPollInterval = null;
+
+/**
+ * Start polling for pairing approval (every 5 seconds)
+ */
+function startPairingPoll() {
+  if (pairingPollInterval) return; // Already polling
+
+  console.log('[SW] Starting pairing poll');
+  pairingPollInterval = setInterval(pollPairingStatus, 5000);
+
+  // Also poll immediately
+  pollPairingStatus();
+}
+
+/**
+ * Stop polling for pairing approval
+ */
+function stopPairingPoll() {
+  if (pairingPollInterval) {
+    clearInterval(pairingPollInterval);
+    pairingPollInterval = null;
+    console.log('[SW] Stopped pairing poll');
+  }
+}
+
+// =============================================================================
+// AGENT API
+// =============================================================================
+
+/**
+ * Send heartbeat to backend
+ */
+async function sendHeartbeat() {
+  const state = await getState();
+  if (!state.install_token) return { ok: false, error: 'Not authenticated' };
+  return apiRequest('/automation/agents/me/heartbeat', { method: 'POST' });
+}
+
+// =============================================================================
+// JOB API
+// =============================================================================
+
+/**
+ * Claim next available job
+ */
+async function claimNextJob() {
+  const result = await apiRequest('/automation/jobs/claim', { method: 'POST' });
+  if (result.ok && result.data.job) {
+    // Queue the job as a task
+    await queueTask({
+      type: 'AMAZON_ORDER',
+      locks: ['AMAZON_UI'],
+      timeout: 600000,
+      stages: ['NAVIGATE', 'CHECKOUT', 'CONFIRM'],
+      context: { job: result.data.job },
+    });
+    console.log('[SW] Claimed job:', result.data.job.id);
+  }
+  return result;
+}
+
+/**
+ * Complete a job
+ */
+async function completeJob(jobId, data) {
+  return apiRequest(`/automation/jobs/${jobId}/complete`, { method: 'POST', body: data });
+}
+
+/**
+ * Fail a job
+ */
+async function failJob(jobId, reason, details) {
+  return apiRequest(`/automation/jobs/${jobId}/fail`, { method: 'POST', body: { reason, details } });
+}
+
+// =============================================================================
 // SIDE PANEL COMMUNICATION
 // =============================================================================
 
@@ -724,12 +1313,28 @@ function handleSidePanelMessage(msg, port) {
       queueFakeTask();
       break;
 
-    case 'REDEEM_CODE':
-      redeemPairingCode(msg.code);
-      break;
-
     case 'RESOLVE_ATTENTION':
       resolveAttention(msg.itemId);
+      break;
+
+    case 'REQUEST_PAIRING':
+      requestPairing();
+      break;
+
+    case 'REFRESH_STATE':
+      broadcastState();
+      break;
+
+    case 'GET_DETECTED_ACCOUNTS':
+      (async () => {
+        const ebay = await detectEbayAccount();
+        const amazon = await detectAmazonAccount();
+        port.postMessage({
+          type: 'DETECTED_ACCOUNTS',
+          ebay: ebay?.display || null,
+          amazon: amazon?.display || null,
+        });
+      })();
       break;
   }
 }
@@ -776,25 +1381,6 @@ async function simulateFakeTask(taskId) {
   }
 
   await completeTask(taskId);
-}
-
-/**
- * Mock pairing code redemption
- */
-async function redeemPairingCode(code) {
-  console.log('[SW] Redeeming code:', code);
-
-  // TODO: Actually call backend API
-  // For now, mock success
-  if (code && code.length === 6) {
-    await updateState({
-      agent_id: crypto.randomUUID(),
-      install_token: 'mock_token_' + Date.now(),
-      agent_role: 'AMAZON_AGENT', // or EBAY_AGENT based on code
-      label: 'Demo Agent',
-    });
-    console.log('[SW] Pairing successful (mock)');
-  }
 }
 
 /**
@@ -848,13 +1434,21 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
   switch (alarm.name) {
     case 'job_poll':
-      // TODO: Poll backend for new jobs
+      getState().then(state => {
+        if (state.agent_role === 'AMAZON_AGENT' && state.scheduler_status === 'running') {
+          claimNextJob();
+        }
+      });
       break;
     case 'ebay_scan':
-      // TODO: Trigger eBay order scan
+      // TODO: Trigger eBay order scan (for EBAY_AGENT)
       break;
     case 'heartbeat':
-      // TODO: Send heartbeat to backend
+      getState().then(state => {
+        if (state.install_token) {
+          sendHeartbeat();
+        }
+      });
       broadcastState();
       break;
   }
