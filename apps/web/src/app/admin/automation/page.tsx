@@ -5,15 +5,13 @@ import { cn } from "@/lib/utils";
 import { PairingRequestsTable } from "@/components/admin/automation/pairing-requests-table";
 import { AgentsTable } from "@/components/admin/automation/agents-table";
 import { JobsTable } from "@/components/admin/automation/jobs-table";
-import { BlockedAccountsTable } from "@/components/admin/automation/blocked-accounts-table";
 
-type Tab = "pairing" | "agents" | "jobs" | "blocked";
+type Tab = "pairing" | "agents" | "jobs";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "pairing", label: "Pairing Requests" },
   { id: "agents", label: "Agents" },
   { id: "jobs", label: "Jobs" },
-  { id: "blocked", label: "Block Accounts" },
 ];
 
 export default function AutomationPage() {
@@ -28,7 +26,7 @@ export default function AutomationPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Extension Hub</h1>
         <p className="text-gray-400 mt-1">
-          Manage Chrome Extension agents, pairing requests, automation jobs, and blocked accounts.
+          Manage Chrome Extension agents, pairing requests, and automation jobs.
         </p>
       </div>
 
@@ -69,7 +67,6 @@ export default function AutomationPage() {
         {activeTab === "jobs" && (
           <JobsTable refreshTrigger={refreshTrigger} />
         )}
-        {activeTab === "blocked" && <BlockedAccountsTable />}
       </div>
     </div>
   );

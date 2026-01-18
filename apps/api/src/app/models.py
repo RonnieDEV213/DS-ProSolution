@@ -709,42 +709,6 @@ JobClaimResponse.model_rebuild()
 
 
 # ============================================================
-# Blocked Account Models
-# ============================================================
-
-
-class BlockedAccountProvider(str, Enum):
-    EBAY = "ebay"
-    AMAZON = "amazon"
-
-
-class BlockAccountRequest(BaseModel):
-    """Request body for blocking an account."""
-
-    provider: BlockedAccountProvider
-    account_key: str
-    reason: Optional[str] = None
-
-
-class BlockedAccountResponse(BaseModel):
-    """Blocked account data in API responses."""
-
-    id: UUID
-    org_id: UUID
-    provider: BlockedAccountProvider
-    account_key: str
-    reason: Optional[str] = None
-    created_at: Optional[datetime] = None
-    created_by: Optional[UUID] = None
-
-
-class BlockedAccountListResponse(BaseModel):
-    """List of blocked accounts."""
-
-    blocked_accounts: list[BlockedAccountResponse]
-
-
-# ============================================================
 # Agent Checkin Models
 # ============================================================
 

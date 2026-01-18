@@ -44,10 +44,9 @@ import {
   AgentRole,
   AgentStatus,
   ApprovalStatus,
-  BlockedAccountProvider,
 } from "@/lib/api";
 import { useAutomationPolling } from "@/hooks/use-automation-polling";
-import { MoreVertical, Pencil, RefreshCcw, Trash2, ChevronDown, ChevronRight, Ban, User } from "lucide-react";
+import { MoreVertical, Pencil, RefreshCcw, Trash2, ChevronDown, ChevronRight, User } from "lucide-react";
 
 interface AgentsTableProps {
   refreshTrigger: number;
@@ -85,7 +84,6 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [revokingAgent, setRevokingAgent] = useState<Agent | null>(null);
   const [deletingAgent, setDeletingAgent] = useState<Agent | null>(null);
-  const [blockingAgent, setBlockingAgent] = useState<Agent | null>(null);
   const [newLabel, setNewLabel] = useState("");
   const [saving, setSaving] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -198,36 +196,6 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
     }
   };
 
-  const handleBlock = async () => {
-    if (!blockingAgent) return;
-
-    const accountKey = blockingAgent.ebay_account_key || blockingAgent.amazon_account_key;
-    const provider: BlockedAccountProvider = blockingAgent.ebay_account_key ? "ebay" : "amazon";
-
-    if (!accountKey) {
-      toast.error("Agent has no account key to block");
-      setBlockingAgent(null);
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await automationApi.blockAccount({
-        provider,
-        account_key: accountKey,
-        reason: "Blocked from agent management",
-      });
-      toast.success(`Account "${accountKey}" blocked - future auto-approvals will require admin approval`);
-      setBlockingAgent(null);
-      refetch();
-      onActionComplete();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to block account");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleString();
@@ -293,7 +261,6 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                           const statusBadge = STATUS_BADGES[agent.status];
                           const approvalBadge = APPROVAL_BADGES[agent.approval_status];
                           const accountKey = agent.ebay_account_key || agent.amazon_account_key;
-                          const hasAccountKey = !!accountKey;
 
                           return (
                             <TableRow key={agent.id} className="border-gray-800">
@@ -377,14 +344,6 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                                     >
                                       <RefreshCcw className="w-4 h-4 mr-2" />
                                       Revoke (Force Re-pair)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => setBlockingAgent(agent)}
-                                      disabled={!hasAccountKey}
-                                      className="text-orange-400 focus:bg-gray-700 focus:text-orange-300 cursor-pointer disabled:opacity-50"
-                                    >
-                                      <Ban className="w-4 h-4 mr-2" />
-                                      Block Auto-Reconnect
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => setDeletingAgent(agent)}
@@ -510,37 +469,6 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
               className="bg-red-600 hover:bg-red-700"
             >
               {saving ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Block Account Confirmation Dialog */}
-      <AlertDialog open={!!blockingAgent} onOpenChange={(open) => !open && setBlockingAgent(null)}>
-        <AlertDialogContent className="bg-gray-900 border-gray-800">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Block Auto-Reconnect</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
-              This will prevent the account from auto-reconnecting. Future pairing requests with this account
-              will require manual admin approval.
-              {blockingAgent && (
-                <span className="block mt-2">
-                  <span className="text-gray-300 font-medium">Account Key:</span>
-                  <span className="ml-2 font-mono text-orange-400">
-                    {blockingAgent.ebay_account_key || blockingAgent.amazon_account_key}
-                  </span>
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-gray-700 text-gray-300">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleBlock}
-              disabled={saving}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              {saving ? "Blocking..." : "Block Account"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

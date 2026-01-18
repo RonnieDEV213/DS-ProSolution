@@ -357,26 +357,6 @@ export interface AutomationJob {
   created_at: string;
 }
 
-// Blocked Account Types
-export type BlockedAccountProvider = "ebay" | "amazon";
-
-export interface BlockedAccount {
-  id: string;
-  org_id: string;
-  provider: BlockedAccountProvider;
-  account_key: string;
-  reason?: string | null;
-  created_at?: string | null;
-  created_by?: string | null;
-}
-
-export interface BlockAccountRequest {
-  provider: BlockedAccountProvider;
-  account_key: string;
-  reason?: string;
-}
-
-
 export function exportToCSV(
   records: BookkeepingRecord[],
   accountCode: string
@@ -499,19 +479,4 @@ export const automationApi = {
       `/automation/jobs?${searchParams}`
     );
   },
-
-  // Blocked Accounts
-  getBlockedAccounts: () =>
-    fetchAPI<{ blocked_accounts: BlockedAccount[] }>("/automation/blocked-accounts"),
-
-  blockAccount: (data: BlockAccountRequest) =>
-    fetchAPI<BlockedAccount>("/automation/blocked-accounts", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
-  unblockAccount: (blockedId: string) =>
-    fetchAPI<{ ok: boolean }>(`/automation/blocked-accounts/${blockedId}`, {
-      method: "DELETE",
-    }),
 };

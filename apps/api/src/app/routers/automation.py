@@ -37,10 +37,6 @@ from app.models import (
     AvailableAccountResponse,
     AvailableEbayAgentListResponse,
     AvailableEbayAgentResponse,
-    BlockAccountRequest,
-    BlockedAccountListResponse,
-    BlockedAccountProvider,
-    BlockedAccountResponse,
     JobClaimResponse,
     JobComplete,
     JobCreate,
@@ -394,42 +390,7 @@ async def create_pairing_request(
         if result.data:
             existing_agent = result.data[0]
 
-    # 4. Check blocklist if we found a matching agent
-    if existing_agent:
-        org_id = existing_agent["org_id"]
-
-        # Check if any of the keys are blocked
-        blocked = False
-        if ebay_key:
-            block_result = (
-                supabase.table("automation_blocked_accounts")
-                .select("id")
-                .eq("org_id", org_id)
-                .eq("provider", "ebay")
-                .eq("account_key", ebay_key)
-                .execute()
-            )
-            if block_result.data:
-                blocked = True
-                logger.info(f"Blocked eBay account key: {ebay_key}")
-
-        if not blocked and amazon_key:
-            block_result = (
-                supabase.table("automation_blocked_accounts")
-                .select("id")
-                .eq("org_id", org_id)
-                .eq("provider", "amazon")
-                .eq("account_key", amazon_key)
-                .execute()
-            )
-            if block_result.data:
-                blocked = True
-                logger.info(f"Blocked Amazon account key: {amazon_key}")
-
-        if blocked:
-            existing_agent = None  # Fall through to pending request
-
-    # 5. If found matching agent, auto-approve with replacement
+    # 4. If found matching agent, auto-approve with replacement
     if existing_agent:
         now = datetime.now(timezone.utc)
         token_secret = secrets.token_hex(32)
@@ -1245,127 +1206,6 @@ async def agent_checkin(agent: dict = Depends(get_current_agent)):
         status=ApprovalStatus.APPROVED,
         message="Replacement confirmed",
     )
-
-
-# ============================================================
-# Blocked Accounts Endpoints
-# ============================================================
-
-
-@router.get("/blocked-accounts", response_model=BlockedAccountListResponse)
-async def list_blocked_accounts(
-    user: dict = Depends(require_permission_key("admin.automation")),
-):
-    """
-    List blocked accounts for the organization.
-
-    Blocked accounts cannot be auto-approved - they require manual approval.
-    Requires admin.automation permission.
-    """
-    supabase = get_supabase()
-    org_id = user["membership"]["org_id"]
-
-    result = (
-        supabase.table("automation_blocked_accounts")
-        .select("*")
-        .eq("org_id", org_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-
-    blocked = [
-        BlockedAccountResponse(
-            id=row["id"],
-            org_id=row["org_id"],
-            provider=row["provider"],
-            account_key=row["account_key"],
-            reason=row.get("reason"),
-            created_at=row.get("created_at"),
-            created_by=row.get("created_by"),
-        )
-        for row in (result.data or [])
-    ]
-
-    return BlockedAccountListResponse(blocked_accounts=blocked)
-
-
-@router.post("/blocked-accounts", response_model=BlockedAccountResponse)
-async def block_account(
-    body: BlockAccountRequest,
-    user: dict = Depends(require_permission_key("admin.automation")),
-):
-    """
-    Add account to blocklist.
-
-    Blocked accounts cannot be auto-approved - they require manual approval.
-    Requires admin.automation permission.
-    """
-    supabase = get_supabase()
-    org_id = user["membership"]["org_id"]
-    user_id = user["user_id"]
-
-    # Normalize key
-    account_key = normalize_key(body.account_key)
-    if not account_key:
-        raise HTTPException(status_code=400, detail="Invalid account key")
-
-    try:
-        result = supabase.table("automation_blocked_accounts").insert({
-            "org_id": org_id,
-            "provider": body.provider.value,
-            "account_key": account_key,
-            "reason": body.reason,
-            "created_by": user_id,
-        }).execute()
-    except APIError as e:
-        msg = str(e)
-        if "duplicate" in msg.lower() or "unique" in msg.lower():
-            raise HTTPException(status_code=409, detail="Account already blocked")
-        raise
-
-    if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to block account")
-
-    row = result.data[0]
-    return BlockedAccountResponse(
-        id=row["id"],
-        org_id=row["org_id"],
-        provider=row["provider"],
-        account_key=row["account_key"],
-        reason=row.get("reason"),
-        created_at=row.get("created_at"),
-        created_by=row.get("created_by"),
-    )
-
-
-@router.delete("/blocked-accounts/{blocked_id}")
-async def unblock_account(
-    blocked_id: str,
-    user: dict = Depends(require_permission_key("admin.automation")),
-):
-    """
-    Remove account from blocklist.
-
-    Requires admin.automation permission.
-    """
-    supabase = get_supabase()
-    org_id = user["membership"]["org_id"]
-
-    # Verify it exists and belongs to org
-    result = (
-        supabase.table("automation_blocked_accounts")
-        .select("id")
-        .eq("id", blocked_id)
-        .eq("org_id", org_id)
-        .execute()
-    )
-
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Blocked account not found")
-
-    supabase.table("automation_blocked_accounts").delete().eq("id", blocked_id).execute()
-
-    return {"ok": True}
 
 
 # ============================================================
