@@ -12,7 +12,7 @@ This milestone extends DS-ProSolution's extension pairing system with access cod
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Access Code Foundation** - Backend infrastructure for secure access code generation, hashing, and validation
+- [x] **Phase 1: Access Code Foundation** - Backend infrastructure for secure access code generation, hashing, and validation
 - [ ] **Phase 2: Profile Settings & Account Permissions** - Web UI for profile modal, access code management, and account:view permission
 - [ ] **Phase 3: Extension Auth Flow** - Extension authentication using access codes with JWT storage
 - [ ] **Phase 4: Extension RBAC** - Permission-based tab rendering with admin bypass
@@ -32,8 +32,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md - Database schema, dependencies, Pydantic models
-- [ ] 01-02-PLAN.md - Service layer and API endpoints
+- [x] 01-01-PLAN.md - Database schema, dependencies, Pydantic models
+- [x] 01-02-PLAN.md - Service layer and API endpoints
 
 ### Phase 2: Profile Settings & Account Permissions
 **Goal**: Users can view and manage their access codes in a Profile Settings modal; account:view permission restricts account list access
@@ -100,7 +100,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Access Code Foundation | 0/2 | Planned | - |
+| 1. Access Code Foundation | 2/2 | ✓ Complete | 2026-01-18 |
 | 2. Profile Settings & Account Permissions | 0/TBD | Not started | - |
 | 3. Extension Auth Flow | 0/TBD | Not started | - |
 | 4. Extension RBAC | 0/TBD | Not started | - |
@@ -108,4 +108,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-18*
+*Last updated: 2026-01-18 — Phase 1 complete*

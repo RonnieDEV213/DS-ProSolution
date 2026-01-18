@@ -95,7 +95,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ACC-01 | Phase 1 | Pending |
+| ACC-01 | Phase 1 | Complete |
 | ACC-02 | Phase 2 | Pending |
 | ACC-03 | Phase 2 | Pending |
 | ACC-04 | Phase 2 | Pending |
@@ -130,4 +130,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-18*
-*Last updated: 2026-01-18 after roadmap creation*
+*Last updated: 2026-01-18 — Phase 1 complete*
