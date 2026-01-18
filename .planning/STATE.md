@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 1 of 5 (Access Code Foundation)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-18 — Completed 01-01-PLAN.md (Schema and Dependencies)
+Last activity: 2026-01-18 — Completed 01-02-PLAN.md (Service Layer)
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 8 min
-- Total execution time: 8 min
+- Total plans completed: 2
+- Average duration: 5.5 min
+- Total execution time: 11 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-access-code-foundation | 1 | 8 min | 8 min |
+| 01-access-code-foundation | 2 | 11 min | 5.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (8 min)
-- Trend: Starting
+- Last 5 plans: 01-01 (8 min), 01-02 (3 min)
+- Trend: Improving
 
 *Updated after each plan completion*
 
@@ -48,10 +48,14 @@ Recent decisions affecting current work:
 - [01-01]: 4-char prefix globally unique for O(1) lookup
 - [01-01]: Progressive lockout: 5min -> 15min -> 1hr for brute force protection
 - [01-01]: Service role RLS for now; user-facing policies deferred
+- [01-02]: Service layer pattern: business logic in services/, routes in routers/
+- [01-02]: JWT includes 'type' claim to distinguish from Supabase tokens
+- [01-02]: 15-minute access token expiry for extension sessions
 
 ### Pending Todos
 
 - Run migration 035_access_codes.sql in Supabase SQL editor
+- Add ACCESS_CODE_JWT_SECRET environment variable
 
 ### Blockers/Concerns
 
@@ -60,6 +64,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Completed 01-01-PLAN.md (Schema and Dependencies)
+Stopped at: Completed 01-02-PLAN.md (Service Layer)
 Resume file: None
-Next: 01-02-PLAN.md (Service Layer) or create plan if not exists
+Next: 01-03-PLAN.md (Integration Testing) or create plan if not exists
