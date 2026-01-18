@@ -43,6 +43,8 @@ const AVAILABLE_PERMISSIONS = [
   { key: "order_tracking.write.service_fields", label: "Edit Service Fields", group: "Customer Service Permissions" },
   { key: "order_tracking.read.service_remark", label: "View Service Remarks", group: "Customer Service Permissions" },
   { key: "order_tracking.write.service_remark", label: "Edit Service Remarks", group: "Customer Service Permissions" },
+  // Account Permissions
+  { key: "accounts.view", label: "View Assigned Accounts", group: "Account Permissions" },
 ];
 
 // Group permissions by category
