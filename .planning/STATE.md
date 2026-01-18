@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 2 of 5 (Profile Settings & Account Permissions)
-Plan: 2 of TBD in current phase
+Plan: 1 of TBD in current phase
 Status: In progress
-Last activity: 2026-01-18 - Completed 02-02-PLAN.md (Account View Permission)
+Last activity: 2026-01-18 - Completed 02-01-PLAN.md (Profile Settings Modal)
 
 Progress: [███░░░░░░░] 30%
 
@@ -20,18 +20,18 @@ Progress: [███░░░░░░░] 30%
 
 **Velocity:**
 - Total plans completed: 3
-- Average duration: 5 min
-- Total execution time: 15 min
+- Average duration: 5.7 min
+- Total execution time: 17 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-access-code-foundation | 2 | 11 min | 5.5 min |
-| 02-profile-settings-account-permissions | 1 | 4 min | 4 min |
+| 02-profile-settings-account-permissions | 1 | 6 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (8 min), 01-02 (3 min), 02-02 (4 min)
+- Last 5 plans: 01-01 (8 min), 01-02 (3 min), 02-01 (6 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -52,9 +52,9 @@ Recent decisions affecting current work:
 - [01-02]: Service layer pattern: business logic in services/, routes in routers/
 - [01-02]: JWT includes 'type' claim to distinguish from Supabase tokens
 - [01-02]: 15-minute access token expiry for extension sessions
-- [02-02]: accounts.view permission required for VAs to access /accounts endpoint
-- [02-02]: Admin and VA use same AccountsTable component with role-based rendering
-- [02-02]: VAs see 2 columns (Account Code, Name); Admins see 5 columns
+- [02-01]: Hold-to-reveal only works for newly generated codes
+- [02-01]: Copy button copies full code if newly generated, only prefix otherwise
+- [02-01]: Access code section hidden for client users
 
 ### Pending Todos
 
@@ -67,6 +67,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-18T23:40:00Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-01-18T23:42:00Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
