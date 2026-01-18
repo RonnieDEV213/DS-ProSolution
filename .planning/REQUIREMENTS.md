@@ -1,0 +1,133 @@
+# Requirements: DS-ProSolution
+
+**Defined:** 2026-01-18
+**Core Value:** VAs can securely authenticate into the extension and see only the features their assigned roles permit
+
+## v1 Requirements
+
+Requirements for this milestone. Each maps to roadmap phases.
+
+### Access Codes
+
+- [ ] **ACC-01**: User can generate access code with immutable prefix + rotatable secret
+- [ ] **ACC-02**: Access code displays masked by default (dots/asterisks)
+- [ ] **ACC-03**: User can reveal access code secret via toggle
+- [ ] **ACC-04**: User can copy access code to clipboard with visual feedback
+- [ ] **ACC-05**: User can rotate/regenerate secret (prefix remains unchanged)
+- [ ] **ACC-06**: User can set custom secret with basic validation (min length, alphanumeric)
+
+### Profile Settings
+
+- [ ] **PROF-01**: Profile Settings modal uses existing sidebar-tabs pattern
+- [ ] **PROF-02**: Profile tab displays user info (name, email, role)
+- [ ] **PROF-03**: Extension tab shows install/download for all user types
+- [ ] **PROF-04**: Extension tab shows access code UI for Admin/VA only (Clients excluded)
+- [ ] **PROF-05**: Modal replaces bottom-left user info + sign-out trigger
+
+### Extension Authentication
+
+- [ ] **EXT-01**: Extension requires access code entry after pairing approval
+- [ ] **EXT-02**: Extension validates access code against backend
+- [ ] **EXT-03**: Extension shows clear error messages (invalid code, rate limited)
+- [ ] **EXT-04**: Extension stores user JWT on successful auth
+- [ ] **EXT-05**: Extension loads RBAC permissions on auth success
+- [ ] **EXT-06**: Extension renders tabs based on assigned roles (one tab per role)
+- [ ] **EXT-07**: Admin sees all extension tabs (bypasses RBAC)
+- [ ] **EXT-08**: User can log out of extension (clears access code auth)
+- [ ] **EXT-09**: Extension auto-logs out after 1 hour of inactivity
+
+### Account Permissions
+
+- [ ] **ACCT-01**: `account:view` permission grants view-only access to account list
+- [ ] **ACCT-02**: VA-assignment column hidden for users with only `account:view`
+- [ ] **ACCT-03**: Users with only `account:view` cannot create or edit accounts
+
+### Presence
+
+- [ ] **PRES-01**: Account shows occupancy indicator (occupied/available)
+- [ ] **PRES-02**: Admin sees who is occupying the account
+- [ ] **PRES-03**: VA sees only "Occupied" indicator (not identity)
+- [ ] **PRES-04**: Presence updates in real-time (Supabase Realtime)
+
+## v2 Requirements
+
+Deferred to future milestone. Tracked but not in current roadmap.
+
+### Profile Enhancements
+
+- **PROF-V2-01**: User can edit profile (display name)
+- **PROF-V2-02**: User can change password
+
+### Access Code Enhancements
+
+- **ACC-V2-01**: Download access code as JSON (non-recoverable backup)
+- **ACC-V2-02**: Customizable prefix (user-chosen)
+- **ACC-V2-03**: Named/multiple access codes per user
+- **ACC-V2-04**: Expiration dates on access codes
+
+### Extension Enhancements
+
+- **EXT-V2-01**: Remember device (skip access code re-entry on trusted device)
+- **EXT-V2-02**: Session indicator in extension header
+- **EXT-V2-03**: Admin-only extension tools
+
+### Presence Enhancements
+
+- **PRES-V2-01**: Activity timestamps (last active time)
+- **PRES-V2-02**: Occupancy history/audit log
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Full automation (removing VA clicks) | Future milestone, not this one |
+| Mobile app / responsive redesign | Desktop-first for VA workflow |
+| New user types or auth methods | Existing Admin/VA/Client model sufficient |
+| OAuth / social login for extension | Access codes are the auth mechanism |
+| Extension features beyond RBAC tabs | Extension internals unchanged except auth flow |
+| Refactoring unrelated code | Keep changes focused on 4 features |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ACC-01 | TBD | Pending |
+| ACC-02 | TBD | Pending |
+| ACC-03 | TBD | Pending |
+| ACC-04 | TBD | Pending |
+| ACC-05 | TBD | Pending |
+| ACC-06 | TBD | Pending |
+| PROF-01 | TBD | Pending |
+| PROF-02 | TBD | Pending |
+| PROF-03 | TBD | Pending |
+| PROF-04 | TBD | Pending |
+| PROF-05 | TBD | Pending |
+| EXT-01 | TBD | Pending |
+| EXT-02 | TBD | Pending |
+| EXT-03 | TBD | Pending |
+| EXT-04 | TBD | Pending |
+| EXT-05 | TBD | Pending |
+| EXT-06 | TBD | Pending |
+| EXT-07 | TBD | Pending |
+| EXT-08 | TBD | Pending |
+| EXT-09 | TBD | Pending |
+| ACCT-01 | TBD | Pending |
+| ACCT-02 | TBD | Pending |
+| ACCT-03 | TBD | Pending |
+| PRES-01 | TBD | Pending |
+| PRES-02 | TBD | Pending |
+| PRES-03 | TBD | Pending |
+| PRES-04 | TBD | Pending |
+
+**Coverage:**
+- v1 requirements: 26 total
+- Mapped to phases: 0
+- Unmapped: 26
+
+---
+*Requirements defined: 2026-01-18*
+*Last updated: 2026-01-18 after initial definition*
