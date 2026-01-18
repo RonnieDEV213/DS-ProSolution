@@ -198,19 +198,23 @@ export function AccessCodeDisplay() {
   };
 
   const handleCopy = async () => {
-    const textToCopy = newlyGeneratedCode || (codeInfo ? `${codeInfo.prefix}-************` : "");
-    if (!textToCopy) return;
+    if (!codeInfo) return;
 
-    // If no newly generated code, warn user
-    if (!newlyGeneratedCode) {
-      toast.info("Only the prefix was copied. Rotate your code to get a new full code.");
-    }
-
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      toast.success("Copied to clipboard");
-    } catch {
-      toast.error("Failed to copy to clipboard");
+    // Only copy the full code if newly generated, otherwise just copy prefix
+    if (newlyGeneratedCode) {
+      try {
+        await navigator.clipboard.writeText(newlyGeneratedCode);
+        toast.success("Copied to clipboard");
+      } catch {
+        toast.error("Failed to copy to clipboard");
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(codeInfo.prefix);
+        toast.info("Prefix copied. Rotate your code to get a copyable full code.");
+      } catch {
+        toast.error("Failed to copy to clipboard");
+      }
     }
   };
 
@@ -252,10 +256,11 @@ export function AccessCodeDisplay() {
 
   // Get display text for the code
   const getDisplayCode = (): string => {
+    const prefix = codeInfo?.prefix || "????";
     if (newlyGeneratedCode) {
-      return isRevealed ? newlyGeneratedCode : `${codeInfo?.prefix || ""}${"*".repeat(13)}`;
+      return isRevealed ? newlyGeneratedCode : `${prefix}-${"*".repeat(12)}`;
     }
-    return `${codeInfo?.prefix || "????"}${"*".repeat(13)}`;
+    return `${prefix}-${"*".repeat(12)}`;
   };
 
   if (codeState === "loading") {
