@@ -719,3 +719,94 @@ class AgentCheckinResponse(BaseModel):
     ok: bool
     status: ApprovalStatus
     message: str = ""
+
+
+# ============================================================
+# Access Code Models
+# ============================================================
+
+
+class AccessCodeGenerateRequest(BaseModel):
+    """Request body for generating an access code."""
+
+    custom_secret: Optional[str] = None  # If provided, use instead of random
+
+
+class AccessCodeGenerateResponse(BaseModel):
+    """Response from generating an access code.
+
+    Note: full_code is returned ONLY on generation. It cannot be retrieved later.
+    """
+
+    prefix: str  # 4-char prefix (always visible)
+    full_code: str  # prefix-secret (shown once, then only prefix visible)
+    expires_at: datetime
+
+
+class AccessCodeRotateRequest(BaseModel):
+    """Request body for rotating an access code secret."""
+
+    custom_secret: Optional[str] = None  # If provided, use instead of random
+
+
+class AccessCodeRotateResponse(BaseModel):
+    """Response from rotating an access code."""
+
+    prefix: str
+    full_code: str
+    rotated_at: datetime
+    expires_at: datetime
+
+
+class AccessCodeInfoResponse(BaseModel):
+    """Access code info (without secret)."""
+
+    prefix: str
+    created_at: datetime
+    expires_at: datetime
+    rotated_at: Optional[datetime] = None
+
+
+class RoleResponse(BaseModel):
+    """Role data in access code validation response."""
+
+    id: str
+    name: str
+    priority: int
+    permission_keys: list[str]
+
+
+class AccessCodeUserContext(BaseModel):
+    """User context returned on successful validation."""
+
+    id: str
+    name: Optional[str] = None
+    email: str
+    user_type: str  # "admin" | "va"
+    org_id: str
+    is_admin: bool
+
+
+class AccessCodeValidateRequest(BaseModel):
+    """Request body for validating an access code."""
+
+    code: str  # Full code: prefix-secret
+
+
+class AccessCodeValidateResponse(BaseModel):
+    """Response from successful access code validation."""
+
+    access_token: str
+    expires_in: int  # seconds
+    user: AccessCodeUserContext
+    roles: list[RoleResponse]
+    effective_permission_keys: list[str]
+    rbac_version: str  # ISO timestamp of last permission change
+
+
+class AccessCodeErrorResponse(BaseModel):
+    """Response for failed access code validation."""
+
+    error_code: str  # "INVALID_CODE", "ACCOUNT_DISABLED", "RATE_LIMITED", "CODE_EXPIRED"
+    message: str  # User-facing message
+    retry_after: Optional[int] = None  # Seconds until retry allowed (for rate limit)
