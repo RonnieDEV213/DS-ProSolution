@@ -45,10 +45,11 @@ Plans:
   3. Extension tab shows download/install for all user types
   4. Extension tab shows access code UI (masked, reveal, copy, rotate, custom) for Admin/VA only
   5. Users with only account:view permission see account list but cannot edit or see VA assignments
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md - Profile Settings modal with access code UI
+- [ ] 02-02-PLAN.md - accounts.view permission and restricted account table
 
 ### Phase 3: Extension Auth Flow
 **Goal**: Extension requires and validates access code entry after pairing approval, storing user JWT on success
@@ -100,12 +101,12 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Access Code Foundation | 2/2 | ✓ Complete | 2026-01-18 |
-| 2. Profile Settings & Account Permissions | 0/TBD | Not started | - |
+| 1. Access Code Foundation | 2/2 | Complete | 2026-01-18 |
+| 2. Profile Settings & Account Permissions | 0/2 | Ready | - |
 | 3. Extension Auth Flow | 0/TBD | Not started | - |
 | 4. Extension RBAC | 0/TBD | Not started | - |
 | 5. Presence System | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-18 — Phase 1 complete*
+*Last updated: 2026-01-18 — Phase 2 planned*
