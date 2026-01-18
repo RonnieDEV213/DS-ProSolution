@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-user-role";
+import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog";
 
 const navItems = [
   { href: "/va", label: "Dashboard", icon: "home" },
@@ -16,6 +17,27 @@ export default function VALayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { role, hasAccessProfile, loading } = useUserRole();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  // Fetch user data for sidebar
+  useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email ?? null);
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("user_id", user.id)
+          .single();
+        setDisplayName(profile?.display_name ?? null);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const navItemsToShow =
     role === "va" && !hasAccessProfile
@@ -106,6 +128,20 @@ export default function VALayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-gray-800">
+          {/* User info - clickable to open profile */}
+          {userEmail && (
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="w-full text-left mb-3 px-4 py-2 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"
+            >
+              <p className="text-white font-medium text-sm truncate">
+                {displayName || userEmail.split("@")[0]}
+              </p>
+              <p className="text-gray-400 text-xs truncate" title={userEmail}>
+                {userEmail}
+              </p>
+            </button>
+          )}
           <button
             onClick={handleSignOut}
             className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
@@ -126,6 +162,8 @@ export default function VALayout({ children }: { children: React.ReactNode }) {
             Sign Out
           </button>
         </div>
+
+        <ProfileSettingsDialog open={profileOpen} onOpenChange={setProfileOpen} />
       </aside>
       <main className="flex-1 p-8">{children}</main>
     </div>

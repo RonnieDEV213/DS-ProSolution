@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: "home" },
@@ -21,6 +22,7 @@ export function AdminSidebar() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -204,16 +206,19 @@ export function AdminSidebar() {
       </nav>
 
       <div className="p-4 border-t border-gray-800">
-        {/* Logged-in user info */}
+        {/* Logged-in user info - clickable to open profile */}
         {userEmail && (
-          <div className="mb-3 px-4">
+          <button
+            onClick={() => setProfileOpen(true)}
+            className="w-full text-left mb-3 px-4 py-2 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"
+          >
             <p className="text-white font-medium text-sm truncate">
               {displayName || userEmail.split("@")[0]}
             </p>
             <p className="text-gray-400 text-xs truncate" title={userEmail}>
               {userEmail}
             </p>
-          </div>
+          </button>
         )}
         <button
           onClick={handleSignOut}
@@ -235,6 +240,8 @@ export function AdminSidebar() {
           Sign Out
         </button>
       </div>
+
+      <ProfileSettingsDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </aside>
   );
 }
