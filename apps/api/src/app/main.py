@@ -4,7 +4,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import accounts_router, admin_router, auth_router, automation_router, records_router
+from app.routers import (
+    access_codes_router,
+    accounts_router,
+    admin_router,
+    auth_router,
+    automation_router,
+    records_router,
+)
 from app.background import cleanup_worker
 
 _cleanup_task = None
@@ -38,6 +45,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(access_codes_router)
 app.include_router(accounts_router)
 app.include_router(admin_router)
 app.include_router(auth_router)
