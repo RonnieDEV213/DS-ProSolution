@@ -13,7 +13,7 @@ This milestone extends DS-ProSolution's extension pairing system with access cod
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Access Code Foundation** - Backend infrastructure for secure access code generation, hashing, and validation
-- [ ] **Phase 2: Profile Settings & Account Permissions** - Web UI for profile modal, access code management, and account:view permission
+- [x] **Phase 2: Profile Settings & Account Permissions** - Web UI for profile modal, access code management, and account:view permission
 - [ ] **Phase 3: Extension Auth Flow** - Extension authentication using access codes with JWT storage
 - [ ] **Phase 4: Extension RBAC** - Permission-based tab rendering with admin bypass
 - [ ] **Phase 5: Presence System** - Account occupancy indicators with privacy-aware display
@@ -48,8 +48,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md - Profile Settings modal with access code UI
-- [ ] 02-02-PLAN.md - accounts.view permission and restricted account table
+- [x] 02-01-PLAN.md - Profile Settings modal with access code UI
+- [x] 02-02-PLAN.md - accounts.view permission and restricted account table
 
 ### Phase 3: Extension Auth Flow
 **Goal**: Extension requires and validates access code entry after pairing approval, storing user JWT on success
@@ -102,11 +102,11 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Access Code Foundation | 2/2 | Complete | 2026-01-18 |
-| 2. Profile Settings & Account Permissions | 0/2 | Ready | - |
-| 3. Extension Auth Flow | 0/TBD | Not started | - |
+| 2. Profile Settings & Account Permissions | 2/2 | Complete | 2026-01-18 |
+| 3. Extension Auth Flow | 0/TBD | Ready | - |
 | 4. Extension RBAC | 0/TBD | Not started | - |
 | 5. Presence System | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-18 — Phase 2 planned*
+*Last updated: 2026-01-18 — Phase 2 complete*

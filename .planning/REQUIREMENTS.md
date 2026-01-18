@@ -96,16 +96,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ACC-01 | Phase 1 | Complete |
-| ACC-02 | Phase 2 | Pending |
-| ACC-03 | Phase 2 | Pending |
-| ACC-04 | Phase 2 | Pending |
-| ACC-05 | Phase 2 | Pending |
-| ACC-06 | Phase 2 | Pending |
-| PROF-01 | Phase 2 | Pending |
-| PROF-02 | Phase 2 | Pending |
-| PROF-03 | Phase 2 | Pending |
-| PROF-04 | Phase 2 | Pending |
-| PROF-05 | Phase 2 | Pending |
+| ACC-02 | Phase 2 | Complete |
+| ACC-03 | Phase 2 | Complete |
+| ACC-04 | Phase 2 | Complete |
+| ACC-05 | Phase 2 | Complete |
+| ACC-06 | Phase 2 | Complete |
+| PROF-01 | Phase 2 | Complete |
+| PROF-02 | Phase 2 | Complete |
+| PROF-03 | Phase 2 | Complete |
+| PROF-04 | Phase 2 | Complete |
+| PROF-05 | Phase 2 | Complete |
 | EXT-01 | Phase 3 | Pending |
 | EXT-02 | Phase 3 | Pending |
 | EXT-03 | Phase 3 | Pending |
@@ -115,9 +115,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXT-07 | Phase 4 | Pending |
 | EXT-08 | Phase 4 | Pending |
 | EXT-09 | Phase 4 | Pending |
-| ACCT-01 | Phase 2 | Pending |
-| ACCT-02 | Phase 2 | Pending |
-| ACCT-03 | Phase 2 | Pending |
+| ACCT-01 | Phase 2 | Complete |
+| ACCT-02 | Phase 2 | Complete |
+| ACCT-03 | Phase 2 | Complete |
 | PRES-01 | Phase 5 | Pending |
 | PRES-02 | Phase 5 | Pending |
 | PRES-03 | Phase 5 | Pending |
@@ -130,4 +130,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-18*
-*Last updated: 2026-01-18 — Phase 1 complete*
+*Last updated: 2026-01-18 — Phase 2 complete*
