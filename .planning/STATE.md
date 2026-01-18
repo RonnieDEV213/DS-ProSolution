@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 1 of 5 (Access Code Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-01-18 — Roadmap created
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-18 — Completed 01-01-PLAN.md (Schema and Dependencies)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 10%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 8 min
+- Total execution time: 8 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-access-code-foundation | 1 | 8 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-01 (8 min)
+- Trend: Starting
 
 *Updated after each plan completion*
 
@@ -45,10 +45,13 @@ Recent decisions affecting current work:
 - [Init]: Access code = prefix + secret (prefix for lookup, secret hashed with Argon2)
 - [Init]: One extension tab per role (role name = tab name)
 - [Init]: Presence shows "Occupied" for VAs (privacy-first)
+- [01-01]: 4-char prefix globally unique for O(1) lookup
+- [01-01]: Progressive lockout: 5min -> 15min -> 1hr for brute force protection
+- [01-01]: Service role RLS for now; user-facing policies deferred
 
 ### Pending Todos
 
-None yet.
+- Run migration 035_access_codes.sql in Supabase SQL editor
 
 ### Blockers/Concerns
 
@@ -57,5 +60,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Roadmap created, ready to plan Phase 1
+Stopped at: Completed 01-01-PLAN.md (Schema and Dependencies)
 Resume file: None
+Next: 01-02-PLAN.md (Service Layer) or create plan if not exists
