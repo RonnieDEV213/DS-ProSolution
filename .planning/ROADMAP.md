@@ -17,6 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2.1: Profile UI Refinements** - Sidebar trigger cleanup, Security tab with access code (INSERTED)
 - [x] **Phase 3: Extension Auth Flow** - Extension authentication using access codes with JWT storage
 - [x] **Phase 4: Extension RBAC** - Permission-based tab rendering with admin bypass
+- [ ] **Phase 4.1: Auto Order Tab Organization** - Move hub content under auto_order permission, reorganize layout (INSERTED)
 - [ ] **Phase 5: Presence System** - Account occupancy indicators with privacy-aware display
 
 ## Phase Details
@@ -96,6 +97,24 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — Profile section, RBAC tab bar, admin bypass, permission re-check
 
+### Phase 4.1: Auto Order Tab Organization (INSERTED)
+**Goal**: Reorganize extension hub content under a new auto_order permission; establish persistent vs tab-specific UI sections
+**Depends on**: Phase 4
+**Requirements**: None (organization/refactor)
+**Success Criteria** (what must be TRUE):
+  1. New permission auto_order.read exists in Ordering Permissions category
+  2. Extension hub content (agent info, stats, current task, attention, queue, quick actions) displays only in Auto Order tab
+  3. Profile section moved below tabs showing user name, type badge, Clock Out
+  4. Agent/account info section (label, account, role) appears below profile section
+  5. Tab content area displays below both profile and agent sections
+  6. Hotkeys remain persistent across all tabs (not tab-specific)
+  7. VA with auto_order.read permission assigned to their role sees Auto Order tab
+**Plans**: 2 plans
+
+Plans:
+- [ ] 04.1-01-PLAN.md — Add auto_order.read permission to backend and frontend
+- [ ] 04.1-02-PLAN.md — Reorganize extension layout, add Auto Order tab
+
 ### Phase 5: Presence System
 **Goal**: Account occupancy is visible with privacy-aware display (Admins see who, VAs see "Occupied")
 **Depends on**: Phase 1, Phase 3
@@ -113,7 +132,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 5
+Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 4.1 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -122,8 +141,9 @@ Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 5
 | 2.1. Profile UI Refinements (INSERTED) | 1/1 | Complete | 2026-01-18 |
 | 3. Extension Auth Flow | 2/2 | Complete | 2026-01-19 |
 | 4. Extension RBAC | 1/1 | Complete | 2026-01-19 |
+| 4.1. Auto Order Tab Organization (INSERTED) | 0/2 | Not started | - |
 | 5. Presence System | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 4 complete*
+*Last updated: 2026-01-19 — Phase 4.1 planned*
