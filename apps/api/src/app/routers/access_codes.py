@@ -472,15 +472,15 @@ async def validate_access_code(
 
     if is_admin:
         # Admins have all permissions - no need to fetch roles
-        # Get all permission keys from department_roles for the org
+        # Get all permission keys from department_role_permissions for the org
         all_perms_result = (
-            supabase.table("department_roles")
-            .select("permissions")
-            .eq("org_id", org_id)
+            supabase.table("department_role_permissions")
+            .select("permission_key, department_roles!inner(org_id)")
+            .eq("department_roles.org_id", org_id)
             .execute()
         )
         for row in all_perms_result.data or []:
-            permission_keys.update(row.get("permissions", []))
+            permission_keys.add(row.get("permission_key"))
     else:
         # Get VA's assigned roles
         assigned_result = supabase.rpc(
@@ -491,10 +491,10 @@ async def validate_access_code(
         for row in assigned_result.data or []:
             permission_keys.add(row["permission_key"])
 
-        # Get role details
+        # Get role details with permissions
         roles_result = (
             supabase.table("membership_dept_roles")
-            .select("department_roles(id, name, position, permissions)")
+            .select("department_roles(id, name, position, department_role_permissions(permission_key))")
             .eq("membership_id", membership["id"])
             .execute()
         )
@@ -502,27 +502,32 @@ async def validate_access_code(
         for row in roles_result.data or []:
             dept_role = row.get("department_roles", {})
             if dept_role:
+                # Extract permission keys from nested join
+                role_perms = [
+                    p["permission_key"]
+                    for p in dept_role.get("department_role_permissions", [])
+                ]
                 roles.append(
                     RoleResponse(
                         id=dept_role["id"],
                         name=dept_role["name"],
                         priority=dept_role.get("position", 0),
-                        permission_keys=dept_role.get("permissions", []),
+                        permission_keys=role_perms,
                     )
                 )
 
-    # Get RBAC version (most recent department_role update)
+    # Get RBAC version (most recent department_role creation)
     rbac_result = (
         supabase.table("department_roles")
-        .select("updated_at")
+        .select("created_at")
         .eq("org_id", org_id)
-        .order("updated_at", desc=True)
+        .order("created_at", desc=True)
         .limit(1)
         .execute()
     )
 
     rbac_version = (
-        rbac_result.data[0]["updated_at"]
+        rbac_result.data[0]["created_at"]
         if rbac_result.data
         else datetime.now(timezone.utc).isoformat()
     )
