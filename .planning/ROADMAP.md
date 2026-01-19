@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Access Code Foundation** - Backend infrastructure for secure access code generation, hashing, and validation
 - [x] **Phase 2: Profile Settings & Account Permissions** - Web UI for profile modal, access code management, and account:view permission
-- [ ] **Phase 2.1: Profile UI Refinements** - Sidebar trigger cleanup, Security tab with access code (INSERTED)
+- [x] **Phase 2.1: Profile UI Refinements** - Sidebar trigger cleanup, Security tab with access code (INSERTED)
 - [ ] **Phase 3: Extension Auth Flow** - Extension authentication using access codes with JWT storage
 - [ ] **Phase 4: Extension RBAC** - Permission-based tab rendering with admin bypass
 - [ ] **Phase 5: Presence System** - Account occupancy indicators with privacy-aware display
@@ -64,7 +64,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02.1-01-PLAN.md — Reorganize modal tabs, sign out button, simplify sidebars
+- [x] 02.1-01-PLAN.md — Reorganize modal tabs, sign out button, simplify sidebars
 
 ### Phase 3: Extension Auth Flow
 **Goal**: Extension requires and validates access code entry after pairing approval, storing user JWT on success
@@ -118,11 +118,11 @@ Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Access Code Foundation | 2/2 | Complete | 2026-01-18 |
 | 2. Profile Settings & Account Permissions | 2/2 | Complete | 2026-01-18 |
-| 2.1. Profile UI Refinements (INSERTED) | 0/1 | Planned | - |
-| 3. Extension Auth Flow | 0/TBD | Not started | - |
+| 2.1. Profile UI Refinements (INSERTED) | 1/1 | Complete | 2026-01-18 |
+| 3. Extension Auth Flow | 0/TBD | Ready | - |
 | 4. Extension RBAC | 0/TBD | Not started | - |
 | 5. Presence System | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-18 — Phase 2.1 planned*
+*Last updated: 2026-01-18 — Phase 2.1 complete*
