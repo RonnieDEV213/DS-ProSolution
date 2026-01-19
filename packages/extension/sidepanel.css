@@ -625,3 +625,132 @@ kbd {
   font-size: 10px;
   margin-top: 4px;
 }
+
+/* ============================================
+   CLOCK IN / CLOCK OUT STYLES
+   ============================================ */
+
+/* Clock In Form */
+.clock-in-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clock-in-form .input-group {
+  position: relative;
+}
+
+.clock-in-form .input-group input {
+  width: 100%;
+  padding: 12px 44px 12px 12px;
+  font-size: 15px;
+  letter-spacing: 2px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+}
+
+.clock-in-form .input-group input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.clock-in-form .input-group input::placeholder {
+  letter-spacing: normal;
+}
+
+.btn-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 16px;
+}
+
+.btn-icon:hover {
+  color: var(--text-secondary);
+}
+
+/* Clocked Out State */
+.clocked-out-state {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.clocked-out-state p {
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+}
+
+/* Validating Overlay */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 15, 15, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.overlay-content {
+  text-align: center;
+}
+
+.overlay-content p {
+  margin-top: 12px;
+  color: var(--text-secondary);
+}
+
+/* Inactivity Warning Toast */
+.warning-toast {
+  position: fixed;
+  bottom: 16px;
+  left: 12px;
+  right: 12px;
+  background: var(--accent-yellow);
+  color: black;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.warning-toast .warning-icon {
+  font-size: 18px;
+}
+
+.warning-toast span {
+  flex: 1;
+  font-size: 13px;
+}
+
+.warning-toast .btn-icon {
+  position: static;
+  transform: none;
+  color: rgba(0, 0, 0, 0.6);
+  padding: 4px;
+}
+
+.warning-toast .btn-icon:hover {
+  color: black;
+}
+
+/* Session Actions in Hub */
+.session-actions {
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
