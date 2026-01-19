@@ -32,6 +32,10 @@ const TASK_STATES = {
   NEEDS_ATTENTION: 'NEEDS_ATTENTION',
 };
 
+// Inactivity timeout constants
+const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+const INACTIVITY_WARNING_MS = 5 * 60 * 1000;  // 5 minutes before timeout
+
 // =============================================================================
 // STATE MANAGEMENT
 // =============================================================================
@@ -213,6 +217,9 @@ async function initialize() {
 
   // Recover any interrupted tasks
   await recoverTasks();
+
+  // Check session validity on startup (handles browser restart scenarios)
+  await checkSessionOnStartup();
 
   console.log('[SW] Initialization complete');
 }
@@ -801,6 +808,182 @@ async function handleTokenExpiry() {
 }
 
 // =============================================================================
+// ACCESS CODE AUTHENTICATION (Clock In/Out)
+// =============================================================================
+
+/**
+ * Validate access code against backend
+ * @param {string} code - Full access code (prefix-secret)
+ * @returns {{ ok: true, data: object } | { ok: false, error_code: string, message: string, retry_after: number|null }}
+ */
+async function validateAccessCode(code) {
+  try {
+    const response = await fetch(`${API_BASE}/access-codes/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      const detail = error.detail || {};
+      return {
+        ok: false,
+        error_code: detail.error_code || 'UNKNOWN',
+        message: detail.message || 'Validation failed',
+        retry_after: detail.retry_after || null,
+      };
+    }
+
+    const data = await response.json();
+    return { ok: true, data };
+  } catch (err) {
+    console.warn('[SW] validateAccessCode error:', err.message);
+    return { ok: false, error_code: 'NETWORK_ERROR', message: 'Connection error' };
+  }
+}
+
+/**
+ * Handle clock-in request from side panel
+ * Validates access code and stores JWT + user context
+ * @param {string} code - Full access code
+ * @param {chrome.runtime.Port} port - Side panel port for responses
+ */
+async function handleClockIn(code, port) {
+  // Notify UI of validation start
+  port.postMessage({ type: 'CLOCK_IN_STARTED' });
+
+  const result = await validateAccessCode(code);
+
+  if (!result.ok) {
+    port.postMessage({
+      type: 'CLOCK_IN_FAILED',
+      error_code: result.error_code,
+      message: result.message,
+      retry_after: result.retry_after,
+    });
+    return;
+  }
+
+  const { access_token, expires_in, user, roles, effective_permission_keys, rbac_version } = result.data;
+
+  const now = Date.now();
+  await updateState({
+    auth_state: 'clocked_in',
+    access_token,
+    access_token_expires_at: now + (expires_in * 1000),
+    user_context: user,
+    roles,
+    effective_permission_keys,
+    rbac_version,
+    session_started_at: now,
+    last_activity_at: now,
+    clock_out_reason: null,
+  });
+
+  // Start inactivity timer
+  await startInactivityTimer();
+
+  port.postMessage({ type: 'CLOCK_IN_SUCCESS' });
+  console.log('[SW] Clocked in user:', user.id);
+}
+
+/**
+ * Start or restart the inactivity timer
+ * Creates warning alarm at 55 min and timeout alarm at 60 min
+ */
+async function startInactivityTimer() {
+  await chrome.alarms.clear('inactivity_warning');
+  await chrome.alarms.clear('inactivity_timeout');
+
+  const now = Date.now();
+  await chrome.storage.local.set({ last_activity_at: now });
+
+  // Warning 5 minutes before timeout
+  chrome.alarms.create('inactivity_warning', {
+    when: now + INACTIVITY_TIMEOUT_MS - INACTIVITY_WARNING_MS
+  });
+
+  // Timeout after 1 hour
+  chrome.alarms.create('inactivity_timeout', {
+    when: now + INACTIVITY_TIMEOUT_MS
+  });
+}
+
+/**
+ * Reset inactivity timer on user activity
+ * Only resets if user is currently clocked in
+ */
+async function resetInactivityTimer() {
+  const state = await getState();
+  if (state.auth_state !== 'clocked_in') return;
+  await startInactivityTimer();
+}
+
+/**
+ * Clock out user and clear auth state
+ * @param {string} reason - 'manual' | 'inactivity' | 'code_rotated' | 'token_expired'
+ */
+async function clockOut(reason) {
+  await updateState({
+    auth_state: 'clocked_out',
+    access_token: null,
+    access_token_expires_at: null,
+    user_context: null,
+    roles: [],
+    effective_permission_keys: [],
+    session_started_at: null,
+    clock_out_reason: reason,
+  });
+
+  await chrome.alarms.clear('inactivity_warning');
+  await chrome.alarms.clear('inactivity_timeout');
+
+  // Broadcast state change to side panels
+  broadcastState();
+
+  console.log('[SW] Clocked out:', reason);
+}
+
+/**
+ * Check session validity on startup (after browser restart)
+ * Handles token expiry and inactivity that may have occurred while browser was closed
+ */
+async function checkSessionOnStartup() {
+  const state = await getState();
+
+  // Not clocked in, nothing to check
+  if (state.auth_state !== 'clocked_in') {
+    return;
+  }
+
+  // Check token expiry
+  if (!state.access_token || !state.access_token_expires_at) {
+    await clockOut('token_expired');
+    return;
+  }
+
+  const now = Date.now();
+  if (now >= state.access_token_expires_at - 30000) { // 30s buffer
+    await clockOut('token_expired');
+    return;
+  }
+
+  // Check inactivity (alarm may not have fired during shutdown)
+  if (state.last_activity_at) {
+    const elapsed = now - state.last_activity_at;
+    if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+      await clockOut('inactivity');
+      return;
+    }
+  }
+
+  // Session valid, restart inactivity timer
+  await startInactivityTimer();
+  console.log('[SW] Session resumed from startup');
+}
+
+// =============================================================================
 // ACCOUNT DETECTION
 // =============================================================================
 
@@ -1111,6 +1294,7 @@ async function requestPairing() {
           device_status: 'auto_approved',
           pairing_error: null,
           pairing_expires_at: null,
+          auth_state: 'needs_clock_in',  // Require access code validation after pairing
         });
 
         // Immediately call checkin to confirm replacement
@@ -1200,6 +1384,7 @@ async function pollPairingStatus() {
       cooldown_seconds: 0,
       pairing_error: null,
       pairing_expires_at: null,
+      auth_state: 'needs_clock_in',  // Require access code validation after pairing
     });
     stopPairingPoll();
     console.log('[SW] Pairing approved! Agent:', agent_id);
@@ -1363,6 +1548,20 @@ function handleSidePanelMessage(msg, port) {
         });
       })();
       break;
+
+    case 'CLOCK_IN':
+      if (msg.code) {
+        handleClockIn(msg.code, port);
+      }
+      break;
+
+    case 'CLOCK_OUT':
+      clockOut('manual');
+      break;
+
+    case 'RESET_ACTIVITY':
+      resetInactivityTimer();
+      break;
   }
 }
 
@@ -1477,6 +1676,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         }
       });
       broadcastState();
+      break;
+    case 'inactivity_warning':
+      // Broadcast warning to side panels
+      for (const port of sidePanelPorts) {
+        try {
+          port.postMessage({ type: 'INACTIVITY_WARNING', minutes_remaining: 5 });
+        } catch (e) {
+          // Port may be disconnected
+        }
+      }
+      break;
+    case 'inactivity_timeout':
+      clockOut('inactivity');
       break;
   }
 });
