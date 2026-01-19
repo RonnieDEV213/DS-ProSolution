@@ -75,10 +75,11 @@ Plans:
   2. Extension validates code against backend and shows clear error messages on failure
   3. Extension stores user JWT in chrome.storage.local on successful validation
   4. Extension retrieves stored JWT on subsequent launches (no re-entry required until logout/rotation)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Service worker auth state, clock-in/out handlers, inactivity timeout
+- [ ] 03-02-PLAN.md — Side panel clock-in UI, validation overlay, error messages
 
 ### Phase 4: Extension RBAC
 **Goal**: Extension renders tabs based on user permissions; Admins see all tabs; users can log out
@@ -119,10 +120,10 @@ Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 5
 | 1. Access Code Foundation | 2/2 | Complete | 2026-01-18 |
 | 2. Profile Settings & Account Permissions | 2/2 | Complete | 2026-01-18 |
 | 2.1. Profile UI Refinements (INSERTED) | 1/1 | Complete | 2026-01-18 |
-| 3. Extension Auth Flow | 0/TBD | Ready | - |
+| 3. Extension Auth Flow | 0/2 | Ready | - |
 | 4. Extension RBAC | 0/TBD | Not started | - |
 | 5. Presence System | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-18 — Phase 2.1 complete*
+*Last updated: 2026-01-19 — Phase 3 planned*
