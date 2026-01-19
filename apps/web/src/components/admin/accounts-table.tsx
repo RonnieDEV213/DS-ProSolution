@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AccountDialog } from "./account-dialog";
 import { useUserRole } from "@/hooks/use-user-role";
+import { usePresence } from "@/hooks/use-presence";
+import { OccupancyBadge } from "@/components/presence/occupancy-badge";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -64,7 +66,7 @@ export function AccountsTable({
   onAccountUpdated,
   viewOnly = false,
 }: AccountsTableProps) {
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, loading: roleLoading, userId } = useUserRole();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,10 +74,37 @@ export function AccountsTable({
   const [page, setPage] = useState(1);
   const [editingAccount, setEditingAccount] = useState<AccountFull | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const pageSize = 20;
 
   // Determine if we're in view-only mode
   const isViewOnly = viewOnly || !isAdmin;
+
+  // Fetch presence data via realtime subscription
+  const { presence, loading: presenceLoading } = usePresence({
+    orgId: orgId || "",
+    enabled: !!orgId,
+  });
+
+  // Fetch org_id from membership
+  useEffect(() => {
+    const fetchOrgId = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data } = await supabase
+        .from("memberships")
+        .select("org_id")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (data) {
+        setOrgId(data.org_id);
+      }
+    };
+    fetchOrgId();
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     // Only fetch users for admin mode
@@ -213,6 +242,7 @@ export function AccountsTable({
             <TableRow className="border-gray-800 hover:bg-gray-900">
               <TableHead className="text-gray-400">Account Code</TableHead>
               <TableHead className="text-gray-400">Name</TableHead>
+              <TableHead className="text-gray-400">Status</TableHead>
               {!isViewOnly && (
                 <>
                   <TableHead className="text-gray-400">VAs Assigned</TableHead>
@@ -225,71 +255,86 @@ export function AccountsTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={isViewOnly ? 2 : 5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={isViewOnly ? 3 : 6} className="text-center text-gray-500 py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isViewOnly ? 2 : 5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={isViewOnly ? 3 : 6} className="text-center text-gray-500 py-8">
                   {isViewOnly
                     ? "No accounts assigned to you. Contact an administrator."
                     : "No accounts found. Create one to get started."}
                 </TableCell>
               </TableRow>
             ) : (
-              accounts.map((account) => (
-                <TableRow key={account.id} className="border-gray-800">
-                  <TableCell className="text-white font-medium font-mono">
-                    {account.account_code}
-                  </TableCell>
-                  <TableCell className="text-gray-300">
-                    {account.name || <span className="text-gray-500">-</span>}
-                  </TableCell>
-                  {!isViewOnly && isAccountFull(account) && (
-                    <>
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={
-                            account.assignment_count > 0
-                              ? "bg-blue-600 text-white"
-                              : "bg-gray-700 text-gray-400"
-                          }
-                        >
-                          {account.assignment_count}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-gray-400">
-                        {formatDate(account.created_at)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingAccount(account)}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+              accounts.map((account) => {
+                const presenceEntry = presence.get(account.id);
+                const isOccupied = !!presenceEntry;
+                const isCurrentUser = presenceEntry?.user_id === userId;
+
+                return (
+                  <TableRow key={account.id} className="border-gray-800">
+                    <TableCell className="text-white font-medium font-mono">
+                      {account.account_code}
+                    </TableCell>
+                    <TableCell className="text-gray-300">
+                      {account.name || <span className="text-gray-500">-</span>}
+                    </TableCell>
+                    <TableCell>
+                      <OccupancyBadge
+                        isOccupied={isOccupied}
+                        occupantName={isAdmin ? presenceEntry?.display_name : undefined}
+                        clockedInAt={presenceEntry?.clocked_in_at}
+                        isCurrentUser={isCurrentUser}
+                        inline
+                      />
+                    </TableCell>
+                    {!isViewOnly && isAccountFull(account) && (
+                      <>
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className={
+                              account.assignment_count > 0
+                                ? "bg-blue-600 text-white"
+                                : "bg-gray-700 text-gray-400"
+                            }
                           >
-                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                            <path d="m15 5 4 4" />
-                          </svg>
-                        </Button>
-                      </TableCell>
-                    </>
-                  )}
-                </TableRow>
-              ))
+                            {account.assignment_count}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-gray-400">
+                          {formatDate(account.created_at)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingAccount(account)}
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                              <path d="m15 5 4 4" />
+                            </svg>
+                          </Button>
+                        </TableCell>
+                      </>
+                    )}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
