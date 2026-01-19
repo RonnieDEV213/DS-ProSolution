@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 3 of 5 (Extension Auth Flow)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-01-18 — Phase 2.1 complete (verified)
+Plan: 1 of TBD in current phase
+Status: In progress
+Last activity: 2026-01-19 — Completed 03-01-PLAN.md
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 55%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: 5 min
-- Total execution time: 25 min
+- Total execution time: 28 min
 
 **By Phase:**
 
@@ -30,9 +30,10 @@ Progress: [█████░░░░░] 50%
 | 01-access-code-foundation | 2 | 11 min | 5.5 min |
 | 02-profile-settings-account-permissions | 2 | 10 min | 5 min |
 | 02.1-profile-ui-refinements | 1 | 4 min | 4 min |
+| 03-extension-auth-flow | 1 | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (3 min), 02-01 (6 min), 02-02 (4 min), 02.1-01 (4 min)
+- Last 5 plans: 02-01 (6 min), 02-02 (4 min), 02.1-01 (4 min), 03-01 (3 min)
 - Trend: Improving
 
 *Updated after each plan completion*
@@ -61,6 +62,9 @@ Recent decisions affecting current work:
 - [02.1-01]: Security tab only visible to admin/va roles (clients don't have access codes)
 - [02.1-01]: Sign Out button styled red for visual distinction
 - [02.1-01]: Sidebar user info removed for cleaner UX - profile details in modal only
+- [03-01]: auth_state set to 'needs_clock_in' after pairing approval
+- [03-01]: 30-second buffer on token expiry check for clock skew
+- [03-01]: Inactivity timeout 1hr with 5min warning via chrome.alarms
 
 ### Pending Todos
 
@@ -77,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-18
-Stopped at: Phase 2.1 complete, ready to plan Phase 3
+Last session: 2026-01-19
+Stopped at: Completed 03-01-PLAN.md (Clock-In State Management)
 Resume file: None
