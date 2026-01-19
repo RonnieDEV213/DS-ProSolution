@@ -431,6 +431,13 @@ async def create_pairing_request(
         if existing_agent.get("ebay_agent_id"):
             new_agent_data["ebay_agent_id"] = existing_agent["ebay_agent_id"]
 
+        # Revoke existing agent BEFORE inserting new one to avoid unique constraint violation
+        # (unique_ebay_agent_per_account requires only one active eBay agent per account)
+        supabase.table("automation_agents").update({
+            "status": "revoked",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", existing_agent["id"]).execute()
+
         new_agent_result = supabase.table("automation_agents").insert(new_agent_data).execute()
 
         if not new_agent_result.data:
