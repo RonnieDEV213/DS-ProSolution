@@ -7,7 +7,7 @@ export interface PresenceEntry {
   account_id: string;
   user_id: string;
   clocked_in_at: string;
-  // Joined from profiles - only available for admins via RLS
+  // Fetched from profiles - only available for admins via RLS
   display_name?: string | null;
 }
 
@@ -35,35 +35,50 @@ export function usePresence({ orgId, enabled = true }: UsePresenceOptions): UseP
 
     const supabase = createClient();
 
-    // Initial fetch
+    // Fetch presence data and then enrich with profile names
     const fetchPresence = async () => {
       try {
-        // Query presence with profile join for display name
-        // RLS will filter rows to user's org
-        // Note: display_name may be null for VAs depending on RLS
-        const { data, error: fetchError } = await supabase
+        // Step 1: Query presence entries for this org
+        const { data: presenceData, error: presenceError } = await supabase
           .from("account_presence")
-          .select(`
-            account_id,
-            user_id,
-            clocked_in_at,
-            profiles:user_id (display_name)
-          `)
+          .select("account_id, user_id, clocked_in_at")
           .eq("org_id", orgId);
 
-        if (fetchError) {
-          console.error("[usePresence] Fetch error:", fetchError);
-          setError(new Error(fetchError.message));
+        if (presenceError) {
+          console.error("[usePresence] Fetch error:", presenceError);
+          setError(new Error(presenceError.message));
           return;
         }
 
+        if (!presenceData || presenceData.length === 0) {
+          setPresence(new Map());
+          setError(null);
+          setLoading(false);
+          return;
+        }
+
+        // Step 2: Fetch display names for all user_ids
+        // RLS on profiles will determine if user can see names
+        const userIds = [...new Set(presenceData.map(p => p.user_id))];
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, display_name")
+          .in("user_id", userIds);
+
+        // Build lookup map for display names
+        const nameMap = new Map<string, string | null>();
+        for (const profile of profilesData || []) {
+          nameMap.set(profile.user_id, profile.display_name);
+        }
+
+        // Step 3: Build presence map with display names
         const map = new Map<string, PresenceEntry>();
-        for (const row of data || []) {
+        for (const row of presenceData) {
           map.set(row.account_id, {
             account_id: row.account_id,
             user_id: row.user_id,
             clocked_in_at: row.clocked_in_at,
-            display_name: (row.profiles as { display_name?: string } | null)?.display_name,
+            display_name: nameMap.get(row.user_id) ?? null,
           });
         }
         setPresence(map);
@@ -90,38 +105,20 @@ export function usePresence({ orgId, enabled = true }: UsePresenceOptions): UseP
           filter: `org_id=eq.${orgId}`,
         },
         async (payload) => {
-          setPresence((prev) => {
-            const next = new Map(prev);
-
-            if (payload.eventType === "DELETE") {
-              // Remove by account_id from old record
-              const oldAccountId = (payload.old as { account_id?: string })?.account_id;
-              if (oldAccountId) {
+          if (payload.eventType === "DELETE") {
+            // Remove by account_id from old record
+            const oldAccountId = (payload.old as { account_id?: string })?.account_id;
+            if (oldAccountId) {
+              setPresence((prev) => {
+                const next = new Map(prev);
                 next.delete(oldAccountId);
-              }
-            } else if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
-              const newRecord = payload.new as {
-                account_id: string;
-                user_id: string;
-                clocked_in_at: string;
-              };
-
-              // For INSERT/UPDATE, we need to fetch display_name separately
-              // since realtime doesn't include joined data
-              // For now, set entry without display_name; it will be fetched on next render
-              next.set(newRecord.account_id, {
-                account_id: newRecord.account_id,
-                user_id: newRecord.user_id,
-                clocked_in_at: newRecord.clocked_in_at,
-                display_name: undefined, // Will be populated on next full fetch
+                return next;
               });
-
-              // Refetch to get display_name
-              fetchPresence();
             }
-
-            return next;
-          });
+          } else if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            // Refetch to get full data including display names
+            fetchPresence();
+          }
         }
       )
       .subscribe();
