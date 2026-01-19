@@ -12,8 +12,14 @@ from .access_code import (
     SECRET_LENGTH,
     CODE_EXPIRY_DAYS,
 )
+from .presence import (
+    clear_presence,
+    clear_presence_by_account,
+    record_presence,
+)
 
 __all__ = [
+    # access_code exports
     "generate_prefix",
     "generate_secret",
     "validate_custom_secret",
@@ -26,4 +32,8 @@ __all__ = [
     "PREFIX_LENGTH",
     "SECRET_LENGTH",
     "CODE_EXPIRY_DAYS",
+    # presence exports
+    "clear_presence",
+    "clear_presence_by_account",
+    "record_presence",
 ]
