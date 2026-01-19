@@ -100,6 +100,36 @@
       </div>
     </section>
 
+    <!-- Clock In Section (after pairing approved, before hub access) -->
+    <section id="clock-in-section" class="section hidden">
+      <h2>Clock In</h2>
+      <div class="clock-in-form">
+        <div class="input-group">
+          <input
+            type="password"
+            id="access-code-input"
+            placeholder="Enter access code"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="btn-toggle-code-visibility" class="btn-icon" title="Show/hide code">
+            <span class="icon-eye">&#128065;</span>
+          </button>
+        </div>
+        <button id="btn-clock-in" class="btn btn-primary btn-full">Clock In</button>
+        <div id="clock-in-error" class="error hidden"></div>
+      </div>
+    </section>
+
+    <!-- Clocked Out Section (after inactivity or manual clock out) -->
+    <section id="clocked-out-section" class="section hidden">
+      <h2>Session Ended</h2>
+      <div class="clocked-out-state">
+        <p id="clocked-out-message">You have been clocked out.</p>
+        <button id="btn-clock-in-again" class="btn btn-primary btn-full">Clock In Again</button>
+      </div>
+    </section>
+
     <!-- Main Hub (shown when paired) -->
     <div id="hub-section" class="hidden">
       <!-- Agent Info -->
@@ -190,6 +220,9 @@
         <div class="action-buttons" style="margin-top: 8px;">
           <button id="btn-queue-fake" class="btn btn-secondary btn-small">+ Fake Task</button>
         </div>
+        <div class="action-buttons session-actions" style="margin-top: 12px;">
+          <button id="btn-clock-out" class="btn btn-danger btn-full">Clock Out</button>
+        </div>
       </section>
 
       <!-- Hotkeys Info -->
@@ -205,6 +238,21 @@
         </div>
       </section>
     </div>
+  </div>
+
+  <!-- Validating Overlay -->
+  <div id="validating-overlay" class="overlay hidden">
+    <div class="overlay-content">
+      <div class="spinner"></div>
+      <p>Clocking in...</p>
+    </div>
+  </div>
+
+  <!-- Inactivity Warning Toast -->
+  <div id="inactivity-warning" class="warning-toast hidden">
+    <span class="warning-icon">&#9888;</span>
+    <span>Session expiring in <strong id="warning-minutes">5</strong> minutes</span>
+    <button id="btn-dismiss-warning" class="btn-icon" title="Dismiss">&#10005;</button>
   </div>
 
   <script src="sidepanel.js"></script>
