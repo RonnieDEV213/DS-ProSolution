@@ -491,8 +491,19 @@ function showEmptyState() {
 }
 
 function showTabContent(tabId, tabName) {
-  // Show/hide Auto Order content based on tab
-  if (tabId === 'auto_order') {
+  // Check if this tab should show Auto Order content
+  // Admin: tabId === 'auto_order'
+  // VA: role with auto_order.read permission
+  let showAutoOrder = tabId === 'auto_order';
+
+  if (!showAutoOrder && currentState?.roles) {
+    const role = currentState.roles.find(r => r.id === tabId);
+    if (role?.permission_keys?.includes('auto_order.read')) {
+      showAutoOrder = true;
+    }
+  }
+
+  if (showAutoOrder) {
     elements.autoOrderContent?.classList.remove('hidden');
     elements.tabContent?.classList.add('hidden');
   } else {
