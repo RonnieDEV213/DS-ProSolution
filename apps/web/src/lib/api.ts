@@ -175,6 +175,12 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ content }),
     }),
+
+  // Presence
+  logoutPresence: () =>
+    fetchAPI<{ status: string }>("/access-codes/logout", {
+      method: "POST",
+    }),
 };
 
 // Utility functions

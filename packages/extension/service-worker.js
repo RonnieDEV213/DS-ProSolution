@@ -937,6 +937,25 @@ async function resetInactivityTimer() {
  * @param {string} reason - 'manual' | 'inactivity' | 'code_rotated' | 'token_expired' | 'roles_changed' | 'permission_fetch_failed'
  */
 async function clockOut(reason) {
+  const state = await getState();
+
+  // Clear presence on backend if we have a valid token
+  if (state.access_token) {
+    try {
+      await fetch(`${API_BASE}/access-codes/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${state.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log('[SW] Cleared presence on backend');
+    } catch (err) {
+      console.warn('[SW] Failed to clear presence:', err.message);
+      // Continue with local logout even if backend call fails
+    }
+  }
+
   await updateState({
     auth_state: 'clocked_out',
     access_token: null,
