@@ -64,6 +64,17 @@ async function getState() {
     'lifetime_request_count',
     'pairing_error',
     'pairing_expires_at',
+    // Access code auth state
+    'auth_state',
+    'access_token',
+    'access_token_expires_at',
+    'user_context',
+    'roles',
+    'effective_permission_keys',
+    'rbac_version',
+    'last_activity_at',
+    'session_started_at',
+    'clock_out_reason',
   ]);
   return {
     install_instance_id: data.install_instance_id || null,
@@ -86,6 +97,17 @@ async function getState() {
     lifetime_request_count: data.lifetime_request_count || 0,
     pairing_error: data.pairing_error || null,
     pairing_expires_at: data.pairing_expires_at || null,
+    // Access code auth state
+    auth_state: data.auth_state || null,
+    access_token: data.access_token || null,
+    access_token_expires_at: data.access_token_expires_at || null,
+    user_context: data.user_context || null,
+    roles: data.roles || [],
+    effective_permission_keys: data.effective_permission_keys || [],
+    rbac_version: data.rbac_version || null,
+    last_activity_at: data.last_activity_at || null,
+    session_started_at: data.session_started_at || null,
+    clock_out_reason: data.clock_out_reason || null,
   };
 }
 
@@ -114,7 +136,7 @@ async function broadcastState() {
 
 /**
  * Build summary for side panel display
- * NOTE: Never include install_token or other secrets here
+ * NOTE: Never include install_token, access_token, or other secrets here
  */
 function buildStateSummary(state) {
   const tasks = Object.values(state.tasks);
@@ -147,6 +169,11 @@ function buildStateSummary(state) {
     lifetime_request_count: state.lifetime_request_count,
     pairing_error: state.pairing_error,
     pairing_expires_at: state.pairing_expires_at,
+    // Access code auth state (no tokens)
+    auth_state: state.auth_state,
+    user_context: state.user_context,
+    clock_out_reason: state.clock_out_reason,
+    session_started_at: state.session_started_at,
   };
 }
 
