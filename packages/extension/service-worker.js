@@ -56,6 +56,7 @@ async function getState() {
     'install_token',
     'agent_role',
     'label',
+    'account_id',
     'account_name',
     'tasks',
     'locks',
@@ -89,6 +90,7 @@ async function getState() {
     install_token: data.install_token || null,
     agent_role: data.agent_role || null,
     label: data.label || null,
+    account_id: data.account_id || null,
     account_name: data.account_name || null,
     tasks: data.tasks || {},
     locks: data.locks || {},
@@ -819,14 +821,20 @@ async function handleTokenExpiry() {
 /**
  * Validate access code against backend
  * @param {string} code - Full access code (prefix-secret)
+ * @param {string|null} accountId - Account ID for presence tracking
  * @returns {{ ok: true, data: object } | { ok: false, error_code: string, message: string, retry_after: number|null }}
  */
-async function validateAccessCode(code) {
+async function validateAccessCode(code, accountId = null) {
   try {
+    const body = { code };
+    if (accountId) {
+      body.account_id = accountId;
+    }
+
     const response = await fetch(`${API_BASE}/access-codes/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -858,7 +866,9 @@ async function handleClockIn(code, port) {
   // Notify UI of validation start
   port.postMessage({ type: 'CLOCK_IN_STARTED' });
 
-  const result = await validateAccessCode(code);
+  // Get account_id from stored state for presence tracking
+  const state = await getState();
+  const result = await validateAccessCode(code, state.account_id);
 
   if (!result.ok) {
     port.postMessage({
@@ -1371,6 +1381,7 @@ async function requestPairing() {
           install_token: result.data.install_token,
           agent_role: result.data.role,
           label: result.data.label,
+          account_id: result.data.account_id,
           account_name: result.data.account_name,
           pairing_request_id: null,
           pairing_status: null,
@@ -1450,7 +1461,7 @@ async function pollPairingStatus() {
     return;
   }
 
-  const { status, agent_id, install_token, role, label, account_name, rejection_reason, expires_at } = result.data;
+  const { status, agent_id, install_token, role, label, account_id, account_name, rejection_reason, expires_at } = result.data;
 
   if (status === 'approved' && agent_id && install_token) {
     // Success! Store credentials and stop polling
@@ -1459,6 +1470,7 @@ async function pollPairingStatus() {
       install_token,
       agent_role: role,
       label,
+      account_id,
       account_name,
       pairing_request_id: null,
       pairing_status: null,

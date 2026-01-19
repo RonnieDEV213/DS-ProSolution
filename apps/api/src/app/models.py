@@ -453,6 +453,7 @@ class PairingRequestResponse(BaseModel):
     install_token: Optional[str] = None
     role: Optional[AgentRole] = None
     label: Optional[str] = None
+    account_id: Optional[UUID] = None  # For presence tracking on clock-in
     account_name: Optional[str] = None
     requires_checkin: bool = False
     checkin_deadline_seconds: int = 0
@@ -551,6 +552,7 @@ class PairingPollResponse(BaseModel):
     install_token: Optional[str] = None
     role: Optional[AgentRole] = None
     label: Optional[str] = None
+    account_id: Optional[UUID] = None  # For presence tracking on clock-in
     account_name: Optional[str] = None
     rejection_reason: Optional[str] = None
     expires_at: Optional[datetime] = None

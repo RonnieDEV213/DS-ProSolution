@@ -461,6 +461,7 @@ async def create_pairing_request(
             install_token=install_token,
             role=new_agent["role"],
             label=new_agent.get("label"),
+            account_id=new_agent.get("account_id"),
             account_name=account_data.get("name") or account_data.get("account_code"),
             requires_checkin=True,
             checkin_deadline_seconds=CHECKIN_DEADLINE_SECONDS,
@@ -563,12 +564,18 @@ async def poll_pairing_status(
                 token_version=agent["token_version"],
             )
 
+    # Get account_id from agent if approved
+    account_id = None
+    if row["status"] == "approved" and agent_result and agent_result.data:
+        account_id = agent_result.data[0].get("account_id")
+
     return PairingPollResponse(
         status=row["status"],
         agent_id=row.get("agent_id"),
         install_token=install_token,
         role=row.get("role"),
         label=row.get("label"),
+        account_id=account_id,
         account_name=row.get("account_name"),
         rejection_reason=row.get("rejection_reason"),
         expires_at=row.get("expires_at"),
