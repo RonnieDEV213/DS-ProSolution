@@ -791,6 +791,7 @@ class AccessCodeValidateRequest(BaseModel):
     """Request body for validating an access code."""
 
     code: str  # Full code: prefix-secret
+    account_id: str | None = None  # Optional account to clock into (records presence)
 
 
 class AccessCodeValidateResponse(BaseModel):

@@ -5,12 +5,16 @@ Endpoints:
 - POST /access-codes/validate: Validate code and return JWT + user context
 - POST /access-codes/rotate: Rotate (regenerate) access code secret
 - GET /access-codes/me: Get current user's access code info (without secret)
+- POST /access-codes/logout: Clear presence when logging out from extension
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from postgrest.exceptions import APIError
 
 from app.auth import get_current_user_with_membership
@@ -28,6 +32,7 @@ from app.models import (
     RoleResponse,
 )
 from app.services.access_code import (
+    ACCESS_CODE_JWT_SECRET,
     calculate_expiry,
     generate_access_token,
     generate_prefix,
@@ -43,6 +48,51 @@ logger = logging.getLogger(__name__)
 
 # Maximum retries for prefix collision
 MAX_PREFIX_RETRIES = 5
+
+# Security for access code JWT authentication
+access_code_security = HTTPBearer(auto_error=False)
+
+
+async def get_access_code_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(access_code_security),
+) -> dict:
+    """Validate access code JWT and return user info.
+
+    This is separate from Supabase auth - used for extension API calls.
+
+    Returns:
+        - user_id: UUID string
+        - membership_id: UUID string
+        - org_id: UUID string
+
+    Raises:
+        - 401 if no valid token or wrong token type
+    """
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(
+            token,
+            ACCESS_CODE_JWT_SECRET,
+            algorithms=["HS256"],
+        )
+
+        # Verify this is an access code token (not Supabase token)
+        if payload.get("type") != "access_code":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+
+        return {
+            "user_id": payload["sub"],
+            "membership_id": payload["membership_id"],
+            "org_id": payload["org_id"],
+        }
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
 
 
 def get_client_ip(request: Request) -> str:
@@ -539,6 +589,18 @@ async def validate_access_code(
         org_id=org_id,
     )
 
+    # Record presence if account_id provided (clock-in)
+    if body.account_id:
+        from app.services.presence import record_presence
+
+        await record_presence(
+            supabase,
+            account_id=body.account_id,
+            user_id=user_id,
+            membership_id=membership["id"],
+            org_id=org_id,
+        )
+
     logger.info(f"Access code validated for user {user_id}, prefix={prefix}")
 
     return AccessCodeValidateResponse(
@@ -549,3 +611,30 @@ async def validate_access_code(
         effective_permission_keys=sorted(permission_keys),
         rbac_version=rbac_version,
     )
+
+
+# ============================================================
+# Logout (Access Code JWT Authenticated)
+# ============================================================
+
+
+@router.post("/logout")
+async def logout_access_code(
+    user: dict = Depends(get_access_code_user),
+):
+    """Clear presence when user logs out from extension.
+
+    Requires access code JWT authentication.
+    Clears the user's presence from their current account.
+    """
+    from app.services.presence import clear_presence
+
+    supabase = get_supabase()
+    user_id = user["user_id"]
+    org_id = user["org_id"]
+
+    await clear_presence(supabase, user_id, org_id)
+
+    logger.info(f"User logged out and presence cleared: {user_id}")
+
+    return {"status": "logged_out"}

@@ -10,6 +10,7 @@ from app.routers import (
     admin_router,
     auth_router,
     automation_router,
+    presence_router,
     records_router,
 )
 from app.background import cleanup_worker
@@ -50,6 +51,7 @@ app.include_router(accounts_router)
 app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(automation_router)
+app.include_router(presence_router)
 app.include_router(records_router)
 
 
