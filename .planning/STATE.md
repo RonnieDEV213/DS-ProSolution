@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 4 of 5 (Extension RBAC)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-01-19 — Phase 3 complete (verified)
+Plan: 1 of TBD in current phase
+Status: In progress
+Last activity: 2026-01-19 — Completed 04-01-PLAN.md (Tab Shell - RBAC UI)
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 5 min
-- Total execution time: 36 min
+- Total plans completed: 8
+- Average duration: 6 min
+- Total execution time: 48 min
 
 **By Phase:**
 
@@ -31,9 +31,10 @@ Progress: [███████░░░] 70%
 | 02-profile-settings-account-permissions | 2 | 10 min | 5 min |
 | 02.1-profile-ui-refinements | 1 | 4 min | 4 min |
 | 03-extension-auth-flow | 2 | 11 min | 5.5 min |
+| 04-extension-rbac | 1 | 12 min | 12 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (4 min), 02.1-01 (4 min), 03-01 (3 min), 03-02 (8 min)
+- Last 5 plans: 02.1-01 (4 min), 03-01 (3 min), 03-02 (8 min), 04-01 (12 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -68,6 +69,9 @@ Recent decisions affecting current work:
 - [03-02]: Password input with toggle visibility for access code
 - [03-02]: Clear input on validation error for fresh start
 - [03-02]: Activity tracking on click and keydown events
+- [04-01]: ADMIN_TABS constant defines all extension tabs for admin bypass
+- [04-01]: Permission re-check every 5 minutes via chrome.alarms
+- [04-01]: rbac_version comparison triggers forced re-auth on role changes
 
 ### Pending Todos
 
@@ -85,5 +89,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Phase 3 complete, ready to plan Phase 4
+Stopped at: Completed 04-01-PLAN.md (Tab Shell - RBAC UI)
 Resume file: None
