@@ -107,7 +107,7 @@ Plans:
   3. Profile section moved below tabs showing user name, type badge, Clock Out
   4. Agent/account info section (label, account, role) appears below profile section
   5. Tab content area displays below both profile and agent sections
-  6. Hotkeys remain persistent across all tabs (not tab-specific)
+  6. Hotkeys display only in Auto Order tab (auto-order specific actions)
   7. VA with auto_order.read permission assigned to their role sees Auto Order tab
 **Plans**: 2 plans
 
@@ -146,4 +146,4 @@ Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 4.1 -> 5
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 4.1 planned*
+*Last updated: 2026-01-19 — Phase 4.1 success criterion 6 corrected (hotkeys tab-specific per CONTEXT.md)*
