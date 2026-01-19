@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -11,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ProfileTab } from "./profile-tab";
+import { SecurityTab } from "./security-tab";
 import { ExtensionTab } from "./extension-tab";
 
 interface ProfileSettingsDialogProps {
@@ -18,7 +20,7 @@ interface ProfileSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type Tab = "profile" | "extension";
+type Tab = "profile" | "security" | "extension";
 
 interface UserData {
   displayName: string | null;
@@ -30,9 +32,17 @@ export function ProfileSettingsDialog({
   open,
   onOpenChange,
 }: ProfileSettingsDialogProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    onOpenChange(false);
+    router.push("/login");
+  };
 
   const fetchUserData = useCallback(async () => {
     try {
@@ -108,6 +118,19 @@ export function ProfileSettingsDialog({
               >
                 Profile
               </button>
+              {userData && (userData.role === "admin" || userData.role === "va") && (
+                <button
+                  onClick={() => setActiveTab("security")}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded text-sm transition-colors",
+                    activeTab === "security"
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800"
+                  )}
+                >
+                  Security
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab("extension")}
                 className={cn(
@@ -121,13 +144,26 @@ export function ProfileSettingsDialog({
               </button>
             </nav>
 
-            {/* Close button at bottom */}
+            {/* Sign Out button at bottom */}
             <div className="p-3 border-t border-gray-800">
               <button
-                onClick={() => onOpenChange(false)}
-                className="w-full px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+                onClick={handleSignOut}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors"
               >
-                Close
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+                Sign Out
               </button>
             </div>
           </div>
@@ -149,6 +185,9 @@ export function ProfileSettingsDialog({
                       email={userData.email}
                       role={userData.role}
                     />
+                  )}
+                  {activeTab === "security" && (userData.role === "admin" || userData.role === "va") && (
+                    <SecurityTab />
                   )}
                   {activeTab === "extension" && (
                     <ExtensionTab role={userData.role} />
