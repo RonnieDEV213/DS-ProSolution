@@ -543,7 +543,7 @@ async def validate_access_code(
 
         # Get role details with permissions
         roles_result = (
-            supabase.table("membership_dept_roles")
+            supabase.table("membership_department_roles")
             .select("department_roles(id, name, position, department_role_permissions(permission_key))")
             .eq("membership_id", membership["id"])
             .execute()
