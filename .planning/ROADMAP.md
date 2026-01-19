@@ -91,10 +91,10 @@ Plans:
   3. Admin users see all extension tabs (bypass RBAC check)
   4. User can log out of extension (clears auth state, returns to code entry)
   5. Extension auto-logs out after 1 hour of inactivity
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md — Profile section, RBAC tab bar, admin bypass, permission re-check
 
 ### Phase 5: Presence System
 **Goal**: Account occupancy is visible with privacy-aware display (Admins see who, VAs see "Occupied")
@@ -121,9 +121,9 @@ Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 5
 | 2. Profile Settings & Account Permissions | 2/2 | Complete | 2026-01-18 |
 | 2.1. Profile UI Refinements (INSERTED) | 1/1 | Complete | 2026-01-18 |
 | 3. Extension Auth Flow | 2/2 | Complete | 2026-01-19 |
-| 4. Extension RBAC | 0/TBD | Not started | - |
+| 4. Extension RBAC | 0/1 | Planned | - |
 | 5. Presence System | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 3 complete*
+*Last updated: 2026-01-19 — Phase 4 planned*
