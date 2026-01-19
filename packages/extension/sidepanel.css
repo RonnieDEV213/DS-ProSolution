@@ -881,6 +881,18 @@ kbd {
   padding: 24px;
 }
 
+/* Auto Order tab content container */
+.auto-order-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.auto-order-content.hidden {
+  display: none;
+}
+
 /* Empty State (no roles) */
 .empty-state-section {
   padding: 32px 16px;
