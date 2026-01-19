@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 5 of 5 (Presence System)
-Plan: 0 of TBD in current phase
-Status: Ready to discuss/plan
-Last activity: 2026-01-19 — Phase 4.1 verified complete
+Plan: 1 of TBD in current phase
+Status: In progress
+Last activity: 2026-01-19 — Completed 05-01-PLAN.md
 
-Progress: [██████████] 100%
+Progress: [██████████░] ~95%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 5 min
-- Total execution time: 53 min
+- Total execution time: 57 min
 
 **By Phase:**
 
@@ -33,9 +33,10 @@ Progress: [██████████] 100%
 | 03-extension-auth-flow | 2 | 11 min | 5.5 min |
 | 04-extension-rbac | 1 | 12 min | 12 min |
 | 04.1-auto-order-tab-organization | 2 | 5 min | 2.5 min |
+| 05-presence-system | 1 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-02 (8 min), 04-01 (12 min), 04.1-01 (3 min), 04.1-02 (2 min)
+- Last 5 plans: 04-01 (12 min), 04.1-01 (3 min), 04.1-02 (2 min), 05-01 (4 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -78,10 +79,14 @@ Recent decisions affecting current work:
 - [04.1-02]: Auto Order tab appears first in ADMIN_TABS (priority order)
 - [04.1-02]: Profile and agent info sections persist across all tabs
 - [04.1-02]: Tab content placeholder hidden by default, shown for non-Auto-Order tabs
+- [05-01]: Upsert with (user_id, org_id) constraint for atomic presence swap
+- [05-01]: Access code JWT auth dependency for extension endpoints
+- [05-01]: RLS allows authenticated users to SELECT presence for their org
 
 ### Pending Todos
 
 - Run migration 035_access_codes.sql in Supabase SQL editor (if not already done)
+- Run migration 036_presence_system.sql in Supabase SQL editor
 - ~~Add ACCESS_CODE_JWT_SECRET environment variable~~ (done)
 
 ### Blockers/Concerns
@@ -96,5 +101,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Phase 4.1 verified complete, ready for Phase 5
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
