@@ -132,6 +132,38 @@
 
     <!-- Main Hub (shown when paired) -->
     <div id="hub-section" class="hidden">
+      <!-- Profile/Identity Section -->
+      <section class="profile-section">
+        <div class="profile-info">
+          <span id="profile-name" class="profile-name">User</span>
+          <span id="profile-type-badge" class="profile-type-badge">va</span>
+          <span id="admin-badge" class="admin-badge hidden">Admin View</span>
+        </div>
+        <button id="btn-clock-out-header" class="btn btn-danger btn-small">Clock Out</button>
+      </section>
+
+      <!-- Tab Bar (dynamically rendered from roles) -->
+      <nav id="tab-bar" class="tab-bar">
+        <!-- Tabs rendered dynamically by JS -->
+      </nav>
+
+      <!-- Tab Bar Skeleton (shown while loading) -->
+      <nav id="tab-bar-skeleton" class="tab-bar-skeleton hidden">
+        <div class="skeleton-tab"></div>
+        <div class="skeleton-tab"></div>
+      </nav>
+
+      <!-- Tab Content Container -->
+      <div id="tab-content" class="tab-content">
+        <!-- Content for active tab (placeholder for now) -->
+        <p class="tab-placeholder">Feature content will appear here</p>
+      </div>
+
+      <!-- Empty State (for VAs with no roles) -->
+      <section id="empty-state" class="empty-state-section hidden">
+        <p class="empty-state-message">No features assigned. Contact your admin.</p>
+      </section>
+
       <!-- Agent Info -->
       <section class="section agent-info-card">
         <div class="agent-info-row">
@@ -219,9 +251,6 @@
         </div>
         <div class="action-buttons" style="margin-top: 8px;">
           <button id="btn-queue-fake" class="btn btn-secondary btn-small">+ Fake Task</button>
-        </div>
-        <div class="action-buttons session-actions" style="margin-top: 12px;">
-          <button id="btn-clock-out" class="btn btn-danger btn-full">Clock Out</button>
         </div>
       </section>
 
