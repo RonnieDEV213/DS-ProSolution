@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 4.1 of 5 (Auto Order Tab Organization)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-19 — Completed 04.1-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-19 — Completed 04.1-02-PLAN.md
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 6 min
-- Total execution time: 51 min
+- Total plans completed: 10
+- Average duration: 5 min
+- Total execution time: 53 min
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: [█████████░] 90%
 | 02.1-profile-ui-refinements | 1 | 4 min | 4 min |
 | 03-extension-auth-flow | 2 | 11 min | 5.5 min |
 | 04-extension-rbac | 1 | 12 min | 12 min |
-| 04.1-auto-order-tab-organization | 1 | 3 min | 3 min |
+| 04.1-auto-order-tab-organization | 2 | 5 min | 2.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (3 min), 03-02 (8 min), 04-01 (12 min), 04.1-01 (3 min)
+- Last 5 plans: 03-02 (8 min), 04-01 (12 min), 04.1-01 (3 min), 04.1-02 (2 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -75,6 +75,9 @@ Recent decisions affecting current work:
 - [04-01]: rbac_version comparison triggers forced re-auth on role changes
 - [04.1-01]: auto_order.read follows existing permission naming convention (category.action)
 - [04.1-01]: Auto Order Tab appears first in Ordering Permissions group
+- [04.1-02]: Auto Order tab appears first in ADMIN_TABS (priority order)
+- [04.1-02]: Profile and agent info sections persist across all tabs
+- [04.1-02]: Tab content placeholder hidden by default, shown for non-Auto-Order tabs
 
 ### Pending Todos
 
@@ -88,10 +91,10 @@ None yet.
 ### Roadmap Evolution
 
 - Phase 2.1 inserted after Phase 2: Profile UI Refinements (URGENT) — COMPLETE
-- Phase 4.1 inserted after Phase 4: Auto Order Tab Organization (URGENT) — organize hub content under auto_order permission
+- Phase 4.1 inserted after Phase 4: Auto Order Tab Organization (URGENT) — COMPLETE
 
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 04.1-01-PLAN.md
+Stopped at: Completed 04.1-02-PLAN.md (Phase 4.1 complete)
 Resume file: None
