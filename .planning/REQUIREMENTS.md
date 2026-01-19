@@ -106,10 +106,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROF-03 | Phase 2 | Complete |
 | PROF-04 | Phase 2 | Complete |
 | PROF-05 | Phase 2 | Complete |
-| EXT-01 | Phase 3 | Pending |
-| EXT-02 | Phase 3 | Pending |
-| EXT-03 | Phase 3 | Pending |
-| EXT-04 | Phase 3 | Pending |
+| EXT-01 | Phase 3 | Complete |
+| EXT-02 | Phase 3 | Complete |
+| EXT-03 | Phase 3 | Complete |
+| EXT-04 | Phase 3 | Complete |
 | EXT-05 | Phase 4 | Pending |
 | EXT-06 | Phase 4 | Pending |
 | EXT-07 | Phase 4 | Pending |
@@ -130,4 +130,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-18*
-*Last updated: 2026-01-18 — Phase 2 complete*
+*Last updated: 2026-01-19 — Phase 3 complete*

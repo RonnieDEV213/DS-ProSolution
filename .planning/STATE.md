@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-18)
 
 **Core value:** VAs can securely authenticate into the extension and see only the features their assigned roles permit
-**Current focus:** Phase 3 - Extension Auth Flow
+**Current focus:** Phase 4 - Extension RBAC
 
 ## Current Position
 
-Phase: 3 of 5 (Extension Auth Flow)
-Plan: 2 of TBD in current phase
-Status: In progress
-Last activity: 2026-01-19 — Completed 03-02-PLAN.md
+Phase: 4 of 5 (Extension RBAC)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-01-19 — Phase 3 complete (verified)
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -71,8 +71,8 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Run migration 035_access_codes.sql in Supabase SQL editor
-- Add ACCESS_CODE_JWT_SECRET environment variable
+- Run migration 035_access_codes.sql in Supabase SQL editor (if not already done)
+- ~~Add ACCESS_CODE_JWT_SECRET environment variable~~ (done)
 
 ### Blockers/Concerns
 
@@ -85,5 +85,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 03-02-PLAN.md (Clock-In UI)
+Stopped at: Phase 3 complete, ready to plan Phase 4
 Resume file: None
