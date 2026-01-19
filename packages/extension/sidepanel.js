@@ -93,6 +93,27 @@ const elements = {
   btnEmergencyStop: document.getElementById('btn-emergency-stop'),
   btnFocusTab: document.getElementById('btn-focus-tab'),
   btnQueueFake: document.getElementById('btn-queue-fake'),
+
+  // Clock In
+  clockInSection: document.getElementById('clock-in-section'),
+  accessCodeInput: document.getElementById('access-code-input'),
+  btnToggleCodeVisibility: document.getElementById('btn-toggle-code-visibility'),
+  btnClockIn: document.getElementById('btn-clock-in'),
+  clockInError: document.getElementById('clock-in-error'),
+
+  // Clocked Out
+  clockedOutSection: document.getElementById('clocked-out-section'),
+  clockedOutMessage: document.getElementById('clocked-out-message'),
+  btnClockInAgain: document.getElementById('btn-clock-in-again'),
+
+  // Overlay and Warning
+  validatingOverlay: document.getElementById('validating-overlay'),
+  inactivityWarning: document.getElementById('inactivity-warning'),
+  warningMinutes: document.getElementById('warning-minutes'),
+  btnDismissWarning: document.getElementById('btn-dismiss-warning'),
+
+  // Hub Clock Out
+  btnClockOut: document.getElementById('btn-clock-out'),
 };
 
 // =============================================================================
@@ -142,6 +163,24 @@ function handleMessage(msg) {
     case 'DETECTED_ACCOUNTS':
       renderDetectedAccounts(msg.ebay, msg.amazon);
       break;
+
+    case 'CLOCK_IN_STARTED':
+      elements.validatingOverlay?.classList.remove('hidden');
+      break;
+
+    case 'CLOCK_IN_SUCCESS':
+      elements.validatingOverlay?.classList.add('hidden');
+      // State update will trigger render() which shows hub
+      break;
+
+    case 'CLOCK_IN_FAILED':
+      elements.validatingOverlay?.classList.add('hidden');
+      showClockInError(msg.error_code, msg.message, msg.retry_after);
+      break;
+
+    case 'INACTIVITY_WARNING':
+      showInactivityWarning(msg.minutes_remaining);
+      break;
   }
 }
 
@@ -158,10 +197,24 @@ function render() {
   // Hide all sections first
   hideAllSections();
 
-  // State machine: pending → cooldown → expired → rejected → request → hub
+  // State machine priority:
+  // 1. If paired AND clocked_in -> show hub
+  // 2. If paired AND needs_clock_in -> show clock-in
+  // 3. If paired AND clocked_out -> show clocked-out
+  // 4. If not paired -> show pairing flow
+
   if (currentState.paired) {
-    showSection('hub');
-    renderHub();
+    if (currentState.auth_state === 'clocked_in') {
+      showSection('hub');
+      renderHub();
+    } else if (currentState.auth_state === 'clocked_out') {
+      showSection('clockedOut');
+      renderClockedOut();
+    } else {
+      // needs_clock_in or null (fallback to clock-in)
+      showSection('clockIn');
+      renderClockIn();
+    }
   } else {
     renderPairingFlow();
   }
@@ -176,6 +229,10 @@ function hideAllSections() {
   elements.autoApprovedSection?.classList.add('hidden');
   elements.detectingSection?.classList.add('hidden');
   elements.hubSection?.classList.add('hidden');
+  elements.clockInSection?.classList.add('hidden');
+  elements.clockedOutSection?.classList.add('hidden');
+  elements.validatingOverlay?.classList.add('hidden');
+  elements.inactivityWarning?.classList.add('hidden');
   stopCooldownTimer();
   stopExpirationTimer();
 }
@@ -190,6 +247,8 @@ function showSection(name) {
     autoApproved: elements.autoApprovedSection,
     detecting: elements.detectingSection,
     hub: elements.hubSection,
+    clockIn: elements.clockInSection,
+    clockedOut: elements.clockedOutSection,
   };
   sectionMap[name]?.classList.remove('hidden');
 }
@@ -327,6 +386,61 @@ function renderHub() {
 
   // Buttons
   updateButtons();
+}
+
+function renderClockIn() {
+  // Clear any previous input and errors
+  if (elements.accessCodeInput) {
+    elements.accessCodeInput.value = '';
+  }
+  if (elements.clockInError) {
+    elements.clockInError.textContent = '';
+    elements.clockInError.classList.add('hidden');
+  }
+}
+
+function renderClockedOut() {
+  const messages = {
+    'manual': 'You have clocked out.',
+    'inactivity': 'Clocked out due to inactivity.',
+    'code_rotated': 'Your access code was changed. Please clock in again.',
+    'token_expired': 'Your session has expired. Please clock in again.',
+  };
+
+  const reason = currentState.clock_out_reason || 'manual';
+  if (elements.clockedOutMessage) {
+    elements.clockedOutMessage.textContent = messages[reason] || messages.manual;
+  }
+}
+
+function showClockInError(errorCode, message, retryAfter) {
+  const errorMessages = {
+    INVALID_CODE: 'Invalid access code',
+    CODE_EXPIRED: 'Access code has expired. Generate a new one from your profile.',
+    RATE_LIMITED: retryAfter ? `Too many attempts. Please wait ${retryAfter} seconds.` : 'Too many attempts. Please try again later.',
+    ACCOUNT_DISABLED: 'Account is suspended. Contact an administrator.',
+    NETWORK_ERROR: 'Connection error. Check your internet and try again.',
+  };
+
+  const displayMessage = errorMessages[errorCode] || message || 'Validation failed';
+
+  if (elements.clockInError) {
+    elements.clockInError.textContent = displayMessage;
+    elements.clockInError.classList.remove('hidden');
+  }
+
+  // Clear input on error (user starts fresh)
+  if (elements.accessCodeInput) {
+    elements.accessCodeInput.value = '';
+    elements.accessCodeInput.focus();
+  }
+}
+
+function showInactivityWarning(minutes) {
+  if (elements.warningMinutes) {
+    elements.warningMinutes.textContent = minutes;
+  }
+  elements.inactivityWarning?.classList.remove('hidden');
 }
 
 function renderCurrentTask(task) {
@@ -537,6 +651,67 @@ elements.btnFocusTab?.addEventListener('click', () => {
 
 elements.btnQueueFake?.addEventListener('click', () => {
   send('QUEUE_FAKE_TASK');
+});
+
+// Clock In form submit
+elements.btnClockIn?.addEventListener('click', () => {
+  const code = elements.accessCodeInput?.value?.trim();
+  if (!code) {
+    showClockInError('INVALID_CODE', 'Please enter your access code');
+    return;
+  }
+  // Clear any previous errors
+  elements.clockInError?.classList.add('hidden');
+  // Send to service worker
+  send('CLOCK_IN', { code });
+});
+
+// Enter key submits clock-in form
+elements.accessCodeInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    elements.btnClockIn?.click();
+  }
+});
+
+// Toggle code visibility
+elements.btnToggleCodeVisibility?.addEventListener('click', () => {
+  if (elements.accessCodeInput) {
+    const isPassword = elements.accessCodeInput.type === 'password';
+    elements.accessCodeInput.type = isPassword ? 'text' : 'password';
+  }
+});
+
+// Clock In Again button (from clocked out state)
+elements.btnClockInAgain?.addEventListener('click', () => {
+  // Transition to clock-in section
+  hideAllSections();
+  showSection('clockIn');
+  renderClockIn();
+});
+
+// Clock Out button in hub
+elements.btnClockOut?.addEventListener('click', () => {
+  send('CLOCK_OUT');
+});
+
+// Dismiss inactivity warning
+elements.btnDismissWarning?.addEventListener('click', () => {
+  elements.inactivityWarning?.classList.add('hidden');
+  // Reset activity timer when user acknowledges warning
+  send('RESET_ACTIVITY');
+});
+
+// Track user activity to reset inactivity timer
+document.addEventListener('click', () => {
+  if (currentState?.auth_state === 'clocked_in') {
+    send('RESET_ACTIVITY');
+  }
+});
+
+document.addEventListener('keydown', () => {
+  if (currentState?.auth_state === 'clocked_in') {
+    send('RESET_ACTIVITY');
+  }
 });
 
 // =============================================================================
