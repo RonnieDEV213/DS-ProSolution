@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-18)
 
 **Core value:** VAs can securely authenticate into the extension and see only the features their assigned roles permit
-**Current focus:** Phase 5 - Presence System
+**Current focus:** Phase 4.1 - Auto Order Tab Organization
 
 ## Current Position
 
-Phase: 5 of 5 (Presence System)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-01-19 — Phase 4 complete (verified)
+Phase: 4.1 of 5 (Auto Order Tab Organization)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-19 — Completed 04.1-01-PLAN.md
 
 Progress: [█████████░] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: 6 min
-- Total execution time: 48 min
+- Total execution time: 51 min
 
 **By Phase:**
 
@@ -32,9 +32,10 @@ Progress: [█████████░] 90%
 | 02.1-profile-ui-refinements | 1 | 4 min | 4 min |
 | 03-extension-auth-flow | 2 | 11 min | 5.5 min |
 | 04-extension-rbac | 1 | 12 min | 12 min |
+| 04.1-auto-order-tab-organization | 1 | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 02.1-01 (4 min), 03-01 (3 min), 03-02 (8 min), 04-01 (12 min)
+- Last 5 plans: 03-01 (3 min), 03-02 (8 min), 04-01 (12 min), 04.1-01 (3 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [04-01]: ADMIN_TABS constant defines all extension tabs for admin bypass
 - [04-01]: Permission re-check every 5 minutes via chrome.alarms
 - [04-01]: rbac_version comparison triggers forced re-auth on role changes
+- [04.1-01]: auto_order.read follows existing permission naming convention (category.action)
+- [04.1-01]: Auto Order Tab appears first in Ordering Permissions group
 
 ### Pending Todos
 
@@ -85,9 +88,10 @@ None yet.
 ### Roadmap Evolution
 
 - Phase 2.1 inserted after Phase 2: Profile UI Refinements (URGENT) — COMPLETE
+- Phase 4.1 inserted after Phase 4: Auto Order Tab Organization (URGENT) — organize hub content under auto_order permission
 
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Phase 4 complete, ready to plan Phase 5
+Stopped at: Completed 04.1-01-PLAN.md
 Resume file: None
