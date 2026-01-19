@@ -17,12 +17,14 @@ let expirationTimer = null;
 
 // Admin sees all extension tabs (feature list)
 const ADMIN_TABS = [
+  { id: 'auto_order', name: 'Auto Order', icon: '🤖' },
   { id: 'order_tracking', name: 'Order Tracking', icon: '📋' },
   { id: 'accounts', name: 'Accounts', icon: '🏪' },
 ];
 
 // Map role names to icons (for VA tabs)
 const ROLE_ICONS = {
+  'Auto Order': '🤖',
   'Order Tracking': '📋',
   'Accounts': '🏪',
   'Bookkeeping': '📊',
@@ -140,6 +142,7 @@ const elements = {
   tabBarSkeleton: document.getElementById('tab-bar-skeleton'),
   tabContent: document.getElementById('tab-content'),
   emptyState: document.getElementById('empty-state'),
+  autoOrderContent: document.getElementById('auto-order-content'),
 };
 
 // =============================================================================
@@ -267,6 +270,7 @@ function hideAllSections() {
   elements.clockedOutSection?.classList.add('hidden');
   elements.validatingOverlay?.classList.add('hidden');
   elements.inactivityWarning?.classList.add('hidden');
+  elements.autoOrderContent?.classList.add('hidden');
   stopCooldownTimer();
   stopExpirationTimer();
 }
@@ -487,12 +491,19 @@ function showEmptyState() {
 }
 
 function showTabContent(tabId, tabName) {
-  if (elements.tabContent) {
-    // For now, show placeholder with tab name
-    // Future phases will populate actual content
-    elements.tabContent.innerHTML = `
-      <p class="tab-placeholder">${escapeHtml(tabName || tabId)} feature content will appear here</p>
-    `;
+  // Show/hide Auto Order content based on tab
+  if (tabId === 'auto_order') {
+    elements.autoOrderContent?.classList.remove('hidden');
+    elements.tabContent?.classList.add('hidden');
+  } else {
+    elements.autoOrderContent?.classList.add('hidden');
+    elements.tabContent?.classList.remove('hidden');
+    // Show placeholder for other tabs
+    if (elements.tabContent) {
+      elements.tabContent.innerHTML = `
+        <p class="tab-placeholder">${escapeHtml(tabName || tabId)} feature content will appear here</p>
+      `;
+    }
   }
 }
 
