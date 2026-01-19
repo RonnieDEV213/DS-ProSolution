@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Profile Settings & Account Permissions** - Web UI for profile modal, access code management, and account:view permission
 - [x] **Phase 2.1: Profile UI Refinements** - Sidebar trigger cleanup, Security tab with access code (INSERTED)
 - [x] **Phase 3: Extension Auth Flow** - Extension authentication using access codes with JWT storage
-- [ ] **Phase 4: Extension RBAC** - Permission-based tab rendering with admin bypass
+- [x] **Phase 4: Extension RBAC** - Permission-based tab rendering with admin bypass
 - [ ] **Phase 5: Presence System** - Account occupancy indicators with privacy-aware display
 
 ## Phase Details
@@ -94,7 +94,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01-PLAN.md — Profile section, RBAC tab bar, admin bypass, permission re-check
+- [x] 04-01-PLAN.md — Profile section, RBAC tab bar, admin bypass, permission re-check
 
 ### Phase 5: Presence System
 **Goal**: Account occupancy is visible with privacy-aware display (Admins see who, VAs see "Occupied")
@@ -121,9 +121,9 @@ Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 5
 | 2. Profile Settings & Account Permissions | 2/2 | Complete | 2026-01-18 |
 | 2.1. Profile UI Refinements (INSERTED) | 1/1 | Complete | 2026-01-18 |
 | 3. Extension Auth Flow | 2/2 | Complete | 2026-01-19 |
-| 4. Extension RBAC | 0/1 | Planned | - |
+| 4. Extension RBAC | 1/1 | Complete | 2026-01-19 |
 | 5. Presence System | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 4 planned*
+*Last updated: 2026-01-19 — Phase 4 complete*

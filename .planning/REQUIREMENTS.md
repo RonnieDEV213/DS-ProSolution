@@ -110,11 +110,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXT-02 | Phase 3 | Complete |
 | EXT-03 | Phase 3 | Complete |
 | EXT-04 | Phase 3 | Complete |
-| EXT-05 | Phase 4 | Pending |
-| EXT-06 | Phase 4 | Pending |
-| EXT-07 | Phase 4 | Pending |
-| EXT-08 | Phase 4 | Pending |
-| EXT-09 | Phase 4 | Pending |
+| EXT-05 | Phase 4 | Complete |
+| EXT-06 | Phase 4 | Complete |
+| EXT-07 | Phase 4 | Complete |
+| EXT-08 | Phase 4 | Complete |
+| EXT-09 | Phase 4 | Complete |
 | ACCT-01 | Phase 2 | Complete |
 | ACCT-02 | Phase 2 | Complete |
 | ACCT-03 | Phase 2 | Complete |
@@ -130,4 +130,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 3 complete*
+*Last updated: 2026-01-19 — Phase 4 complete*
