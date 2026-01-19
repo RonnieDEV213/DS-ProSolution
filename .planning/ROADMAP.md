@@ -124,10 +124,11 @@ Plans:
   2. Admin users see the name of who is occupying each account
   3. VA users see only "Occupied" indicator (no identity revealed)
   4. Presence updates in near real-time (within a few seconds of changes)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: TBD
+- [ ] 05-01-PLAN.md — Backend presence schema, service, clock-in/out integration
+- [ ] 05-02-PLAN.md — Frontend usePresence hook, OccupancyBadge, AccountSelector integration
 
 ## Progress
 
@@ -142,8 +143,8 @@ Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 4.1 -> 5
 | 3. Extension Auth Flow | 2/2 | Complete | 2026-01-19 |
 | 4. Extension RBAC | 1/1 | Complete | 2026-01-19 |
 | 4.1. Auto Order Tab Organization (INSERTED) | 2/2 | Complete | 2026-01-19 |
-| 5. Presence System | 0/TBD | Not started | - |
+| 5. Presence System | 0/2 | Ready for execution | - |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 4.1 complete*
+*Last updated: 2026-01-19 — Phase 5 planned*
