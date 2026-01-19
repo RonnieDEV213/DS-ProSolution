@@ -36,6 +36,9 @@ const TASK_STATES = {
 const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
 const INACTIVITY_WARNING_MS = 5 * 60 * 1000;  // 5 minutes before timeout
 
+// Permission re-check interval
+const PERMISSION_RECHECK_MINUTES = 5;
+
 // =============================================================================
 // STATE MANAGEMENT
 // =============================================================================
@@ -176,6 +179,8 @@ function buildStateSummary(state) {
     // Access code auth state (no tokens)
     auth_state: state.auth_state,
     user_context: state.user_context,
+    roles: state.roles,  // Include roles for tab rendering
+    rbac_version: state.rbac_version,  // For debugging/display
     clock_out_reason: state.clock_out_reason,
     session_started_at: state.session_started_at,
   };
@@ -891,10 +896,12 @@ async function handleClockIn(code, port) {
 /**
  * Start or restart the inactivity timer
  * Creates warning alarm at 55 min and timeout alarm at 60 min
+ * Also creates periodic permission re-check alarm
  */
 async function startInactivityTimer() {
   await chrome.alarms.clear('inactivity_warning');
   await chrome.alarms.clear('inactivity_timeout');
+  await chrome.alarms.clear('permission_recheck');
 
   const now = Date.now();
   await chrome.storage.local.set({ last_activity_at: now });
@@ -907,6 +914,11 @@ async function startInactivityTimer() {
   // Timeout after 1 hour
   chrome.alarms.create('inactivity_timeout', {
     when: now + INACTIVITY_TIMEOUT_MS
+  });
+
+  // Periodic permission re-check
+  chrome.alarms.create('permission_recheck', {
+    periodInMinutes: PERMISSION_RECHECK_MINUTES
   });
 }
 
@@ -922,7 +934,7 @@ async function resetInactivityTimer() {
 
 /**
  * Clock out user and clear auth state
- * @param {string} reason - 'manual' | 'inactivity' | 'code_rotated' | 'token_expired'
+ * @param {string} reason - 'manual' | 'inactivity' | 'code_rotated' | 'token_expired' | 'roles_changed' | 'permission_fetch_failed'
  */
 async function clockOut(reason) {
   await updateState({
@@ -938,11 +950,63 @@ async function clockOut(reason) {
 
   await chrome.alarms.clear('inactivity_warning');
   await chrome.alarms.clear('inactivity_timeout');
+  await chrome.alarms.clear('permission_recheck');
 
   // Broadcast state change to side panels
   broadcastState();
 
   console.log('[SW] Clocked out:', reason);
+}
+
+/**
+ * Check if user's permissions have changed since clock-in.
+ * If rbac_version changed, force re-authentication.
+ */
+async function checkPermissionChanges() {
+  const state = await getState();
+  if (state.auth_state !== 'clocked_in') return;
+  if (!state.access_token || !state.user_context) return;
+
+  try {
+    // Use the access token to fetch current user info
+    const response = await fetch(`${API_BASE}/access-codes/me`, {
+      headers: {
+        'Authorization': `Bearer ${state.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.status === 401) {
+      // Token invalid, force re-auth
+      await clockOut('token_expired');
+      return;
+    }
+
+    if (!response.ok) {
+      console.warn('[SW] Permission check failed:', response.status);
+      return; // Don't force logout on network errors, try again later
+    }
+
+    const data = await response.json();
+
+    // Compare rbac_version
+    if (data.rbac_version && data.rbac_version !== state.rbac_version) {
+      console.log('[SW] RBAC version changed, forcing re-auth');
+      await clockOut('roles_changed');
+
+      // Notify side panels
+      for (const port of sidePanelPorts) {
+        try {
+          port.postMessage({ type: 'ROLES_CHANGED' });
+        } catch (e) {
+          // Port may be disconnected
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[SW] Permission check error:', err.message);
+    // Don't force logout on network errors
+  }
 }
 
 /**
@@ -1689,6 +1753,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       break;
     case 'inactivity_timeout':
       clockOut('inactivity');
+      break;
+    case 'permission_recheck':
+      checkPermissionChanges();
       break;
   }
 });

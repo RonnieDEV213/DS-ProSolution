@@ -15,6 +15,20 @@ let elapsedTimer = null;
 let cooldownTimer = null;
 let expirationTimer = null;
 
+// Admin sees all extension tabs (feature list)
+const ADMIN_TABS = [
+  { id: 'order_tracking', name: 'Order Tracking', icon: '📋' },
+  { id: 'accounts', name: 'Accounts', icon: '🏪' },
+];
+
+// Map role names to icons (for VA tabs)
+const ROLE_ICONS = {
+  'Order Tracking': '📋',
+  'Accounts': '🏪',
+  'Bookkeeping': '📊',
+  'default': '📁',
+};
+
 // =============================================================================
 // ELEMENTS
 // =============================================================================
@@ -112,8 +126,20 @@ const elements = {
   warningMinutes: document.getElementById('warning-minutes'),
   btnDismissWarning: document.getElementById('btn-dismiss-warning'),
 
-  // Hub Clock Out
+  // Hub Clock Out (legacy, kept for backwards compatibility)
   btnClockOut: document.getElementById('btn-clock-out'),
+
+  // Profile Section
+  profileName: document.getElementById('profile-name'),
+  profileTypeBadge: document.getElementById('profile-type-badge'),
+  adminBadge: document.getElementById('admin-badge'),
+  btnClockOutHeader: document.getElementById('btn-clock-out-header'),
+
+  // Tab Bar
+  tabBar: document.getElementById('tab-bar'),
+  tabBarSkeleton: document.getElementById('tab-bar-skeleton'),
+  tabContent: document.getElementById('tab-content'),
+  emptyState: document.getElementById('empty-state'),
 };
 
 // =============================================================================
@@ -180,6 +206,14 @@ function handleMessage(msg) {
 
     case 'INACTIVITY_WARNING':
       showInactivityWarning(msg.minutes_remaining);
+      break;
+
+    case 'ROLES_CHANGED':
+      // Force re-authentication when roles change
+      elements.validatingOverlay?.classList.add('hidden');
+      hideAllSections();
+      showSection('clockIn');
+      renderClockIn();
       break;
   }
 }
@@ -355,7 +389,143 @@ function updateStatusBadge(status) {
   elements.statusBadge.className = 'status-badge ' + (status || 'stopped');
 }
 
+// =============================================================================
+// PROFILE AND TAB RENDERING
+// =============================================================================
+
+function renderProfileSection() {
+  if (!currentState?.user_context) return;
+  const { name, user_type, is_admin } = currentState.user_context;
+
+  if (elements.profileName) {
+    elements.profileName.textContent = name || 'User';
+  }
+  if (elements.profileTypeBadge) {
+    elements.profileTypeBadge.textContent = user_type || 'va';
+  }
+  if (elements.adminBadge) {
+    if (is_admin) {
+      elements.adminBadge.classList.remove('hidden');
+    } else {
+      elements.adminBadge.classList.add('hidden');
+    }
+  }
+}
+
+function renderTabs() {
+  if (!currentState) return;
+  const { user_context, roles } = currentState;
+
+  // Hide skeleton, show tab bar
+  elements.tabBarSkeleton?.classList.add('hidden');
+  elements.tabBar?.classList.remove('hidden');
+
+  // Admin bypass - show all tabs
+  if (user_context?.is_admin) {
+    renderAdminTabs();
+    elements.emptyState?.classList.add('hidden');
+    elements.tabContent?.classList.remove('hidden');
+    return;
+  }
+
+  // VA with no roles - show empty state
+  if (!roles || roles.length === 0) {
+    showEmptyState();
+    return;
+  }
+
+  // VA with roles - render assigned tabs
+  elements.emptyState?.classList.add('hidden');
+  elements.tabContent?.classList.remove('hidden');
+
+  // Sort by priority if available, otherwise use array order
+  const sortedRoles = [...roles].sort((a, b) => (a.priority || 0) - (b.priority || 0));
+
+  if (elements.tabBar) {
+    elements.tabBar.innerHTML = sortedRoles.map((role, index) => `
+      <button class="tab ${index === 0 ? 'active' : ''}"
+              data-role-id="${escapeHtml(role.id)}"
+              data-role-name="${escapeHtml(role.name)}">
+        <span class="tab-icon">${getRoleIcon(role.name)}</span>
+        <span>${escapeHtml(role.name)}</span>
+      </button>
+    `).join('');
+
+    // Attach click handlers
+    attachTabClickHandlers();
+  }
+
+  // Show first tab content
+  if (sortedRoles.length > 0) {
+    showTabContent(sortedRoles[0].id, sortedRoles[0].name);
+  }
+}
+
+function renderAdminTabs() {
+  if (elements.tabBar) {
+    elements.tabBar.innerHTML = ADMIN_TABS.map((tab, index) => `
+      <button class="tab ${index === 0 ? 'active' : ''}"
+              data-tab-id="${tab.id}">
+        <span class="tab-icon">${tab.icon}</span>
+        <span>${tab.name}</span>
+      </button>
+    `).join('');
+
+    attachTabClickHandlers();
+  }
+
+  // Show first tab content
+  if (ADMIN_TABS.length > 0) {
+    showTabContent(ADMIN_TABS[0].id, ADMIN_TABS[0].name);
+  }
+}
+
+function showEmptyState() {
+  elements.tabBar?.classList.add('hidden');
+  elements.tabContent?.classList.add('hidden');
+  elements.emptyState?.classList.remove('hidden');
+}
+
+function showTabContent(tabId, tabName) {
+  if (elements.tabContent) {
+    // For now, show placeholder with tab name
+    // Future phases will populate actual content
+    elements.tabContent.innerHTML = `
+      <p class="tab-placeholder">${escapeHtml(tabName || tabId)} feature content will appear here</p>
+    `;
+  }
+}
+
+function getRoleIcon(roleName) {
+  return ROLE_ICONS[roleName] || ROLE_ICONS.default;
+}
+
+function attachTabClickHandlers() {
+  elements.tabBar?.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      // Update active state
+      elements.tabBar.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      // Show content
+      const tabId = tab.dataset.roleId || tab.dataset.tabId;
+      const tabName = tab.dataset.roleName || tab.textContent.trim();
+      showTabContent(tabId, tabName);
+    });
+  });
+}
+
+// =============================================================================
+// HUB RENDERING
+// =============================================================================
+
 function renderHub() {
+  // Render profile section first
+  renderProfileSection();
+
+  // Render tabs
+  renderTabs();
+
   // Agent info
   elements.agentLabel.textContent = currentState.label || 'Unknown';
   elements.agentRole.textContent = currentState.agent_role || '—';
@@ -405,6 +575,8 @@ function renderClockedOut() {
     'inactivity': 'Clocked out due to inactivity.',
     'code_rotated': 'Your access code was changed. Please clock in again.',
     'token_expired': 'Your session has expired. Please clock in again.',
+    'roles_changed': 'Your permissions have changed. Please clock in again.',
+    'permission_fetch_failed': 'Could not verify permissions. Please clock in again.',
   };
 
   const reason = currentState.clock_out_reason || 'manual';
@@ -689,8 +861,13 @@ elements.btnClockInAgain?.addEventListener('click', () => {
   renderClockIn();
 });
 
-// Clock Out button in hub
+// Clock Out button in hub (legacy, may be removed)
 elements.btnClockOut?.addEventListener('click', () => {
+  send('CLOCK_OUT');
+});
+
+// Clock Out button in profile header
+elements.btnClockOutHeader?.addEventListener('click', () => {
   send('CLOCK_OUT');
 });
 
