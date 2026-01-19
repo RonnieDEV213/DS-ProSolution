@@ -235,7 +235,7 @@ async def get_user(
         .maybe_single()
         .execute()
     )
-    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result and notes_result.data else None
 
     return _build_user_response(profile, membership, role_perms, admin_remarks)
 
@@ -438,7 +438,7 @@ async def update_user(
         .maybe_single()
         .execute()
     )
-    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result and notes_result.data else None
 
     return _build_user_response(profile, new_membership, role_perms, admin_remarks)
 
@@ -866,7 +866,7 @@ async def update_department_role(
         .maybe_single()
         .execute()
     )
-    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result and notes_result.data else None
 
     # Audit log
     await write_audit_log(
@@ -1379,7 +1379,7 @@ async def get_account(
         .maybe_single()
         .execute()
     )
-    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result and notes_result.data else None
 
     return AdminAccountResponse(
         id=account["id"],
@@ -1444,7 +1444,7 @@ async def update_account(
             .maybe_single()
             .execute()
         )
-        admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+        admin_remarks = notes_result.data.get("admin_remarks") if notes_result and notes_result.data else None
         return AdminAccountResponse(
             id=old_account["id"],
             account_code=old_account["account_code"],
@@ -1504,7 +1504,7 @@ async def update_account(
         .maybe_single()
         .execute()
     )
-    admin_remarks = notes_result.data.get("admin_remarks") if notes_result.data else None
+    admin_remarks = notes_result.data.get("admin_remarks") if notes_result and notes_result.data else None
 
     return AdminAccountResponse(
         id=new_account["id"],
