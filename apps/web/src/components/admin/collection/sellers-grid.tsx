@@ -4,7 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Download, Copy, Plus, Check } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { X, Download, FileText, Braces, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -30,7 +36,6 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
-  const [copySuccess, setCopySuccess] = useState(false);
 
   const supabase = createClient();
 
@@ -144,7 +149,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   };
 
   // Export functions
-  const exportCSV = async () => {
+  const downloadCSV = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
@@ -159,27 +164,14 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     a.click();
   };
 
-  const exportJSON = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const response = await fetch(`${API_BASE}/sellers/export?format=json`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await response.json();
-    const blob = new Blob([JSON.stringify(data.sellers, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "sellers.json";
-    a.click();
+  const copyJSON = async () => {
+    const json = JSON.stringify(sellers.map(s => s.display_name), null, 2);
+    await navigator.clipboard.writeText(json);
   };
 
-  const copyToClipboard = async () => {
-    const names = sellers.map(s => s.display_name).join("\n");
-    await navigator.clipboard.writeText(names);
-    setCopySuccess(true);
-    setTimeout(() => setCopySuccess(false), 2000);
+  const copyRawText = async () => {
+    const text = sellers.map(s => s.display_name).join("\n");
+    await navigator.clipboard.writeText(text);
   };
 
   if (loading) {
@@ -208,19 +200,30 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
           {addError && <span className="text-red-400 text-sm">{addError}</span>}
         </div>
 
-        <div className="flex items-center gap-1">
-          <span className="text-gray-500 text-sm mr-2">{sellers.length} sellers</span>
-          <Button variant="ghost" size="sm" onClick={exportCSV} title="Export CSV">
-            <Download className="h-4 w-4" />
-            <span className="ml-1 text-xs">CSV</span>
-          </Button>
-          <Button variant="ghost" size="sm" onClick={exportJSON} title="Export JSON">
-            <Download className="h-4 w-4" />
-            <span className="ml-1 text-xs">JSON</span>
-          </Button>
-          <Button variant="ghost" size="sm" onClick={copyToClipboard} title="Copy to clipboard">
-            {copySuccess ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
-          </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500 text-sm">{sellers.length} sellers</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
+              <DropdownMenuItem onClick={downloadCSV} className="text-gray-200 focus:bg-gray-700">
+                <Download className="h-4 w-4 mr-2" />
+                Download CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={copyJSON} className="text-gray-200 focus:bg-gray-700">
+                <Braces className="h-4 w-4 mr-2" />
+                Copy JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={copyRawText} className="text-gray-200 focus:bg-gray-700">
+                <FileText className="h-4 w-4 mr-2" />
+                Copy Raw Text
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
