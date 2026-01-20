@@ -114,8 +114,8 @@ export function LogDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-gray-800 max-w-4xl max-h-[80vh]">
-        <DialogHeader>
+      <DialogContent className="bg-gray-900 border-gray-800 max-w-4xl h-[80vh] flex flex-col" hideCloseButton>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-white flex items-center justify-between">
             <span>Log Details</span>
             <div className="flex items-center gap-2">
@@ -161,13 +161,13 @@ export function LogDetailModal({
         {loading ? (
           <div className="text-gray-400 p-4">Loading...</div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 h-[60vh]">
+          <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
             {/* Left: Sellers at this log point */}
-            <div className="flex flex-col">
-              <h4 className="text-sm font-medium text-gray-300 mb-2">
+            <div className="flex flex-col min-h-0">
+              <h4 className="text-sm font-medium text-gray-300 mb-2 flex-shrink-0">
                 Sellers at this point ({sellers.length})
               </h4>
-              <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 p-2">
+              <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 p-2 min-h-0">
                 {sellers.length === 0 ? (
                   <div className="text-gray-500 text-sm">No sellers at this point</div>
                 ) : (
@@ -183,11 +183,11 @@ export function LogDetailModal({
             </div>
 
             {/* Right: Full history */}
-            <div className="flex flex-col">
-              <h4 className="text-sm font-medium text-gray-300 mb-2">
+            <div className="flex flex-col min-h-0">
+              <h4 className="text-sm font-medium text-gray-300 mb-2 flex-shrink-0">
                 Full History
               </h4>
-              <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700">
+              <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 min-h-0">
                 {/* Current list option for compare */}
                 {compareMode && (
                   <button
