@@ -5,20 +5,20 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** Phase 7 - Amazon Best Sellers (In Progress)
+**Current focus:** Phase 7 - Amazon Best Sellers (Complete)
 
 ## Current Position
 
 Phase: 7 of 9 (Amazon Best Sellers)
-Plan: 4 of 5 complete
-Status: In progress
-Last activity: 2026-01-20 — Completed 07-04-PLAN.md (Category Selection UI)
+Plan: 5 of 5 complete
+Status: Phase complete
+Last activity: 2026-01-20 - Completed 07-05-PLAN.md (Scraper Integration)
 
-Progress: [██████░░░░] 58% (7/12 v2 plans)
+Progress: [███████░░░] 66% (8/12 v2 plans)
 
 ## Shipped Milestones
 
-- **v1 Extension Auth & RBAC** (2026-01-20) — 7 phases, 12 plans, 27 requirements
+- **v1 Extension Auth & RBAC** (2026-01-20) - 7 phases, 12 plans, 27 requirements
   - See: .planning/milestones/v1-ROADMAP.md
   - See: .planning/milestones/v1-REQUIREMENTS.md
   - See: .planning/milestones/v1-MILESTONE-AUDIT.md
@@ -33,9 +33,9 @@ Progress: [██████░░░░] 58% (7/12 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 7
-- Average duration: ~3 min
-- Total execution time: ~24 min
+- Total plans completed: 8
+- Average duration: ~4 min
+- Total execution time: ~32 min
 
 ## Accumulated Context
 
@@ -61,6 +61,9 @@ Recent for v2:
 - CategoryLoader minimal subclass pattern for accessing get_categories without full credentials
 - Preset dropdown separate component from selector for reusability
 - Collapsible department hierarchy with expandedDepts Set pattern
+- Background task execution for scraping keeps API responsive
+- Checkpoint JSONB stores throttle status for UI display
+- 5 consecutive failures auto-pauses collection
 
 ### Pending Todos
 
@@ -77,7 +80,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-20T20:53:11Z
-Stopped at: Completed 07-04-PLAN.md (Category Selection UI)
+Last session: 2026-01-20T20:59:00Z
+Stopped at: Completed 07-05-PLAN.md (Scraper Integration)
 Resume file: None
-Next action: 07-05-PLAN.md (Collection Worker Implementation)
+Next action: Phase 8 - eBay Seller Search
