@@ -1,383 +1,415 @@
-# Pitfalls Research
+# SellerCollection Pitfalls
 
-**Domain:** Access codes, extension authentication, RBAC, and presence systems
-**Researched:** 2026-01-18
-**Confidence:** HIGH (verified against OWASP, official docs, codebase patterns)
+**Domain:** Amazon Best Sellers scraping + eBay seller collection workflow
+**Researched:** 2026-01-20
+**Confidence:** HIGH (verified against official API documentation and scraping service providers)
+
+**Note:** Bot detection and account suspension risks are covered in [EXISTING-RISKS.md](./EXISTING-RISKS.md). This document focuses on SellerCollection-specific pitfalls: API costs, data quality, edge cases, and workflow reliability.
+
+---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Access Code Stored in Plain Text
+Mistakes that cause budget overruns, data corruption, or workflow failure.
+
+### Pitfall 1: Unbounded API Cost Explosion
 
 **What goes wrong:**
-Access codes (prefix + secret) are stored unhashed in the database. A database breach exposes all valid access codes, allowing attackers to authenticate as any user into the extension.
+Admin triggers SellerCollection expecting ~1,000 products. Amazon has 40+ Best Seller categories, each with up to 100 products. For each product, 3-5 eBay searches are triggered. Total: 40 x 100 x 5 = 20,000 API calls. At $2.45/1K (ScraperAPI) or ~$1/1K (Rainforest), a single run costs $20-50. Monthly runs without monitoring quietly burn $600/year.
 
 **Why it happens:**
-Developers treat access codes like display identifiers rather than credentials. The prefix portion needs to be readable (for user identification), so the entire code gets stored plaintext.
-
-**How to avoid:**
-- Store prefix and secret separately in the database
-- Hash the secret portion using bcrypt/argon2 (same as passwords)
-- On authentication: user provides full code, backend splits by known prefix length, hashes secret, compares
-- Never log or return the full access code after initial generation
+Developers estimate based on a few test categories. They don't account for category count growth, subcategories, or eBay search multipliers. No cost caps are implemented because "it's just scraping."
 
 **Warning signs:**
-- Database schema stores `access_code VARCHAR` as a single column
-- Access code appears in API responses or logs after creation
-- No hashing library imported in access code generation/validation code
+- No API budget tracking in admin dashboard
+- No cost-per-run estimates shown before triggering
+- No alerts when approaching budget thresholds
+- Monthly billing surprises from API providers
 
-**Phase to address:**
-Phase 1 (Access Code System) - core security requirement before any code generation
+**Prevention:**
+- Display estimated cost before Admin confirms trigger
+- Implement hard budget cap per run (e.g., $25 max)
+- Track cumulative monthly spend in database
+- Alert at 50%, 75%, 90% of monthly budget
+- Allow category selection to limit scope
+
+**Phase to address:** Phase 1 (Data Collection Infrastructure) - budget controls must exist before first real run
 
 ---
 
-### Pitfall 2: Extension Token Storage in localStorage
+### Pitfall 2: Long-Running Job Timeout Without Progress Persistence
 
 **What goes wrong:**
-Extension stores authentication tokens (install_token) in localStorage instead of chrome.storage. Malicious scripts on web pages can read localStorage, exfiltrating tokens and hijacking extension sessions.
+SellerCollection job processes 10,000 products. At 500ms per API call (rate-limited), job takes ~90 minutes. Server timeout at 60 minutes kills job. No progress saved. Admin restarts, job starts from beginning, doubles API costs, still fails.
 
 **Why it happens:**
-Web developers default to localStorage because it's familiar. They don't realize that content scripts execute in webpage context where localStorage is vulnerable.
-
-**How to avoid:**
-- Use `chrome.storage.local` for tokens (current codebase does this correctly)
-- For highly sensitive data, use `chrome.storage.session` (clears on browser close)
-- Consider encrypting tokens before storage using Web Crypto API
-- Never store tokens in content scripts or pass them to webpage context
+Developers test with 50 products (25 seconds). Production has 200x more data. HTTP request timeouts, worker timeouts, and database connection limits all converge to kill long jobs.
 
 **Warning signs:**
-- `localStorage.setItem()` calls with token data in extension code
-- Tokens accessible from `window.localStorage` in browser devtools on web pages
-- Content scripts handling authentication directly
+- Job starts but never completes
+- No progress indicator in admin UI
+- API costs double without results
+- Database shows partial data from interrupted runs
+- "Connection reset" or timeout errors in logs
 
-**Phase to address:**
-Phase 2 (Extension Auth Flow) - verify storage patterns before implementing auth
+**Prevention:**
+- Implement checkpointing: save progress every 100 products
+- Use background job queue (Celery, RQ) not HTTP request
+- Store job state: `{total: 10000, completed: 3500, last_category: "Electronics"}`
+- On restart, resume from last checkpoint
+- Set realistic timeout (2-4 hours) with progress heartbeat
+
+**Phase to address:** Phase 1 (Data Collection Infrastructure) - job architecture must support long runs
 
 ---
 
-### Pitfall 3: RBAC Bypass via Client-Side Only Enforcement
+### Pitfall 3: Amazon Parent ASIN Confusion
 
 **What goes wrong:**
-Extension renders tabs based on permissions loaded from backend, but backend doesn't re-verify permissions on each action. Attacker modifies extension code to show hidden tabs, then calls APIs that lack server-side permission checks.
+Best Sellers list includes parent ASINs (non-buyable umbrella products). Scraper extracts parent ASIN, searches eBay, finds zero results. Alternatively, scraper follows parent to random child variation, gets inconsistent product data. Seller collection becomes random.
 
 **Why it happens:**
-RBAC feels "implemented" once the UI hides features. Developers assume hidden UI means protected functionality. Backend permission checks seem redundant.
-
-**How to avoid:**
-- Every backend endpoint must independently verify permissions (current codebase pattern)
-- Extension tab visibility is UX convenience, not security
-- Use `require_permission_key()` decorator pattern on all sensitive endpoints
-- Log and alert on permission violations (could indicate tampering)
+Amazon's parent-child ASIN structure is invisible to naive scrapers. A "product" in Best Sellers might be a family of 50 color/size variations. Only child ASINs are sellable; parent ASINs are catalog structures.
 
 **Warning signs:**
-- API endpoints without permission decorators/middleware
-- Permission checks only in frontend code
-- "The extension checks permissions" used as justification for missing backend validation
+- eBay searches returning zero results for "valid" Amazon products
+- Same product appearing multiple times with different attributes
+- Price data showing as null or "Select options"
+- Inconsistent product titles across runs
 
-**Phase to address:**
-Phase 3 (Extension RBAC) - enforce server-side checks for every feature exposed via extension
+**Prevention:**
+- Detect parent ASINs (no price, "Select options" present)
+- For parent ASINs, either: skip entirely, or extract first/popular child ASIN
+- Document strategy: "We collect sellers for best-selling child variations only"
+- Validate extracted data has price before proceeding to eBay search
+
+**Phase to address:** Phase 2 (Amazon Best Sellers Collection) - ASIN handling logic is core to data quality
 
 ---
 
-### Pitfall 4: Access Code Brute Force via Insufficient Rate Limiting
+### Pitfall 4: eBay Search Returns Zero Sellers (Silent Failure)
 
 **What goes wrong:**
-Access codes use short secrets (6-8 chars). Without rate limiting, attackers enumerate valid codes by trying combinations. A 6-digit numeric code has only 1 million possibilities - trivially brute-forceable.
+Amazon product "XYZ Widget Pro" searched on eBay returns zero results. Could be: product not sold on eBay, search terms too specific, geographic restrictions, or API error. System logs "0 sellers found" and moves on. After full run, 40% of products yielded zero sellers - but nobody knows if that's expected or a bug.
 
 **Why it happens:**
-Rate limiting feels like an optimization, not a security requirement. Teams plan to "add it later" but ship without it.
-
-**How to avoid:**
-- Implement rate limiting on extension auth endpoint from day one
-- Rate limit per: IP address, install_instance_id, and globally
-- Use exponential backoff: 5 failures = 30s wait, 10 failures = 5min, 15 failures = 1hr lockout
-- Log failed attempts for security monitoring
-- Use sufficiently long secrets (12+ chars mixing alphanumeric)
+Zero results is a valid outcome (product genuinely not on eBay). But it's also the outcome of search failures, rate limiting, and malformed queries. Without distinguishing these, data quality degrades silently.
 
 **Warning signs:**
-- No rate limiting middleware on `/extension/auth` endpoint
-- Access code secret less than 12 characters
-- No logging of failed authentication attempts
-- No lockout mechanism after repeated failures
+- High percentage (>30%) of products with zero eBay results
+- Inconsistent zero-result rates between runs
+- No distinction between "searched, nothing found" vs "search failed"
+- API error responses logged but not surfaced
 
-**Phase to address:**
-Phase 2 (Extension Auth Flow) - implement before allowing access code authentication
+**Prevention:**
+- Track three states: `sellers_found`, `no_sellers_exist`, `search_failed`
+- Log API response status separately from result count
+- Alert if zero-result rate exceeds historical baseline by >20%
+- Implement search term fallback: full title -> shortened title -> brand + keywords
+- Store raw API response for debugging failed searches
+
+**Phase to address:** Phase 3 (eBay Seller Search) - error handling strategy before scaling
 
 ---
 
-### Pitfall 5: Presence Race Conditions on Connect/Disconnect
+### Pitfall 5: Seller Name Deduplication Inconsistency
 
 **What goes wrong:**
-User connects to account, presence shows "occupied". Network hiccup causes brief disconnect. During reconnection window, another user connects. Both think they have exclusive access. Data conflicts or duplicate operations result.
+Seller "TechGadgets_Store" found in run 1. In run 2, same seller appears as "techgadgets_store" (lowercase) or "TechGadgets Store" (underscore removed). System inserts as new seller. Database accumulates duplicates. Seller count inflated, downstream analysis corrupted.
 
 **Why it happens:**
-Presence systems handle happy paths (connect, disconnect) but not edge cases (reconnect, network jitter, browser crash). Supabase Presence doesn't guarantee message delivery.
-
-**How to avoid:**
-- Add grace period on disconnect (30-60 seconds) before marking account as available
-- Use optimistic locking on account operations (check occupant before mutation)
-- Implement "session takeover" confirmation when occupant mismatch detected
-- Store authoritative occupancy state in database, not just Presence channel
-- Handle `TIMED_OUT` errors gracefully with automatic reconnection
+eBay seller names have display variations. API might return different casing or formatting based on context. Simple string equality misses these duplicates.
 
 **Warning signs:**
-- Presence shows user as disconnected immediately on network issues
-- No database-backed occupancy state (relying solely on realtime)
-- Multiple users successfully connecting to same account simultaneously
-- Operations proceeding without checking current occupant
+- Seller count growing faster than expected
+- Similar-looking seller names in database
+- Same seller appearing in "new sellers" list repeatedly
+- Downstream reports showing inflated unique seller counts
 
-**Phase to address:**
-Phase 4 (Presence/Occupancy) - design for reconnection scenarios from the start
+**Prevention:**
+- Normalize seller names before storage: lowercase, strip special chars, trim whitespace
+- Store both `display_name` (original) and `normalized_name` (for dedup)
+- Deduplicate on normalized_name, not display_name
+- Consider fuzzy matching for near-duplicates (Levenshtein distance < 2)
+- Log dedup decisions for audit trail
+
+**Phase to address:** Phase 4 (Data Storage & Deduplication) - normalization rules before first storage
 
 ---
 
-### Pitfall 6: Role Explosion in Extension Tab Mapping
+## Moderate Pitfalls
+
+Mistakes that cause delays, tech debt, or degraded user experience.
+
+### Pitfall 6: Category Structure Changes Breaking Scraper
 
 **What goes wrong:**
-Each combination of permissions creates a new "extension role". With 10 possible tabs and binary show/hide, there are 1024 possible configurations. System becomes unmaintainable as each role needs custom tab rendering logic.
+Amazon reorganizes Best Sellers categories. "Cell Phones & Accessories" splits into "Smartphones" and "Phone Accessories". Hardcoded category list now misses half the products. Alternatively, category URLs change, scraper returns 404s.
 
 **Why it happens:**
-Teams start with "simple" role-to-tab mapping. Requirements grow: "VAs with permission X should also see tab Y if they have permission Z". Combinatorial explosion follows.
-
-**How to avoid:**
-- Map permissions directly to tabs, not roles to tabs (current codebase pattern is correct)
-- Each tab declares its required permission_key(s)
-- Extension loads user's permission_keys and shows tabs where all requirements are met
-- Admins bypass (see all tabs) - no special role handling needed
-- Keep permission-to-tab mapping in single configuration object
+Amazon updates Best Sellers structure periodically. Scrapers hardcode category paths assuming stability. No monitoring detects when categories change.
 
 **Warning signs:**
-- Conditionals like `if (role === 'va_senior' || role === 'va_lead') showTab('X')`
-- Growing switch statements based on role names
-- Backend returning "extension_tabs" list instead of permission_keys
-- Roles being created specifically to control extension access
+- Sudden drop in products collected (categories missing)
+- 404 errors in logs for category URLs
+- New categories appearing in Amazon UI but not in results
+- Manual comparison shows missing categories
 
-**Phase to address:**
-Phase 3 (Extension RBAC) - design permission-based (not role-based) tab visibility
+**Prevention:**
+- Dynamically discover categories from Best Sellers main page
+- Don't hardcode category URLs; scrape them each run
+- Alert if category count changes >10% from last run
+- Store category metadata (name, URL, product count) for comparison
+- Fallback to cached category list if discovery fails
+
+**Phase to address:** Phase 2 (Amazon Best Sellers Collection) - dynamic discovery vs hardcoded paths
 
 ---
 
-### Pitfall 7: Access Code Rotation Invalidating Active Sessions
+### Pitfall 7: Rate Limit Exhaustion Mid-Job
 
 **What goes wrong:**
-User rotates their access code. All active extension sessions using the old code become invalid. VAs mid-task get kicked out, losing work. Confusion and support tickets follow.
+Third-party API (Rainforest, ScraperAPI) has daily rate limits. Job starts, processes 60% of products, hits rate limit. Remaining 40% fails. Partial data stored. Next day, job restarts from beginning (no checkpoint), re-processes same 60%, hits limit again at same point.
 
 **Why it happens:**
-Rotation is implemented as "delete old, create new" rather than "create new, grace period, delete old". Sessions are tied directly to access code validation on every request.
-
-**How to avoid:**
-- Extension auth should issue session tokens, not validate access code on each request
-- Access code is for initial authentication only, not ongoing session validation
-- After auth, extension uses install_token (JWT) for API calls (current pattern is correct)
-- Rotation should not invalidate existing JWTs - they have their own expiration
-- Consider optional "force logout all sessions" as separate action from rotation
+Rate limits are documented but not enforced in code. Developers assume "we won't hit the limit" without calculating actual needs.
 
 **Warning signs:**
-- Access code passed in Authorization header for all extension API calls
-- "Rotate code" button warns about session invalidation
-- Users complaining about being logged out unexpectedly
-- Backend re-validates access code on every request
+- Consistent failure at same percentage of job completion
+- HTTP 429 errors in logs
+- API provider dashboard showing limit reached
+- Jobs completing but with less data than expected
 
-**Phase to address:**
-Phase 1 (Access Code System) - clarify auth vs session distinction early
+**Prevention:**
+- Calculate required API calls before job start
+- Compare to remaining daily quota
+- If insufficient quota: queue job for next day, or split across days
+- Implement exponential backoff on 429 errors
+- Track API usage in database, not just provider dashboard
+
+**Phase to address:** Phase 1 (Data Collection Infrastructure) - quota awareness before scaling
 
 ---
 
-### Pitfall 8: Unmasked Access Code Exposed via Screen Sharing
+### Pitfall 8: Stale Best Sellers Data (Hourly Update Mismatch)
 
 **What goes wrong:**
-Admin shares screen during support call. User clicks "reveal" on access code. Remote viewer captures the code. Later uses it to access extension with user's permissions.
+Amazon Best Sellers updates hourly. Job takes 90 minutes to complete. Products at start of job reflect 9 AM rankings; products at end reflect 10:30 AM rankings. Data is internally inconsistent. Worse: job runs at 11:55 PM, rankings shift at midnight, introducing discontinuities.
 
 **Why it happens:**
-Reveal functionality is implemented without considering screen-sharing contexts. No warning or additional confirmation before reveal.
-
-**How to avoid:**
-- Add friction to reveal: require click-and-hold (2 seconds) or re-authentication
-- Display warning: "Your code will be visible. Are you sharing your screen?"
-- Auto-mask after timeout (5-10 seconds of visibility)
-- Consider "copy to clipboard" as primary action (code never visually shown)
-- Log reveal events for audit trail
+Developers assume Best Sellers is static during collection. It isn't - Amazon updates rankings every hour based on recent sales.
 
 **Warning signs:**
-- Reveal is instant single-click without confirmation
-- No auto-re-mask timer
-- No audit logging of reveal events
-- Screen reader announces full code without warning
+- Same product appearing with different rankings in same run
+- Analytics showing "rank changed during collection" patterns
+- Products disappearing from list mid-collection
+- Inconsistent category rankings within single dataset
 
-**Phase to address:**
-Phase 1 (Access Code System) - UX design should include reveal safeguards
+**Prevention:**
+- Document limitation: "Rankings reflect point-in-time, not atomic snapshot"
+- Consider collection window: finish within 1 hour to minimize drift
+- For critical accuracy: collect only top 20 per category (faster)
+- Store collection timestamp per record for context
+- Accept and document that hourly drift is inherent limitation
+
+**Phase to address:** Phase 2 (Amazon Best Sellers Collection) - set expectations in documentation
 
 ---
 
-### Pitfall 9: Extension Auth Bypassing Pairing Approval
+### Pitfall 9: eBay Geographic Restrictions Hiding Sellers
 
 **What goes wrong:**
-Access code auth endpoint doesn't verify that the extension instance (install_instance_id) was previously approved via pairing flow. Attacker installs extension, skips pairing, directly calls auth endpoint with stolen access code.
+eBay search API uses IP-based geographic restrictions. Scraper runs from US datacenter, sees US sellers. UK sellers selling same product not returned. Collected seller list is regionally biased without anyone realizing.
 
 **Why it happens:**
-Pairing and access code auth are developed as separate features. No one connects them: "User has valid access code" doesn't imply "User's extension instance was approved".
-
-**How to avoid:**
-- Extension auth endpoint must verify: (1) valid access code AND (2) approved pairing for this install_instance_id
-- Store pairing approval status and associate with install_instance_id
-- Auth should fail with "Extension not authorized" if pairing missing/rejected
-- Consider access code as second factor after pairing, not standalone auth
+eBay shows different results based on location/marketplace. API might default to US marketplace. Developers test from one location, assume results are global.
 
 **Warning signs:**
-- Auth endpoint only validates access code, ignores install_instance_id
-- Fresh extension install can authenticate without admin approval
-- Pairing approval stored but never checked during auth
-- No "unauthorized device" error path in auth flow
+- Seller locations heavily skewed to one country
+- Known international sellers not appearing in results
+- Results differ between API and manual eBay.com search
+- Proxy location changes yield different seller sets
 
-**Phase to address:**
-Phase 2 (Extension Auth Flow) - integrate pairing verification into auth
+**Prevention:**
+- Explicitly specify marketplace in API calls (ebay.com, ebay.co.uk)
+- Document target marketplace: "SellerCollection targets US eBay marketplace"
+- If multi-market needed: separate runs per marketplace
+- Use residential proxies from target region if API allows
+- Compare sample results with manual search to validate
+
+**Phase to address:** Phase 3 (eBay Seller Search) - marketplace specification in API calls
 
 ---
 
-### Pitfall 10: Presence System Leaking User Identity to VAs
+### Pitfall 10: No Visibility Into Job Progress
 
 **What goes wrong:**
-Presence payload includes user_id or username. VAs see "John Smith is working on Account X". Privacy violated - VAs shouldn't know who else is working, only that account is occupied.
+Admin clicks "Start Collection". Button goes to loading state. 90 minutes later, still loading. Is it working? Failed? Stuck? Admin refreshes page, loses context. Clicks button again, now two jobs running in parallel, doubling API costs.
 
 **Why it happens:**
-Developers include all available data in presence payload for debugging or "future features". They forget the requirement that VAs see "Occupied" while Admins see "John Smith".
-
-**How to avoid:**
-- Design presence payloads with minimal data (is_occupied, occupant_role only)
-- Backend filters presence data based on requester's role before returning
-- Admins get full payload (user_id, name, started_at)
-- VAs get sanitized payload (is_occupied: true, no user identity)
-- Never send sensitive data that "might be filtered client-side"
+Background jobs are fire-and-forget. No status endpoint exists. UI doesn't poll for progress. Admin has no visibility into long-running operations.
 
 **Warning signs:**
-- Presence payload includes username/email
-- Same presence endpoint returns same data to all requesters
-- Client-side filtering of presence data based on viewer role
-- Console logging presence updates shows user identity
+- Admin refreshing page repeatedly during collection
+- Multiple parallel jobs discovered in logs
+- Support tickets: "Is the collection running?"
+- No way to cancel a stuck job
 
-**Phase to address:**
-Phase 4 (Presence/Occupancy) - define payload schema with privacy requirements
+**Prevention:**
+- Job status endpoint: `GET /api/collection/status`
+- Response: `{status: "running", progress: 3500, total: 10000, started_at: "..."}`
+- UI polls every 30 seconds, shows progress bar
+- Cancel button to abort job
+- Prevent starting new job while one is running
+- Email/notification on completion or failure
+
+**Phase to address:** Phase 1 (Data Collection Infrastructure) - observability before scaling
 
 ---
 
-## Technical Debt Patterns
+## Minor Pitfalls
 
-Shortcuts that seem reasonable but create long-term problems.
+Annoyances that should be addressed but won't block launch.
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Single access code column (no prefix/secret split) | Simpler schema | Can't hash secret while keeping prefix readable | Never - fundamental security issue |
-| Hardcoded permission-to-tab mapping in extension | Faster to ship | Extension update required for any RBAC change | MVP only, plan migration before launch |
-| Presence via polling instead of realtime | Avoids WebSocket complexity | High API load, delayed updates, poor UX | Never for occupancy - stale data causes conflicts |
-| Skipping rate limiting on internal endpoints | "Only we call these" | Attackers find internal endpoints, brute force | Never on auth endpoints |
-| Storing full access code in JWT claims | Avoid database lookup | Token theft exposes access code; code rotation requires token reissue | Never - JWT should contain user_id only |
+### Pitfall 11: Duplicate Products Across Categories
 
-## Integration Gotchas
+**What goes wrong:**
+Product "Echo Dot" appears in both "Electronics" and "Smart Home" Best Sellers. System processes it twice, searches eBay twice, stores duplicate seller associations. API cost wasted on redundant searches.
 
-Common mistakes when connecting to external services.
+**Prevention:**
+- Track processed ASINs within run
+- Skip duplicate ASINs across categories
+- Deduplicate before eBay search phase
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| Supabase Presence | Trusting presence state without database backup | Store authoritative state in DB; use Presence for real-time UI updates only |
-| Supabase Realtime | Missing initial state fetch before subscribing | Fetch current state, then subscribe; handle events that arrive during transition |
-| Chrome Storage API | Using sync storage for tokens | Use local storage (sync has size limits and cloud exposure) |
-| Chrome Extension messaging | Trusting sender without validation | Always validate sender.id matches your extension ID |
+---
 
-## Performance Traps
+### Pitfall 12: Unicode/Special Characters in Seller Names
 
-Patterns that work at small scale but fail as usage grows.
+**What goes wrong:**
+Seller name contains emoji, Chinese characters, or invisible Unicode. Database stores correctly but comparison/search breaks. UI displays garbled text.
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Permission check on every API call via DB query | Slow API responses | Cache permission_keys in memory/JWT for session duration | >100 concurrent users |
-| Presence channel per account | Too many realtime connections | Use single presence channel with account_id in payload | >50 accounts with active presence |
-| Full RBAC reload on extension focus | UI flicker, slow tab rendering | Cache permissions, reload only on explicit refresh/reauth | Frequent tab switching |
-| Storing presence history in database | Database growth, slow queries | Use time-partitioned tables or time-series DB | >1M presence events |
+**Prevention:**
+- Normalize to NFD/NFC Unicode form
+- Strip zero-width characters
+- Validate encoding on insert
+- Test with international seller names
 
-## Security Mistakes
+---
 
-Domain-specific security issues beyond general web security.
+### Pitfall 13: API Response Format Changes
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Access code in URL query params | Leaks via referrer header, browser history, server logs | POST body only, never GET params |
-| Displaying access code in error messages | Leaks via screenshots, error reporting | Generic "invalid credentials" message |
-| Same rate limit for all users | Distributed attack bypasses per-user limits | Global rate limit + per-user + per-IP combination |
-| Extension debugging in production | Console logs expose auth flow | Conditional logging, strip in production build |
-| Allowing unlimited prefix customization | Users choose predictable prefixes | Enforce format rules, disallow common patterns |
-| No audit log for access code operations | Can't investigate compromises | Log: generate, rotate, reveal, auth_success, auth_fail |
+**What goes wrong:**
+Third-party API updates response schema. Field `seller_name` renamed to `sellerName`. Parser returns null, silent data loss.
 
-## UX Pitfalls
+**Prevention:**
+- Validate expected fields exist in response
+- Alert on unexpected null values
+- Version-pin API client libraries
+- Monitor API provider changelogs
 
-Common user experience mistakes in this domain.
+---
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Auto-rotate access code on schedule | VA loses access mid-shift without warning | Manual rotation with prominent "rotation recommended" notice |
-| Reveal toggle with no visual timeout | User forgets code is visible | Auto-mask after 10 seconds with countdown |
-| Presence showing stale "occupied" after crash | Other users can't access account | Heartbeat timeout (2 min) marks user as disconnected |
-| Extension shows loading spinner during RBAC load | Perceived slowness on every focus | Cache last known permissions, update silently in background |
-| Copy button requires reveal first | Extra click for common action | Copy without reveal (masked display remains) |
-| No feedback on access code validation format | User types invalid format, submits, gets error | Real-time format validation as they type |
+## Edge Cases to Handle
+
+Specific scenarios that need explicit handling logic.
+
+| Scenario | Expected Behavior | Implementation |
+|----------|-------------------|----------------|
+| eBay seller has no feedback | Include seller, mark as unverified | Store `feedback_score: null`, flag for review |
+| Amazon product has no brand | Use "Unknown Brand" for eBay search | Fallback search term: category + product type |
+| eBay search times out | Retry 3x with backoff, then mark failed | Store `search_status: "timeout"`, retry in next run |
+| Same seller, multiple eBay accounts | Treat as separate sellers | No fuzzy matching on seller names (too risky) |
+| Best Sellers category empty | Log warning, continue to next category | Don't fail entire job for empty category |
+| API returns HTML instead of JSON | Likely rate-limited or blocked | Parse error, implement backoff, alert |
+| Product delisted mid-collection | Skip gracefully | 404/410 response = mark as unavailable, continue |
+| eBay returns 10,000 results | Cap at first 100 sellers per product | Diminishing returns beyond top sellers |
+
+---
+
+## Cost Estimation Reference
+
+Planning guidance for budget allocation.
+
+| Component | Cost per Unit | Units per Run | Est. Cost per Run |
+|-----------|---------------|---------------|-------------------|
+| Amazon Best Sellers scrape | $0.50-2.45/1K | ~4,000 products | $2-10 |
+| eBay search per product | $0.50-2.45/1K | ~4,000 searches | $2-10 |
+| Total (conservative) | - | - | $5-25 |
+| Monthly (4 runs) | - | - | $20-100 |
+
+**Budget safeguards to implement:**
+- Pre-run cost estimate based on category count
+- Hard cap: abort if estimated cost exceeds $30
+- Monthly cap: $150 with alerts at $75, $100, $125
+- Cost tracking per category for optimization
+
+---
 
 ## "Looks Done But Isn't" Checklist
 
 Things that appear complete but are missing critical pieces.
 
-- [ ] **Access Code System:** Often missing audit logging - verify all operations (generate, rotate, reveal, copy) are logged
-- [ ] **Access Code System:** Often missing format validation - verify prefix/secret both have enforced formats
-- [ ] **Extension Auth:** Often missing install_instance_id verification - verify pairing approval is checked during auth
-- [ ] **Extension Auth:** Often missing rate limiting - verify brute force protection exists before shipping
-- [ ] **Extension RBAC:** Often missing server-side enforcement - verify every action has backend permission check
-- [ ] **Extension RBAC:** Often missing admin bypass - verify admins see all tabs without requiring explicit permissions
-- [ ] **Presence System:** Often missing reconnection handling - verify presence survives network hiccups
-- [ ] **Presence System:** Often missing database backup - verify presence state is authoritative somewhere besides realtime channel
-- [ ] **Presence System:** Often missing role-based filtering - verify VAs cannot see occupant identity
+- [ ] **Job Triggering:** Has progress tracking? Can be cancelled? Prevents duplicate runs?
+- [ ] **Amazon Scraping:** Handles parent ASINs? Dynamic category discovery? Timeout handling?
+- [ ] **eBay Search:** Marketplace specified? Error vs. no-results distinguished? Fallback search terms?
+- [ ] **Deduplication:** Normalized comparison? Handles case differences? Logs decisions?
+- [ ] **Cost Control:** Pre-run estimate? Budget caps? Monthly tracking? Alerts configured?
+- [ ] **Observability:** Progress visible to admin? Failure notifications? Logs searchable?
+- [ ] **Resumability:** Checkpoints saved? Can resume after failure? Doesn't re-process completed items?
 
-## Recovery Strategies
-
-When pitfalls occur despite prevention, how to recover.
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Access codes stored unhashed | HIGH | Force-rotate all access codes; notify users; implement hashing; can't recover already-exposed codes |
-| RBAC bypass exploited | MEDIUM | Audit logs to identify scope; add missing server-side checks; review affected data; notify impacted users |
-| Extension tokens leaked | MEDIUM | Revoke all install_tokens; require re-pairing; implement token encryption |
-| Presence race condition caused data conflict | LOW | Manual data reconciliation; add optimistic locking; implement conflict resolution |
-| Role explosion | MEDIUM | Migration to permission-based system; consolidate redundant roles; update extension config |
-| Rate limiting absent, brute force occurred | HIGH | Implement rate limiting; force-rotate affected access codes; review access logs; notify users |
+---
 
 ## Pitfall-to-Phase Mapping
 
-How roadmap phases should address these pitfalls.
+| Pitfall | Severity | Prevention Phase | Verification |
+|---------|----------|------------------|--------------|
+| Unbounded API costs | Critical | Phase 1 | Budget cap blocks run if exceeded |
+| Job timeout without progress | Critical | Phase 1 | Job completes 10K products successfully |
+| Parent ASIN confusion | Critical | Phase 2 | No null prices in collected products |
+| Zero sellers silent failure | Critical | Phase 3 | Distinct `no_results` vs `error` states |
+| Seller name deduplication | Critical | Phase 4 | Same seller doesn't appear twice |
+| Category structure changes | Moderate | Phase 2 | Categories dynamically discovered |
+| Rate limit exhaustion | Moderate | Phase 1 | Job respects quota, queues remainder |
+| Stale Best Sellers data | Moderate | Phase 2 | Documented in user-facing materials |
+| Geographic restrictions | Moderate | Phase 3 | Marketplace param in all API calls |
+| No job progress visibility | Moderate | Phase 1 | Admin sees progress bar during run |
+| Duplicate products | Minor | Phase 2 | ASIN dedup within run |
+| Unicode seller names | Minor | Phase 4 | Test with international names passes |
+| API format changes | Minor | Phase 1 | Validation alerts on missing fields |
 
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Access code stored plaintext | Phase 1: Access Code System | Database schema review: separate columns for prefix (VARCHAR) and secret_hash (VARCHAR) |
-| Access code brute force | Phase 2: Extension Auth Flow | Penetration test: attempt 100 invalid codes rapidly, verify lockout triggers |
-| Extension token storage | Phase 2: Extension Auth Flow | Code review: grep for localStorage in extension code, should be zero |
-| RBAC client-only enforcement | Phase 3: Extension RBAC | Security review: every endpoint has permission decorator |
-| Admin bypass missing | Phase 3: Extension RBAC | Manual test: admin account sees all tabs without any role assignment |
-| Role explosion | Phase 3: Extension RBAC | Code review: no role name strings in tab visibility logic |
-| Presence race condition | Phase 4: Presence/Occupancy | Test: disconnect WiFi while connected, reconnect, verify presence recovers |
-| Presence privacy leak | Phase 4: Presence/Occupancy | Test: VA cannot see admin name on shared account presence |
-| Rotation session invalidation | Phase 1: Access Code System | Test: rotate code, verify existing extension sessions continue working |
-| Pairing bypass | Phase 2: Extension Auth Flow | Test: fresh extension install, try auth without pairing, must fail |
+---
 
 ## Sources
 
-- [OWASP Browser Extension Vulnerabilities Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Browser_Extension_Vulnerabilities_Cheat_Sheet.html)
-- [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)
-- [OWASP Blocking Brute Force Attacks](https://owasp.org/www-community/controls/Blocking_Brute_Force_Attacks)
-- [Chrome Extension Permissions Documentation](https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions)
-- [Chrome Storage API Documentation](https://developer.chrome.com/docs/extensions/reference/api/storage)
-- [Supabase Presence Documentation](https://supabase.com/docs/guides/realtime/presence)
-- [Supabase Realtime Troubleshooting](https://supabase.com/docs/guides/troubleshooting)
-- [6 Common RBAC Implementation Pitfalls (Idenhaus)](https://idenhaus.com/rbac-implementation-pitfalls/)
-- [10 RBAC Best Practices (Oso)](https://www.osohq.com/learn/rbac-best-practices)
-- [NN/g Password Masking UX](https://www.nngroup.com/articles/stop-password-masking/)
-- [Handling Race Conditions in Real-Time Apps (DEV Community)](https://dev.to/mattlewandowski93/handling-race-conditions-in-real-time-apps-49c8)
-- Existing codebase patterns in `apps/api/src/app/auth.py` and `packages/extension/service-worker.js`
+### Amazon Scraping & Best Sellers
+- [Amazon Best Sellers scraping guide - Traject Data](https://trajectdata.com/how-to-scrape-amazon-best-seller/)
+- [Amazon ASIN parent-child relationships - Zquared](https://zquared.com/understanding-amazon-asins-parent-child-relationships-and-variations/)
+- [ScraperAPI Amazon Best Seller scraper](https://www.scraperapi.com/solutions/amazon-best-seller-scraper/)
+- [Best Amazon scraping APIs 2026 - Proxyway](https://proxyway.com/best/best-amazon-scrapers)
+
+### eBay API & Seller Search
+- [eBay API call limits](https://developer.ebay.com/develop/get-started/api-call-limits)
+- [eBay Browse API search documentation](https://developer.ebay.com/api-docs/buy/browse/resources/item_summary/methods/search)
+- [eBay Finding API pagination - Community discussion](https://community.ebay.com/t5/eBay-APIs-Talk-to-your-fellow/How-do-I-get-a-maximum-of-10000-items-in-a-single-API-query/td-p/34214539)
+- [eBay private listings](https://www.ebay.com/help/selling/listings/listing-tips/private-listings?id=4161)
+
+### Data Quality & Deduplication
+- [Fixing inaccurate web scraping data - Bright Data](https://brightdata.com/blog/web-data/fix-inaccurate-web-scraping-data)
+- [Web scraping challenges - Octoparse](https://www.octoparse.com/blog/9-web-scraping-challenges)
+- [Fuzzy matching large datasets - Medium](https://medium.com/@tacettincankrc/fuzzy-matching-with-large-datasets-challenges-and-solutions-901b8446dcdc)
+- [Deduplication using fuzzy scoring - Towards Data Science](https://towardsdatascience.com/deduplication-of-customer-data-using-fuzzy-scoring-3f77bd3bb4dc/)
+
+### Job Processing & Timeouts
+- [AWS Batch job timeouts](https://docs.aws.amazon.com/batch/latest/userguide/job_timeouts.html)
+- [Scrapy job persistence](https://docs.scrapy.org/en/latest/topics/jobs.html)
+- [Shopify job-iteration for resumable jobs](https://github.com/shopify/job-iteration)
+- [Long running tasks: batch vs queue - Medium](https://medium.com/@logan.young87/long-running-tasks-batch-it-or-queue-it-b261fd5ea4d6)
+
+### Cost Monitoring
+- [Scrapfly billing documentation](https://scrapfly.io/docs/scrape-api/billing)
+- [Web scraping cost analysis - Pangolin](https://www.pangolinfo.com/in-house-web-scraping-cost-analysis/)
+- [Zyte cost estimator](https://www.zyte.com/blog/simplifying-web-scraping-costs-with-web-scraping-apis/)
 
 ---
-*Pitfalls research for: Access codes, extension authentication, RBAC, and presence systems*
-*Researched: 2026-01-18*
+*Pitfalls research for: SellerCollection v2 milestone (Amazon Best Sellers + eBay seller collection)*
+*Researched: 2026-01-20*

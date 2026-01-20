@@ -1,363 +1,458 @@
-# Stack Research: Access Code System and Extension RBAC
+# Stack Research: SellerCollection - Third-Party APIs
 
-**Domain:** Access code authentication + Chrome extension RBAC
-**Researched:** 2026-01-18
-**Confidence:** HIGH
+**Domain:** Amazon Best Sellers scraping + eBay product search APIs
+**Researched:** 2026-01-20
+**Confidence:** MEDIUM (pricing varies by volume, requires trial validation)
+
+---
+
+## What EXISTING-TOOLS.md Already Covers
+
+The [EXISTING-TOOLS.md](./EXISTING-TOOLS.md) provides comprehensive coverage of:
+
+- **Browser automation frameworks** (Playwright, Puppeteer, Selenium)
+- **Stealth and anti-detection** techniques
+- **Proxy services** and pricing tiers
+- **CAPTCHA solving** services
+- **HTTP clients** (httpx, aiohttp, tls-client)
+- **Data extraction** libraries (BeautifulSoup, lxml)
+- **General recommendation:** For public data scraping, use third-party APIs like Rainforest or ScraperAPI
+
+**This document supplements EXISTING-TOOLS.md** with specific API recommendations, pricing analysis, and implementation details for:
+1. Amazon Best Sellers data collection
+2. eBay product search for seller identification
+
+---
 
 ## Executive Summary
 
-The existing stack (FastAPI, Supabase, Chrome Extension MV3) provides everything needed for access code authentication and extension RBAC. **No new runtime dependencies required.** The implementation uses:
+**Recommendation:** Use **Oxylabs E-Commerce Scraper API** for both Amazon and eBay scraping.
 
-1. **Access codes**: Python's built-in `secrets` module + `argon2-cffi` for hashing (new dependency, but standard security practice)
-2. **Extension auth**: Existing JWT pattern with new `/extension/auth` endpoint + `chrome.storage.local` for token persistence
-3. **Extension RBAC**: Server-side permission keys (already implemented) + client-side tab rendering
+**Rationale:**
+- Best price-to-performance ratio at our scale (~10,000 products/month)
+- Single API for both platforms (simpler integration)
+- 100% success rate in independent tests
+- Amazon-specific pricing: $0.40-0.50/1K requests (no JS rendering needed)
+- eBay-specific pricing: Same tier, ~10 second response time
+- Free trial: 2,000 results to validate before commitment
+
+**Alternative:** If Oxylabs doesn't meet quality needs, **Rainforest API** for Amazon (higher accuracy, premium pricing) + **ScraperAPI** for eBay.
 
 ---
 
-## Recommended Stack
+## Scale Analysis: What We're Scraping
 
-### Core Technologies (Existing - No Changes)
+### Amazon Best Sellers
 
-| Technology | Version | Purpose | Notes |
-|------------|---------|---------|-------|
-| FastAPI | 0.109.0+ | API framework | Already handles JWT auth |
-| Python `secrets` | stdlib | Cryptographic token generation | Built-in, no install needed |
-| PyJWT | 2.0.0+ | JWT encode/decode | Already in pyproject.toml |
-| Supabase | 2.0.0+ | Database + RLS | Already in pyproject.toml |
-| Chrome Extension MV3 | - | Extension runtime | Already implemented |
+| Metric | Value | Source |
+|--------|-------|--------|
+| Main departments | ~35-40 | [Amazon Best Sellers page](https://www.amazon.com/Best-Sellers/zgbs) |
+| Products per category | 100 (top 100 only) | Amazon limits public view to top 100 |
+| Products per page | 50 | Requires 2 pages per category |
+| **Total products** | ~4,000 | 40 categories x 100 products |
+| **Total API requests** | ~80 | 40 categories x 2 pages |
 
-### New Dependencies Required
+### eBay Search (per Amazon product)
 
-| Library | Version | Purpose | Why Recommended |
-|---------|---------|---------|-----------------|
-| `argon2-cffi` | 25.1.0 | Secret hashing | OWASP 2025 gold standard for password/secret hashing; PHC winner; memory-hard (resists GPU attacks); better than bcrypt for new implementations |
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Products to search | ~4,000 | From Amazon Best Sellers |
+| Search results per product | 1-10 | Filter to most relevant matches |
+| **Total API requests** | ~4,000-10,000 | Depends on matching strategy |
 
-**Installation:**
-```bash
-cd apps/api
-pip install argon2-cffi>=25.1.0
+### Monthly Volume Estimate
+
+| Scenario | Amazon Requests | eBay Requests | Total |
+|----------|-----------------|---------------|-------|
+| Main categories only | 80 | 4,000 | 4,080 |
+| With subcategories (10x) | 800 | 40,000 | 40,800 |
+| With deep subcategories | 2,000 | 100,000 | 102,000 |
+
+**Baseline estimate:** ~5,000-10,000 requests/month for MVP scope.
+
+---
+
+## API Comparison Matrix
+
+### Amazon Best Sellers APIs
+
+| API | Price/1K Requests | Success Rate | Response Time | Best Sellers Support | Confidence |
+|-----|-------------------|--------------|---------------|----------------------|------------|
+| **Oxylabs** | $0.40-0.50 | 100% | 5.4s | Yes (category scraping) | HIGH |
+| **Rainforest** | ~$1.00-1.50 | 99.9%+ | 2-3s | Dedicated endpoint | HIGH |
+| **Bright Data** | $0.90-1.50 | 100% | 3-5s | Yes | MEDIUM |
+| **Scrapingdog** | $0.20-0.40 | 89-100% | 2.5-3.5s | Yes | MEDIUM |
+| **ScraperAPI** | $0.49-1.49 | 95% | 8-40s | Via e-commerce preset | MEDIUM |
+
+### eBay Search APIs
+
+| API | Price/1K Requests | Success Rate | Response Time | JSON Parsing | Confidence |
+|-----|-------------------|--------------|---------------|--------------|------------|
+| **Oxylabs** | $0.40-0.50 | 100% | 10s | Yes | HIGH |
+| **ScraperAPI** | $0.49-1.49 | 95% | 8-15s | Yes (structured data) | MEDIUM |
+| **Scrapingdog** | $0.20-0.40 | 100% | 5.9s | Yes | MEDIUM |
+| **Bright Data** | $0.90-1.50 | 100% | 5-8s | Yes | MEDIUM |
+
+---
+
+## Recommended API: Oxylabs E-Commerce Scraper
+
+### Why Oxylabs
+
+1. **Single integration** for both Amazon and eBay
+2. **Best value** at our volume: $49/month Micro plan = 98,000 Amazon results
+3. **100% success rate** in independent testing
+4. **No JavaScript rendering needed** for e-commerce targets (cheaper tier)
+5. **Free trial** (2,000 results) to validate before commitment
+6. **Success-based billing** - no charge for failed requests
+
+### Pricing Tiers (2026)
+
+| Plan | Monthly Cost | Results Included | Cost/1K (Amazon) | Concurrent |
+|------|--------------|------------------|------------------|------------|
+| Free Trial | $0 | 2,000 | $0 | 10 req/s |
+| Micro | $49 | 98,000 | $0.50 | 50 req/s |
+| Starter | $99 | 220,000 | $0.45 | 50 req/s |
+| Advanced | $249 | 622,500 | $0.40 | 50 req/s |
+| Business | $999 | 3,330,000 | $0.30 | 100 req/s |
+
+**Our fit:** Micro plan ($49/month) covers ~10K requests with significant headroom.
+
+### API Integration
+
+**Amazon Best Sellers:**
+```python
+import httpx
+
+async def scrape_amazon_bestsellers(category_id: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://realtime.oxylabs.io/v1/queries",
+            auth=("USERNAME", "PASSWORD"),
+            json={
+                "source": "amazon_bestsellers",
+                "domain": "com",
+                "query": category_id,
+                "start_page": 1,
+                "pages": 2,  # Get full top 100
+                "parse": True,  # Return structured JSON
+            }
+        )
+        return response.json()
 ```
 
-Update `pyproject.toml`:
+**eBay Search:**
+```python
+async def search_ebay_product(product_title: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://realtime.oxylabs.io/v1/queries",
+            auth=("USERNAME", "PASSWORD"),
+            json={
+                "source": "ebay_search",
+                "domain": "com",
+                "query": product_title,
+                "parse": True,
+            }
+        )
+        return response.json()
+```
+
+### Response Data Fields
+
+**Amazon Best Sellers (parsed):**
+- `results[].title` - Product name
+- `results[].price` - Current price
+- `results[].asin` - Amazon product ID
+- `results[].url` - Product page URL
+- `results[].image` - Product image URL
+- `results[].rating` - Star rating
+- `results[].reviews_count` - Number of reviews
+
+**eBay Search (parsed):**
+- `results[].title` - Listing title
+- `results[].price` - Current/Buy It Now price
+- `results[].seller.name` - **Seller username** (key field for dropshipper identification)
+- `results[].seller.feedback_score` - Seller rating
+- `results[].url` - Listing URL
+- `results[].condition` - New/Used/Refurbished
+
+### Rate Limits
+
+| Tier | Requests/Second | Daily Soft Limit | Notes |
+|------|-----------------|------------------|-------|
+| Free Trial | 10 | N/A | 2,000 total |
+| Micro-Advanced | 50 | None | Billed per result |
+| Business+ | 100 | None | Dedicated manager |
+
+**For our use case:** 50 req/s is more than sufficient for batch processing.
+
+---
+
+## Alternative: Rainforest API (Amazon-specific)
+
+### When to Choose Rainforest Over Oxylabs
+
+- Need **dedicated Best Sellers endpoint** (more reliable parsing)
+- Need **all Amazon page types** (reviews, offers, search, categories)
+- **Data accuracy is critical** (99.9%+ claimed)
+- Budget allows premium pricing
+
+### Rainforest Bestsellers Endpoint
+
+```python
+import httpx
+
+async def scrape_rainforest_bestsellers(category_id: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.rainforestapi.com/request",
+            params={
+                "api_key": "YOUR_API_KEY",
+                "type": "bestsellers",
+                "amazon_domain": "amazon.com",
+                "category_id": category_id,
+                "max_page": 2,  # Automatically paginate
+            }
+        )
+        return response.json()
+```
+
+### Rainforest Pricing (Estimated)
+
+| Volume | Cost/Request | Monthly Cost (10K requests) |
+|--------|--------------|----------------------------|
+| Low volume | ~$0.001-0.002 | $10-20 |
+| Medium volume | ~$0.0008-0.001 | $8-10 |
+| High volume | Custom | Contact sales |
+
+**Note:** Rainforest pricing is not publicly listed. Contact sales for exact quotes.
+
+### Rainforest vs Oxylabs for Amazon
+
+| Factor | Rainforest | Oxylabs |
+|--------|------------|---------|
+| Best Sellers support | Dedicated endpoint | Generic e-commerce |
+| Accuracy | 99.9%+ claimed | 100% success rate |
+| eBay support | No | Yes |
+| Pricing transparency | Contact sales | Public tiers |
+| Free trial | Yes (unspecified credits) | 2,000 results |
+| **Recommendation** | Premium choice | Budget choice |
+
+---
+
+## Alternative: ScraperAPI (eBay-focused)
+
+### When to Choose ScraperAPI
+
+- **Primary focus is eBay** data
+- Need **structured JSON output** without custom parsing
+- Want **simpler credit-based pricing**
+
+### ScraperAPI eBay Pricing
+
+| Plan | Monthly Cost | API Credits | eBay Searches (5 credits each) |
+|------|--------------|-------------|--------------------------------|
+| Free | $0 | 1,000 | 200 |
+| Hobby | $49 | 100,000 | 20,000 |
+| Startup | $149 | 1,000,000 | 200,000 |
+| Business | $299 | 3,000,000 | 600,000 |
+
+**Credit multipliers:**
+- Basic sites: 1 credit
+- E-commerce (Amazon, eBay): 5 credits
+- Search engines: 25 credits
+
+### ScraperAPI eBay Integration
+
+```python
+import httpx
+
+async def search_ebay_scraperapi(product_title: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.scraperapi.com/structured/ebay/search",
+            params={
+                "api_key": "YOUR_API_KEY",
+                "query": product_title,
+                "country": "us",
+            }
+        )
+        return response.json()
+```
+
+### ScraperAPI Limitations
+
+- **Slower response times:** 8-40 seconds (vs 5-10s for Oxylabs)
+- **5% failure rate** in some tests (requires retry logic)
+- **Credit system confusing** - e-commerce costs 5x basic
+
+---
+
+## Budget Analysis
+
+### Scenario: 10,000 Requests/Month (MVP)
+
+| API | Plan | Monthly Cost | Coverage |
+|-----|------|--------------|----------|
+| Oxylabs Micro | $49 | 98,000 results | 9.8x headroom |
+| ScraperAPI Hobby | $49 | 20,000 e-commerce | 2x headroom |
+| Rainforest | ~$15-30 | ~10,000 requests | 1x (estimated) |
+| Bright Data Pay-as-you-go | ~$10-15 | ~10,000 requests | 1x |
+
+### Scenario: 100,000 Requests/Month (Full categories)
+
+| API | Plan | Monthly Cost | Notes |
+|-----|------|--------------|-------|
+| Oxylabs Advanced | $249 | 622,500 results | Best value |
+| ScraperAPI Startup | $149 | 200,000 e-commerce | Marginal fit |
+| Bright Data Tier 1 | $499 | 510,000 records | Overkill |
+
+---
+
+## Implementation Stack
+
+### Dependencies (New)
+
 ```toml
+# apps/api/pyproject.toml additions
 dependencies = [
-    "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
-    "python-dotenv>=1.0.0",
-    "supabase>=2.0.0",
-    "PyJWT>=2.0.0",
-    "argon2-cffi>=25.1.0",  # NEW: Access code hashing
+    # ... existing ...
+    "httpx>=0.27.0",  # Async HTTP client (may already exist)
 ]
 ```
 
----
+### Service Architecture
 
-## Access Code System Stack
-
-### Code Generation (Python stdlib)
-
-Use `secrets` module for cryptographically secure token generation.
-
-**Pattern: Prefix + Secret**
-```python
-import secrets
-
-# Generate user prefix (immutable, 6 chars, URL-safe)
-def generate_prefix() -> str:
-    return secrets.token_urlsafe(4)[:6].upper()  # e.g., "A3K9X2"
-
-# Generate rotatable secret (32 chars, URL-safe)
-def generate_secret() -> str:
-    return secrets.token_urlsafe(24)  # 32 chars, 192 bits entropy
-
-# Full access code format: PREFIX_SECRET
-# e.g., "A3K9X2_xYz123AbCdEfGhIjKlMnOpQrSt"
+```
+SellerCollection Service
+├── amazon_scraper.py      # Oxylabs Amazon Best Sellers
+├── ebay_scraper.py        # Oxylabs eBay Search
+├── rate_limiter.py        # Respect API limits
+├── data_processor.py      # Normalize/store results
+└── scheduler.py           # Monthly batch jobs
 ```
 
-**Why this format:**
-- Prefix allows database lookup without exposing the secret
-- Secret provides authentication (hashed in DB)
-- 32+ chars recommended for API keys per industry standards
-- URL-safe encoding avoids special character issues
-
-### Secret Hashing (argon2-cffi)
-
-```python
-from argon2 import PasswordHasher
-
-ph = PasswordHasher(
-    time_cost=3,      # iterations (default)
-    memory_cost=65536, # 64MB (default, OWASP minimum is 19MB)
-    parallelism=4,    # threads (default)
-)
-
-# Hash secret before storing
-hashed = ph.hash(secret)
-
-# Verify on auth
-try:
-    ph.verify(stored_hash, provided_secret)
-    # Check if rehash needed (params changed)
-    if ph.check_needs_rehash(stored_hash):
-        new_hash = ph.hash(provided_secret)
-        # Update DB with new_hash
-except VerifyMismatchError:
-    # Invalid secret
-    raise HTTPException(401, "Invalid access code")
-```
-
-**Why Argon2 over bcrypt:**
-- Argon2 is OWASP 2025 recommended
-- Memory-hard (resists GPU/FPGA attacks)
-- bcrypt only uses 4KB memory, making it vulnerable to parallel attacks
-- Argon2id variant (default) resists both side-channel and time-memory trade-off attacks
-- Native Python bindings via `argon2-cffi` (well-maintained, 25.1.0 supports Python 3.13/3.14)
-
-### Database Schema (Supabase)
+### Database Schema (New Tables)
 
 ```sql
--- Add to user_access_codes table (or memberships table)
-ALTER TABLE memberships ADD COLUMN IF NOT EXISTS
-    access_code_prefix VARCHAR(8) UNIQUE,
-    access_code_hash TEXT,
-    access_code_created_at TIMESTAMPTZ,
-    access_code_rotated_at TIMESTAMPTZ;
+-- Amazon Best Sellers snapshots
+CREATE TABLE amazon_bestsellers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category_id VARCHAR(100) NOT NULL,
+    category_name VARCHAR(255),
+    rank INTEGER NOT NULL,
+    asin VARCHAR(20) NOT NULL,
+    title TEXT NOT NULL,
+    price_cents INTEGER,
+    image_url TEXT,
+    scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(category_id, asin, scraped_at::date)
+);
 
--- Index for prefix lookup
-CREATE INDEX idx_memberships_access_code_prefix
-    ON memberships(access_code_prefix);
+-- eBay seller matches
+CREATE TABLE ebay_seller_matches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    amazon_asin VARCHAR(20) REFERENCES amazon_bestsellers(asin),
+    ebay_seller_name VARCHAR(255) NOT NULL,
+    ebay_listing_url TEXT,
+    match_score DECIMAL(3,2),  -- 0.00-1.00 title similarity
+    scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Identified dropshippers
+CREATE TABLE identified_dropshippers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ebay_seller_name VARCHAR(255) UNIQUE NOT NULL,
+    match_count INTEGER DEFAULT 1,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 ```
-
-**Storage pattern:**
-- Store prefix in cleartext (for lookup)
-- Store secret hash only (never store plaintext secret)
-- RLS policy: users can only read/rotate their own access code
 
 ---
 
-## Chrome Extension Authentication Stack
+## Risk Mitigation
 
-### Extension-Side Token Storage (chrome.storage.local)
+### API Reliability
 
-The extension already uses `chrome.storage.local` for credentials. This is the correct pattern for MV3.
+| Risk | Mitigation |
+|------|------------|
+| API downtime | Implement retry with exponential backoff |
+| Rate limit exceeded | Track usage, pause if approaching limit |
+| Data format changes | Version response parsers, monitor for errors |
+| Account suspension | Follow ToS, avoid aggressive scraping |
 
-**Current implementation (service-worker.js lines 46-90):**
-```javascript
-// Already implemented correctly
-async function getState() {
-  const data = await chrome.storage.local.get([
-    'install_token',
-    'agent_id',
-    // ...
-  ]);
-  return { ... };
-}
-```
+### Cost Overruns
 
-**Why chrome.storage.local:**
-- Persists across service worker restarts (critical for MV3)
-- Accessible from service worker, popup, sidepanel
-- Better than localStorage (not available in service workers)
-- chrome.storage.session exists but clears on browser close (not suitable for long-lived tokens)
+| Risk | Mitigation |
+|------|------------|
+| Unexpected volume | Set hard monthly limits in code |
+| Category expansion | Require approval for new categories |
+| Failed retries | Only retry 3x, log failures for manual review |
 
-### Authentication Flow (New Endpoint)
+### Data Quality
 
-```
-Extension                    Backend
-    |                           |
-    | POST /extension/auth      |
-    | { access_code }           |
-    |-------------------------->|
-    |                           | 1. Parse prefix from code
-    |                           | 2. Lookup user by prefix
-    |                           | 3. Verify secret with Argon2
-    |                           | 4. Load permission_keys
-    |                           | 5. Issue extension JWT
-    |<--------------------------|
-    | { token, permissions }    |
-    |                           |
-    | Store in chrome.storage   |
-```
-
-**JWT payload for extension:**
-```python
-{
-    "sub": user_id,
-    "membership_id": membership_id,
-    "role": "admin" | "va",
-    "permission_keys": ["order_tracking.read", ...],  # VAs only
-    "aud": "extension",  # Different audience from web
-    "exp": now + 30 days,  # Long-lived for extension
-}
-```
-
-### Token Refresh Strategy
-
-**Option A: Long-lived token (Recommended for MVP)**
-- Issue 30-day tokens
-- On rotation, old token works until next refresh
-- Simpler implementation
-
-**Option B: Refresh token pattern**
-- Short-lived access token (1 hour)
-- Long-lived refresh token (30 days)
-- More complex, better for high-security requirements
-
-**Recommendation:** Start with Option A. The access code itself provides revocation (rotating the code invalidates all sessions using the old secret).
+| Risk | Mitigation |
+|------|------------|
+| Incomplete data | Validate required fields, flag incomplete records |
+| Stale data | Track scrape timestamps, re-scrape if >24h old |
+| Duplicate products | Dedupe by ASIN before eBay search |
 
 ---
 
-## Extension RBAC Stack
+## Decision Matrix: Final Recommendation
 
-### Permission Loading (Server-Side)
+| Criterion | Oxylabs | Rainforest + ScraperAPI |
+|-----------|---------|-------------------------|
+| **Cost (10K/mo)** | $49 | ~$60-80 |
+| **Integration complexity** | Single API | Two APIs |
+| **Amazon accuracy** | Good | Excellent |
+| **eBay support** | Included | Separate |
+| **Free trial** | 2,000 results | Varies |
+| **Pricing transparency** | Public | Contact sales |
 
-The permission system is already implemented in `auth.py`:
+**Final recommendation: Start with Oxylabs Micro ($49/month)**
 
-```python
-# Existing code in auth.py
-dept_role_keys = _get_dept_role_permissions(supabase, membership["id"])
-# Returns: {"order_tracking.read", "order_tracking.write.basic_fields", ...}
-```
-
-**For extension auth endpoint:**
-```python
-@router.post("/extension/auth")
-async def authenticate_extension(access_code: str):
-    # ... validate access code ...
-
-    # Load permissions (reuse existing logic)
-    if membership["role"] == "va":
-        permission_keys = _get_dept_role_permissions(supabase, membership["id"])
-    else:
-        permission_keys = []  # Admins bypass RBAC
-
-    # Issue JWT with permissions embedded
-    token = jwt.encode({
-        "sub": user_id,
-        "role": membership["role"],
-        "permission_keys": sorted(permission_keys),
-        "aud": "extension",
-        "exp": datetime.utcnow() + timedelta(days=30),
-    }, JWT_SECRET, algorithm="HS256")
-
-    return {
-        "token": token,
-        "role": membership["role"],
-        "permission_keys": sorted(permission_keys),
-    }
-```
-
-### Tab Rendering (Client-Side)
-
-**Pattern: Map permission keys to tab visibility**
-
-```javascript
-// Extension sidepanel.js
-const TAB_CONFIG = {
-    'order_tracking': {
-        permission: 'order_tracking.read',
-        label: 'Order Tracking',
-    },
-    'accounts': {
-        permission: 'account:view',  // New permission for this milestone
-        label: 'Accounts',
-    },
-    // ... more tabs
-};
-
-function renderTabs(userRole, permissionKeys) {
-    // Admin bypass - show all tabs
-    if (userRole === 'admin') {
-        return Object.values(TAB_CONFIG);
-    }
-
-    // VA - filter by permissions
-    return Object.entries(TAB_CONFIG)
-        .filter(([key, config]) => permissionKeys.includes(config.permission))
-        .map(([key, config]) => config);
-}
-```
-
-**Why client-side rendering with server-side enforcement:**
-- Client-side: Fast tab rendering, no additional API calls
-- Server-side: All API endpoints still check permissions (existing `require_permission_key`)
-- Defense in depth: Even if client UI is bypassed, server rejects unauthorized requests
+Rationale:
+1. Validate concept with free trial (2,000 results)
+2. Single integration for both platforms
+3. Clear upgrade path if volume increases
+4. Switch to Rainforest later if Amazon accuracy insufficient
 
 ---
 
-## What NOT to Use
+## Action Items
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| `bcrypt` | Less memory-hard than Argon2, 72-byte input limit, older standard | `argon2-cffi` |
-| `hashlib.pbkdf2_hmac` | Not memory-hard, slower to configure correctly | `argon2-cffi` |
-| Custom hash implementations | Security-critical code should use battle-tested libraries | `argon2-cffi` |
-| `chrome.identity` API | For Google OAuth only, not custom auth | Custom fetch + chrome.storage |
-| localStorage in extension | Not available in MV3 service workers | `chrome.storage.local` |
-| `chrome.storage.session` | Clears on browser close, bad for auth tokens | `chrome.storage.local` |
-| Storing plaintext secrets | Security violation | Argon2 hashing |
-| Short-lived extension tokens | Poor UX (frequent re-auth), complexity | 30-day tokens with rotation |
-
----
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| `argon2-cffi` | `bcrypt` | Only if maintaining existing bcrypt hashes; migrate to Argon2 over time |
-| Python `secrets` | `uuid4()` | Never for secrets; UUIDs are not cryptographically secure |
-| 30-day extension tokens | 1-hour + refresh | If compliance requires short-lived tokens |
-| Embedded permissions in JWT | Fetch on each request | If permissions change frequently (trade-off: more API calls) |
-| `chrome.storage.local` | IndexedDB | If storing large amounts of structured data (overkill for tokens) |
-
----
-
-## Version Compatibility
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| argon2-cffi 25.1.0 | Python 3.8-3.14 | Latest release (June 2025) |
-| PyJWT 2.0.0+ | Python 3.7+ | Already in use |
-| FastAPI 0.109.0+ | Python 3.8+ | Already in use |
-
----
-
-## Implementation Checklist
-
-### Backend (apps/api)
-- [ ] Add `argon2-cffi>=25.1.0` to pyproject.toml
-- [ ] Add access code columns to memberships table (migration)
-- [ ] Create `/extension/auth` endpoint
-- [ ] Create access code generation/rotation utilities
-- [ ] Add RLS policy for access code self-service
-
-### Extension (packages/extension)
-- [ ] Add access code input UI in sidepanel
-- [ ] Call `/extension/auth` endpoint
-- [ ] Store token in chrome.storage.local
-- [ ] Implement tab rendering based on permissions
-- [ ] Handle auth errors (expired, revoked)
-
-### Frontend (apps/web)
-- [ ] Add Profile Settings modal
-- [ ] Add Extension tab with access code display
-- [ ] Implement masked display + reveal toggle
-- [ ] Add copy-to-clipboard functionality
-- [ ] Add rotate button with confirmation
+1. [ ] Sign up for Oxylabs free trial
+2. [ ] Test Amazon Best Sellers scraping with 5 categories
+3. [ ] Test eBay search with 100 product titles
+4. [ ] Validate data quality and response times
+5. [ ] If satisfactory, upgrade to Micro plan
+6. [ ] If not, evaluate Rainforest API trial
 
 ---
 
 ## Sources
 
-- [Python secrets module documentation](https://docs.python.org/3/library/secrets.html) - Token generation patterns
-- [argon2-cffi documentation](https://argon2-cffi.readthedocs.io/) - Hashing implementation
-- [OWASP Password Hashing Guide 2025](https://guptadeepak.com/the-complete-guide-to-password-hashing-argon2-vs-bcrypt-vs-scrypt-vs-pbkdf2-2026/) - Argon2 recommendation rationale
-- [API Key Best Practices (Mergify)](https://articles.mergify.com/api-keys-best-practice/) - Prefix + secret pattern
-- [Chrome Extension MV3 Migration Guide](https://developer.chrome.com/docs/extensions/develop/migrate/to-service-workers) - Storage patterns
-- [Supabase RLS Documentation](https://supabase.com/docs/guides/database/postgres/row-level-security) - Access control patterns
-- Existing codebase: `apps/api/src/app/auth.py`, `packages/extension/service-worker.js`
+### Pricing & Features
+- [Oxylabs Web Scraper API Pricing](https://oxylabs.io/products/scraper-api/web/pricing) - Tier details, rate limits
+- [Oxylabs Amazon Scraper](https://oxylabs.io/products/scraper-api/ecommerce/amazon) - Amazon-specific features
+- [Oxylabs eBay Scraper](https://oxylabs.io/products/scraper-api/ecommerce/ebay) - eBay-specific features
+- [Bright Data Web Scraper Pricing](https://brightdata.com/pricing/web-scraper) - Alternative pricing
+- [ScraperAPI Pricing](https://www.scraperapi.com/pricing/) - Credit-based model
+- [Rainforest API Bestsellers](https://docs.trajectdata.com/rainforestapi/product-data-api/parameters/bestsellers) - Dedicated endpoint docs
+
+### Comparisons & Reviews
+- [Scrapingdog: Best Amazon Scraping APIs 2026](https://www.scrapingdog.com/blog/best-amazon-scraping-apis/) - Independent testing
+- [Bright Data: Top 10 Amazon Scrapers 2026](https://brightdata.com/blog/web-data/best-amazon-scrapers) - Feature comparison
+- [Medium: Top 7 Web Scraping APIs 2026](https://medium.com/@datajournal/best-web-scraping-apis-fbbdcf7b88f4) - General overview
+
+### Amazon Best Sellers Structure
+- [Amazon Best Sellers Page](https://www.amazon.com/Best-Sellers/zgbs) - Category listing
+- [Amazon BSR Guide](https://sell.amazon.com/blog/amazon-best-sellers-rank) - How rankings work
 
 ---
 
-*Stack research for: Access code system + Extension RBAC*
-*Researched: 2026-01-18*
+*Stack research for: SellerCollection v2 milestone*
+*Researched: 2026-01-20*

@@ -1,372 +1,851 @@
-# Architecture Research
+# SellerCollection Pipeline Architecture
 
-**Domain:** Access Code and Extension RBAC Integration
-**Researched:** 2026-01-18
-**Confidence:** HIGH
+**Project:** DS-ProSolution v2 SellerCollection
+**Researched:** 2026-01-20
+**Confidence:** HIGH (builds on existing codebase patterns)
 
-## System Overview
+## Relation to EXISTING-ARCHITECTURE.md
 
+The EXISTING-ARCHITECTURE.md documents two automation paradigms:
+
+| Paradigm | Data Type | Infrastructure | Used For |
+|----------|-----------|----------------|----------|
+| **Centralized** | Public data | Third-party APIs on server | Product data, search results |
+| **Distributed** | Private/authenticated data | PC agents with Playwright | Account dashboards, order automation |
+
+**SellerCollection uses the Centralized paradigm exclusively:**
+- All data is PUBLIC (Amazon Best Sellers, eBay search results)
+- Uses third-party APIs (Rainforest, ScraperAPI)
+- Runs entirely on FastAPI backend
+- No browser automation, no account risk, no PC agents needed
+
+This is the simplest architecture case from EXISTING-ARCHITECTURE.md:
 ```
-                          +-------------------+
-                          |   Chrome Extension|
-                          |   (MV3)           |
-                          |   - Service Worker|
-                          |   - Side Panel    |
-                          +--------+----------+
-                                   |
-                                   | (1) Pairing Request
-                                   | (2) Access Code Verification
-                                   | (3) RBAC Loading
-                                   v
-+-------------+            +-------------------+            +-------------------+
-|  Next.js    |  <-------> |   FastAPI         |  <-------> |   Supabase        |
-|  Frontend   |   REST/JWT |   Backend         |   Service  |   PostgreSQL      |
-|             |            |   - /automation/* |   Role     |   - memberships   |
-|  - Profile  |            |   - /auth/*       |            |   - profiles      |
-|    Settings |            |   - /admin/*      |            |   - access_codes  |
-|  - Access   |            +-------------------+            |   - dept_roles    |
-|    Code UI  |                                             |   - presence?     |
-+-------------+                                             +-------------------+
-```
-
-### New Components for This Milestone
-
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Access Code Table | Supabase `access_codes` | Store hashed access codes with user prefix |
-| Access Code API | FastAPI `/auth/access-code/*` | Generate, validate, rotate codes |
-| Profile Settings Modal | Next.js `components/profile/` | User-facing settings with tabs |
-| Extension Tab in Profile | Next.js | Access code UI for Admin/VA, download for all |
-| Extension Auth Step | Extension | Verify access code after pairing approval |
-| Extension RBAC Loader | Extension | Fetch roles/permissions on auth success |
-| Presence Tracking | TBD | Track who is viewing which account |
-
-## Component Responsibilities
-
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| **Access Code Table** | Store prefix, hashed secret, user link, timestamps | `access_codes` table with FK to profiles |
-| **Access Code API** | CRUD + validation + rotation | FastAPI router with Argon2/bcrypt hashing |
-| **Profile Settings Modal** | Container for user settings | React Dialog with sidebar tabs pattern |
-| **Extension Auth Step** | Second factor after pairing | Extension calls `/auth/verify-access-code` |
-| **RBAC Loader** | Fetch and cache user permissions | Extension calls `/auth/extension-permissions` |
-| **Presence Manager** | Track active account viewers | Polling or Supabase Realtime on `presence` table |
-
-## Recommended Project Structure
-
-### Backend Additions (`apps/api/src/app/`)
-
-```
-routers/
-├── auth.py           # Add access code endpoints (existing file)
-├── extension.py      # NEW: Extension-specific auth + RBAC endpoints
-models.py             # Add access code and presence models (existing file)
+CENTRALIZED (can run anywhere)
+├── Public Data APIs
+│   ├── Amazon Best Sellers (Rainforest API)
+│   ├── eBay search results (ScraperAPI)
+│   └── No account needed, can batch/parallelize
 ```
 
-### Frontend Additions (`apps/web/src/`)
+---
+
+## Architecture Overview
 
 ```
-components/
-├── profile/
-│   ├── profile-settings-modal.tsx   # NEW: Main modal container
-│   ├── profile-tab-general.tsx      # NEW: Basic profile info
-│   └── profile-tab-extension.tsx    # NEW: Extension + access code
-lib/
-├── api.ts            # Add access code + presence API functions (existing file)
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        SELLERCOLLECTION ARCHITECTURE                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   FRONTEND (apps/web)                                                            │
+│   ┌────────────────────────────────────────────────────────────────────────────┐ │
+│   │  Admin UI                                                                  │ │
+│   │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────┐  │ │
+│   │  │ Collect Sellers  │  │ Collection       │  │ Seller List              │  │ │
+│   │  │ Button           │  │ Progress         │  │ Table + Export           │  │ │
+│   │  │                  │  │                  │  │                          │  │ │
+│   │  │ • Start/Stop     │  │ • Phase display  │  │ • Filter/search          │  │ │
+│   │  │ • Schedule       │  │ • Progress bar   │  │ • Export JSON/CSV        │  │ │
+│   │  │                  │  │ • Error details  │  │ • Copy to clipboard      │  │ │
+│   │  └──────────────────┘  └──────────────────┘  └──────────────────────────┘  │ │
+│   └────────────────────────────────────────────────────────────────────────────┘ │
+│                                          │                                       │
+│                                          │ REST API                              │
+│                                          ▼                                       │
+│   BACKEND (apps/api)                                                             │
+│   ┌────────────────────────────────────────────────────────────────────────────┐ │
+│   │                                                                            │ │
+│   │   Router                      Services                                     │ │
+│   │   ┌──────────────────┐        ┌─────────────────────────────────────────┐  │ │
+│   │   │ /collection      │───────▶│ CollectionService                       │  │ │
+│   │   │                  │        │                                         │  │ │
+│   │   │ POST /start      │        │ • orchestrate_collection()              │  │ │
+│   │   │ POST /stop       │        │ • get_collection_status()               │  │ │
+│   │   │ GET  /status     │        │ • stop_collection()                     │  │ │
+│   │   │ GET  /sellers    │        │                                         │  │ │
+│   │   └──────────────────┘        └───────────────┬─────────────────────────┘  │ │
+│   │                                               │                            │ │
+│   │                               ┌───────────────┴───────────────┐            │ │
+│   │                               ▼                               ▼            │ │
+│   │                    ┌────────────────────┐         ┌────────────────────┐   │ │
+│   │                    │ AmazonService      │         │ EbayService        │   │ │
+│   │                    │                    │         │                    │   │ │
+│   │                    │ • get_bestsellers()│         │ • search_products()│   │ │
+│   │                    │ • get_categories() │         │ • extract_sellers()│   │ │
+│   │                    └─────────┬──────────┘         └─────────┬──────────┘   │ │
+│   │                              │                              │              │ │
+│   └──────────────────────────────┼──────────────────────────────┼──────────────┘ │
+│                                  │                              │                │
+│                                  ▼                              ▼                │
+│   EXTERNAL APIs                                                                  │
+│   ┌────────────────────────────────────────────────────────────────────────────┐ │
+│   │  ┌────────────────────────┐         ┌────────────────────────┐            │ │
+│   │  │ Rainforest API         │         │ ScraperAPI             │            │ │
+│   │  │                        │         │                        │            │ │
+│   │  │ • Best Sellers         │         │ • eBay search          │            │ │
+│   │  │ • Product details      │         │ • Seller extraction    │            │ │
+│   │  │ • Categories           │         │                        │            │ │
+│   │  └────────────────────────┘         └────────────────────────┘            │ │
+│   └────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                  │
+│   DATABASE (Supabase)                                                            │
+│   ┌────────────────────────────────────────────────────────────────────────────┐ │
+│   │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │ │
+│   │  │ sellers            │  │ collection_runs    │  │ collection_items   │    │ │
+│   │  │                    │  │                    │  │                    │    │ │
+│   │  │ • name (unique)    │  │ • id               │  │ • run_id           │    │ │
+│   │  │ • ebay_seller_id   │  │ • status           │  │ • product_title    │    │ │
+│   │  │ • first_seen_at    │  │ • started_at       │  │ • amazon_asin      │    │ │
+│   │  │ • last_seen_at     │  │ • completed_at     │  │ • seller_name      │    │ │
+│   │  │ • collection_count │  │ • products_checked │  │ • ebay_price       │    │ │
+│   │  │ • source_products  │  │ • sellers_found    │  │ • amazon_price     │    │ │
+│   │  └────────────────────┘  │ • error_message    │  └────────────────────┘    │ │
+│   │                          └────────────────────┘                            │ │
+│   └────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Extension Additions (`packages/extension/`)
+---
 
-```
-service-worker.js     # Add access code verification step (existing file)
-sidepanel.js          # Add access code input UI (existing file)
-auth/
-├── access-code.js    # NEW: Access code verification logic
-├── rbac.js           # NEW: Permission loading + caching
-tabs/
-├── tab-registry.js   # NEW: Map roles to tabs
-├── account-tab.js    # NEW: Account list with presence
-```
+## Component Boundaries
 
-### Structure Rationale
+| Component | Responsibility | Dependencies | Communicates With |
+|-----------|---------------|--------------|-------------------|
+| **Admin UI** | Trigger collection, display progress, view/export sellers | Next.js, React | Backend API |
+| **Collection Router** | HTTP endpoints for collection operations | FastAPI | CollectionService |
+| **CollectionService** | Orchestrate pipeline, manage state, coordinate services | Supabase | AmazonService, EbayService |
+| **AmazonService** | Fetch Best Sellers via Rainforest API | httpx | Rainforest API |
+| **EbayService** | Search eBay via ScraperAPI, extract sellers | httpx | ScraperAPI |
+| **Supabase** | Store sellers, runs, items; provide deduplication | PostgreSQL | - |
 
-- **`routers/extension.py`:** Separates extension-specific logic from user auth; cleaner boundaries
-- **`components/profile/`:** Follows existing pattern of feature-specific component directories
-- **Extension `auth/` and `tabs/`:** Organizes new functionality without cluttering existing files
-
-## Architectural Patterns
-
-### Pattern 1: Access Code as Second Factor
-
-**What:** After pairing approval, extension must verify access code before receiving JWT
-**When to use:** All extension authentication after pairing
-**Trade-offs:**
-- (+) Adds security layer (device pairing + user authentication)
-- (+) Enables RBAC loading per-user instead of per-device
-- (-) Additional step for user during initial setup
-
-**Implementation Flow:**
-```
-Extension                    Backend                      Database
-    |                           |                            |
-    |--[1] Pairing Request----->|                            |
-    |                           |--[2] Check pending-------->|
-    |<--[3] Pending-------------|                            |
-    |                           |                            |
-    |  (Admin approves)         |                            |
-    |                           |                            |
-    |--[4] Poll status--------->|                            |
-    |<--[5] Approved------------|                            |
-    |                           |                            |
-    |--[6] Verify Access Code-->|--[7] Hash + Compare------->|
-    |                           |<--[8] Match + User ID------|
-    |<--[9] JWT + Permissions---|                            |
-```
-
-### Pattern 2: RBAC Tab Rendering
-
-**What:** Extension loads permissions, maps to tabs, shows only permitted UI
-**When to use:** Every extension session start, on token refresh
-**Trade-offs:**
-- (+) Server-authoritative permissions (no local tampering)
-- (+) Tab list reflects actual permissions
-- (-) Requires network call before showing UI
-
-**Example:**
-```javascript
-// Extension RBAC loading (conceptual)
-async function loadPermissions(jwt) {
-  const response = await fetch('/auth/extension-permissions', {
-    headers: { Authorization: `Bearer ${jwt}` }
-  });
-  const { permissions, role, is_admin } = await response.json();
-
-  // Admin bypasses RBAC
-  if (is_admin) {
-    return ALL_TABS;
-  }
-
-  // Map permissions to tabs
-  const visibleTabs = [];
-  if (permissions.includes('account:view')) {
-    visibleTabs.push('accounts');
-  }
-  if (permissions.includes('order_tracking.read')) {
-    visibleTabs.push('order-tracking');
-  }
-  // ... more mappings
-
-  return visibleTabs;
-}
-```
-
-### Pattern 3: Presence Tracking
-
-**What:** Track who is viewing which account in real-time or near-real-time
-**When to use:** Account list view in extension, admin dashboard
-**Trade-offs:**
-- Polling: Simple, works everywhere, 5-10s latency
-- Realtime: Instant, Supabase channels, more complex
-
-**Recommended: Polling with Short TTL**
-```python
-# Backend presence endpoint (conceptual)
-@router.post("/presence/heartbeat")
-async def presence_heartbeat(
-    account_id: UUID,
-    user: dict = Depends(get_current_user_with_membership)
-):
-    """Update presence for current user viewing an account."""
-    supabase = get_supabase()
-    supabase.table("account_presence").upsert({
-        "account_id": str(account_id),
-        "user_id": user["user_id"],
-        "last_seen": datetime.now(timezone.utc).isoformat(),
-    }, on_conflict="account_id,user_id").execute()
-    return {"ok": True}
-
-@router.get("/presence/{account_id}")
-async def get_presence(
-    account_id: UUID,
-    user: dict = Depends(get_current_user_with_membership)
-):
-    """Get who is viewing this account (within last 30 seconds)."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat()
-    result = supabase.table("account_presence").select(
-        "user_id, profiles(display_name)"
-    ).eq("account_id", str(account_id)).gt("last_seen", cutoff).execute()
-
-    # VAs see "Occupied" if anyone else is viewing
-    # Admins see actual names
-    if user["membership"]["role"] == "admin":
-        return {"viewers": result.data}
-    else:
-        is_occupied = len(result.data) > 0
-        return {"occupied": is_occupied}
-```
+---
 
 ## Data Flow
 
-### Request Flow: Access Code Verification
+### Collection Pipeline
 
 ```
-[Extension Side Panel]
-    |
-    |--[User enters access code]
-    v
-[Service Worker] --> POST /auth/verify-access-code
-    |                    |
-    |                    v
-    |               [FastAPI] --> hash(code) --> compare with stored
-    |                    |
-    |                    v
-    |               [Supabase] --> access_codes.secret_hash
-    |                    |
-    |               <---[user_id, membership_id]
-    |                    |
-    |               [Generate JWT with user context]
-    |                    |
-    <---[jwt, role, permissions, tabs]
-    |
-    v
-[Store in chrome.storage.local]
-    |
-    v
-[Render permitted tabs]
+PHASE 1: Fetch Amazon Best Sellers
+────────────────────────────────────────────────────────────────────
+
+    CollectionService                   AmazonService
+    ┌─────────────────┐                 ┌─────────────────┐
+    │ Start collection│────────────────▶│ get_bestsellers │
+    │ Create run      │                 │                 │
+    └─────────────────┘                 │ • Call Rainforest│
+                                        │ • Parse response │
+                                        │ • Return list    │
+                                        └────────┬────────┘
+                                                 │
+                                                 ▼
+                                        [Product titles, ASINs, prices]
+
+
+PHASE 2: Search eBay for Each Product
+────────────────────────────────────────────────────────────────────
+
+    For each product:
+    ┌─────────────────┐                 ┌─────────────────┐
+    │ CollectionService│───────────────▶│ EbayService     │
+    │                 │                 │                 │
+    │ • Apply filters │                 │ • search_products│
+    │   - Brand New   │                 │   via ScraperAPI│
+    │   - Free ship   │                 │                 │
+    │   - Price range │                 │ • extract_sellers│
+    └─────────────────┘                 │   from results  │
+                                        └────────┬────────┘
+                                                 │
+                                                 ▼
+                                        [Seller names per product]
+
+
+PHASE 3: Deduplicate and Store
+────────────────────────────────────────────────────────────────────
+
+    CollectionService                   Supabase
+    ┌─────────────────┐                 ┌─────────────────┐
+    │ For each seller │────────────────▶│ UPSERT seller   │
+    │                 │                 │                 │
+    │ • Normalize name│                 │ • If exists:    │
+    │ • Check exists  │                 │   update count  │
+    │ • Store metadata│                 │   update seen_at│
+    │                 │                 │ • If new:       │
+    │                 │                 │   insert record │
+    └─────────────────┘                 └─────────────────┘
 ```
 
-### State Management: Extension
+### Filter Logic (eBay Search)
 
 ```
-chrome.storage.local
-    |
-    |-- install_instance_id (device identifier, persisted)
-    |-- agent_id (from pairing, null until paired)
-    |-- install_token (agent JWT, null until paired)
-    |-- access_code_verified (boolean, false until verified)
-    |-- user_jwt (user JWT, null until access code verified)
-    |-- user_id (from access code verification)
-    |-- role (admin/va/client)
-    |-- permissions (array of permission keys)
-    |-- visible_tabs (computed from permissions)
+Amazon Product: "Apple AirPods Pro 2" @ $249.00
+
+eBay Search Query:
+┌─────────────────────────────────────────────────────────────────┐
+│ query:     "Apple AirPods Pro 2"                                │
+│ condition: Brand New                                            │
+│ shipping:  Free                                                 │
+│ price_min: $199.20 (Amazon price * 0.80)                        │
+│ price_max: $298.80 (Amazon price * 1.20)                        │
+│ sort:      Best Match                                           │
+│ limit:     50 results                                           │
+└─────────────────────────────────────────────────────────────────┘
+
+Results → Extract seller names from each listing
 ```
 
-### Key Data Flows
+---
 
-1. **Access Code Generation:** User opens Profile Settings > Extension tab > access code is generated server-side > stored hashed in DB > displayed masked to user
-2. **Access Code Verification:** Extension prompts for code > sends to backend > backend hashes and compares > returns user JWT + permissions
-3. **Tab Rendering:** Extension receives permissions > maps to tabs > renders only permitted tabs
-4. **Presence Heartbeat:** Extension sends heartbeat every 10-15s while viewing account > backend upserts presence row > stale rows expire
+## Database Schema
 
-## Scaling Considerations
+### Table: `sellers`
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 0-1k users | Current polling approach works fine; 10-15s heartbeat intervals |
-| 1k-100k users | Consider Supabase Realtime for presence; batch permission checks |
-| 100k+ users | Dedicated presence service; Redis for ephemeral presence data |
+Primary table for collected seller data.
 
-### Scaling Priorities
+```sql
+CREATE TABLE sellers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID NOT NULL REFERENCES orgs(id),
 
-1. **First bottleneck:** Presence heartbeats (10-15s intervals * users * accounts)
-   - **Fix:** Aggregate heartbeats per extension session, batch updates
-2. **Second bottleneck:** Permission loading on every extension open
-   - **Fix:** Cache permissions with TTL, refresh on tab focus
+    -- Seller identity (normalized for dedup)
+    seller_name TEXT NOT NULL,
+    seller_name_normalized TEXT NOT NULL,  -- lowercase, trimmed
+    ebay_seller_id TEXT,  -- if available from API
 
-## Anti-Patterns
+    -- Metadata
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    collection_count INT NOT NULL DEFAULT 1,
 
-### Anti-Pattern 1: Storing Access Codes in Plain Text
+    -- Source tracking
+    source_products JSONB DEFAULT '[]',  -- [{asin, title, run_id}]
 
-**What people do:** Store access code secrets without hashing
-**Why it's wrong:** Database breach exposes all access codes
-**Do this instead:** Hash secrets with Argon2 or bcrypt; only store hash
+    -- Constraints
+    UNIQUE (org_id, seller_name_normalized),
 
-### Anti-Pattern 2: Client-Side RBAC Only
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-**What people do:** Send all permissions to extension, hide tabs with JS
-**Why it's wrong:** Users can inspect/modify localStorage, bypass UI restrictions
-**Do this instead:** Server validates permissions on every sensitive operation; UI is convenience, not security
+-- Indexes
+CREATE INDEX idx_sellers_org ON sellers(org_id);
+CREATE INDEX idx_sellers_name ON sellers(seller_name_normalized);
+CREATE INDEX idx_sellers_last_seen ON sellers(last_seen_at DESC);
+```
 
-### Anti-Pattern 3: Polling Without TTL
+### Table: `collection_runs`
 
-**What people do:** Store presence without expiration, never clean up
-**Why it's wrong:** Stale presence data accumulates; users appear "online" forever
-**Do this instead:** Short TTL (30s), background job cleans stale rows, or query with `last_seen > NOW() - interval`
+Tracks collection job executions.
 
-### Anti-Pattern 4: Mixed User/Agent Auth
+```sql
+CREATE TABLE collection_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID NOT NULL REFERENCES orgs(id),
 
-**What people do:** Use same JWT for user actions and agent automation
-**Why it's wrong:** Conflates device authorization with user authorization
-**Do this instead:** Separate tokens: `install_token` (agent/device), `user_jwt` (user after access code)
+    -- Status
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending, running, completed, failed, stopped
+
+    -- Progress
+    phase TEXT,  -- 'amazon_fetch', 'ebay_search', 'storing'
+    phase_progress INT DEFAULT 0,
+    phase_total INT DEFAULT 0,
+
+    -- Results
+    products_checked INT DEFAULT 0,
+    sellers_found INT DEFAULT 0,
+    new_sellers INT DEFAULT 0,
+
+    -- Timing
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+
+    -- Error handling
+    error_message TEXT,
+    error_details JSONB,
+
+    -- Scheduling
+    scheduled_by UUID REFERENCES auth.users(id),
+    is_scheduled BOOLEAN DEFAULT false,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+### Table: `collection_items`
+
+Detailed record of each product-seller pair found (for debugging/audit).
+
+```sql
+CREATE TABLE collection_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_id UUID NOT NULL REFERENCES collection_runs(id) ON DELETE CASCADE,
+
+    -- Amazon source
+    amazon_asin TEXT NOT NULL,
+    product_title TEXT NOT NULL,
+    amazon_price_cents INT,
+    amazon_category TEXT,
+
+    -- eBay result
+    seller_name TEXT NOT NULL,
+    ebay_item_id TEXT,
+    ebay_price_cents INT,
+    ebay_listing_url TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Index for run lookup
+CREATE INDEX idx_collection_items_run ON collection_items(run_id);
+```
+
+---
+
+## Service Layer Design
+
+Following the existing pattern in `apps/api/src/app/services/`:
+
+### File Structure
+
+```
+apps/api/src/app/
+├── routers/
+│   └── collection.py       # HTTP endpoints
+├── services/
+│   ├── collection.py       # Orchestration logic
+│   ├── amazon_api.py       # Rainforest API client
+│   └── ebay_api.py         # ScraperAPI client for eBay
+└── models.py               # Add collection models
+```
+
+### CollectionService Interface
+
+```python
+# apps/api/src/app/services/collection.py
+
+class CollectionService:
+    """Orchestrates seller collection pipeline."""
+
+    def __init__(self, supabase: Client):
+        self.supabase = supabase
+        self.amazon = AmazonApiService()
+        self.ebay = EbayApiService()
+
+    async def start_collection(
+        self,
+        org_id: str,
+        user_id: str,
+        categories: list[str] | None = None
+    ) -> str:
+        """
+        Start a new collection run.
+
+        Returns: run_id
+        """
+        pass
+
+    async def get_status(self, run_id: str) -> CollectionStatus:
+        """Get current status of a collection run."""
+        pass
+
+    async def stop_collection(self, run_id: str) -> bool:
+        """Stop a running collection."""
+        pass
+
+    async def get_sellers(
+        self,
+        org_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        search: str | None = None
+    ) -> SellerListResponse:
+        """Get collected sellers with pagination and search."""
+        pass
+```
+
+### AmazonApiService Interface
+
+```python
+# apps/api/src/app/services/amazon_api.py
+
+class AmazonApiService:
+    """Rainforest API client for Amazon data."""
+
+    async def get_bestsellers(
+        self,
+        category: str | None = None,
+        page: int = 1
+    ) -> list[AmazonProduct]:
+        """
+        Fetch Amazon Best Sellers.
+
+        Returns list of products with:
+        - asin
+        - title
+        - price_cents
+        - category
+        - rank
+        """
+        pass
+
+    async def get_categories(self) -> list[AmazonCategory]:
+        """Get available Best Seller categories."""
+        pass
+```
+
+### EbayApiService Interface
+
+```python
+# apps/api/src/app/services/ebay_api.py
+
+class EbayApiService:
+    """ScraperAPI client for eBay search."""
+
+    async def search_products(
+        self,
+        query: str,
+        price_min_cents: int | None = None,
+        price_max_cents: int | None = None,
+        condition: str = "Brand New",
+        free_shipping: bool = True,
+        limit: int = 50
+    ) -> list[EbayListing]:
+        """
+        Search eBay for products matching criteria.
+
+        Returns list of listings with:
+        - item_id
+        - title
+        - price_cents
+        - seller_name
+        - listing_url
+        """
+        pass
+
+    def extract_seller_names(
+        self,
+        listings: list[EbayListing]
+    ) -> list[str]:
+        """Extract unique seller names from listings."""
+        pass
+```
+
+---
+
+## Background Processing
+
+### Pattern: Async Background Task
+
+Following the existing pattern in `apps/api/src/app/background.py`:
+
+```python
+# In background.py or new collection_worker.py
+
+async def collection_worker(run_id: str, org_id: str):
+    """
+    Background worker for a single collection run.
+
+    Called via asyncio.create_task() when collection starts.
+    Updates collection_runs table with progress.
+    """
+    service = CollectionService(get_supabase())
+
+    try:
+        # Phase 1: Fetch Amazon Best Sellers
+        await service.update_phase(run_id, "amazon_fetch")
+        products = await service.amazon.get_bestsellers()
+
+        # Phase 2: Search eBay for each product
+        await service.update_phase(run_id, "ebay_search", total=len(products))
+
+        for i, product in enumerate(products):
+            # Check for stop signal
+            if await service.is_stopped(run_id):
+                break
+
+            # Search eBay with filters
+            listings = await service.ebay.search_products(
+                query=product.title,
+                price_min_cents=int(product.price_cents * 0.80),
+                price_max_cents=int(product.price_cents * 1.20),
+            )
+
+            # Extract and store sellers
+            sellers = service.ebay.extract_seller_names(listings)
+            await service.store_sellers(run_id, product, sellers)
+
+            # Update progress
+            await service.update_progress(run_id, i + 1)
+
+            # Rate limiting (be nice to APIs)
+            await asyncio.sleep(0.5)
+
+        # Mark complete
+        await service.complete_run(run_id)
+
+    except Exception as e:
+        await service.fail_run(run_id, str(e))
+        raise
+```
+
+### Stop Signal Pattern
+
+```python
+# Check for stop signal (stored in collection_runs.status)
+async def is_stopped(self, run_id: str) -> bool:
+    result = self.supabase.table("collection_runs")\
+        .select("status")\
+        .eq("id", run_id)\
+        .single()\
+        .execute()
+    return result.data["status"] == "stopping"
+```
+
+---
+
+## API Endpoints
+
+### Router: `/api/collection`
+
+```python
+# apps/api/src/app/routers/collection.py
+
+router = APIRouter(prefix="/collection", tags=["collection"])
+
+@router.post("/start", response_model=CollectionStartResponse)
+async def start_collection(
+    body: CollectionStartRequest,
+    user: dict = Depends(require_permission_key("admin.*")),
+):
+    """
+    Start a new seller collection run.
+
+    Admin-only. Creates background task.
+    """
+    pass
+
+@router.post("/stop/{run_id}")
+async def stop_collection(
+    run_id: str,
+    user: dict = Depends(require_permission_key("admin.*")),
+):
+    """
+    Stop a running collection.
+
+    Sets status to 'stopping', worker checks and exits.
+    """
+    pass
+
+@router.get("/status/{run_id}", response_model=CollectionStatus)
+async def get_collection_status(
+    run_id: str,
+    user: dict = Depends(require_permission_key("admin.*")),
+):
+    """Get current status and progress of a collection run."""
+    pass
+
+@router.get("/runs", response_model=CollectionRunListResponse)
+async def list_collection_runs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    user: dict = Depends(require_permission_key("admin.*")),
+):
+    """List past collection runs with pagination."""
+    pass
+
+@router.get("/sellers", response_model=SellerListResponse)
+async def list_sellers(
+    search: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=500),
+    user: dict = Depends(require_permission_key("admin.*")),
+):
+    """List collected sellers with search and pagination."""
+    pass
+
+@router.get("/sellers/export")
+async def export_sellers(
+    format: str = Query("json", regex="^(json|csv)$"),
+    user: dict = Depends(require_permission_key("admin.*")),
+):
+    """Export all sellers as JSON or CSV."""
+    pass
+```
+
+---
+
+## Frontend Components
+
+### Page Structure
+
+```
+apps/web/src/app/admin/collection/
+├── page.tsx              # Main collection page
+└── components/
+    ├── start-collection.tsx    # Start button + options
+    ├── collection-progress.tsx # Progress display
+    ├── sellers-table.tsx       # Seller list + export
+    └── collection-history.tsx  # Past runs list
+```
+
+### Component Hierarchy
+
+```
+CollectionPage
+├── StartCollectionCard
+│   ├── Start Button
+│   └── Category Select (optional)
+├── CollectionProgressCard (shown when running)
+│   ├── Phase Indicator
+│   ├── Progress Bar
+│   └── Stop Button
+├── SellersTable
+│   ├── Search Input
+│   ├── Table (name, first_seen, last_seen, count)
+│   ├── Pagination
+│   └── Export Buttons (JSON, CSV, Copy)
+└── CollectionHistoryCard
+    └── Past Runs List
+```
+
+---
 
 ## Integration Points
 
-### External Services
+### With Existing Codebase
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Supabase Auth | JWT validation via JWKS | Existing, no changes needed |
-| Supabase Realtime | Optional for presence | Can use polling instead for simplicity |
-| Chrome Storage | Extension state persistence | Already in use |
+| Integration | How | File |
+|-------------|-----|------|
+| **Auth** | Use existing `require_permission_key()` | `apps/api/src/app/auth.py` |
+| **Database** | Use existing `get_supabase()` | `apps/api/src/app/database.py` |
+| **Router mounting** | Add to `main.py` router list | `apps/api/src/app/main.py` |
+| **Background tasks** | Follow `cleanup_worker()` pattern | `apps/api/src/app/background.py` |
+| **API client** | Use existing pattern from `apps/web/src/lib/api.ts` | - |
 
-### Internal Boundaries
+### New Dependencies
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Next.js <-> FastAPI | REST + Supabase JWT | Existing pattern; extend for access codes |
-| Extension <-> FastAPI | REST + Agent JWT + User JWT | Add access code verification step |
-| FastAPI <-> Supabase | Service role client | Existing; add access_codes table |
-| Profile Modal <-> API | React Query or fetchAPI | Follow existing `lib/api.ts` pattern |
+| Dependency | Purpose | Install |
+|------------|---------|---------|
+| None | Uses existing `httpx` for API calls | Already installed |
+
+### Environment Variables
+
+```bash
+# Add to apps/api/.env
+RAINFOREST_API_KEY=your_key_here
+SCRAPERAPI_KEY=your_key_here
+```
+
+---
 
 ## Suggested Build Order
 
-Based on component dependencies:
+Based on dependencies between components:
 
-### Phase 1: Access Code Foundation
-1. **Database:** Create `access_codes` table (prefix, secret_hash, user_id, timestamps)
-2. **Backend:** Add access code models to `models.py`
-3. **Backend:** Add `/auth/access-code/generate` and `/auth/access-code/rotate` endpoints
-4. **Backend:** Add `/auth/verify-access-code` endpoint (returns user JWT + basic info)
+```
+PHASE 1: Foundation (no external deps)
+────────────────────────────────────────
+1.1 Database migrations (sellers, collection_runs, collection_items)
+1.2 Pydantic models for collection data
+1.3 Collection router skeleton (endpoints without logic)
 
-**Rationale:** Access code storage and validation are prerequisite for both Profile UI and Extension auth.
+    Delivers: Schema, types, API structure
+    Blocked by: Nothing
+    Blocks: Everything else
 
-### Phase 2: Profile Settings UI
-5. **Frontend:** Create Profile Settings modal shell with sidebar tabs pattern
-6. **Frontend:** Build Extension tab with access code display (masked, reveal, copy, rotate)
-7. **Frontend:** Wire up API calls to access code endpoints
-8. **Frontend:** Add download button (visible to all roles)
 
-**Rationale:** UI depends on backend endpoints being available. Can test access code flow end-to-end.
+PHASE 2: External API Integration
+────────────────────────────────────────
+2.1 AmazonApiService (Rainforest client)
+    - get_bestsellers()
+    - get_categories()
+    - Unit tests with mocked responses
 
-### Phase 3: Extension Auth Flow
-9. **Extension:** Add access code input UI after pairing approval
-10. **Extension:** Call `/auth/verify-access-code`, store user JWT
-11. **Extension:** Implement RBAC loader (`/auth/extension-permissions` endpoint)
-12. **Extension:** Map permissions to tabs, render conditionally
+2.2 EbayApiService (ScraperAPI client)
+    - search_products()
+    - extract_seller_names()
+    - Unit tests with mocked responses
 
-**Rationale:** Extension changes depend on backend verification endpoint. RBAC requires permissions endpoint.
+    Delivers: Working API clients
+    Blocked by: Phase 1.2 (models)
+    Blocks: Phase 3
 
-### Phase 4: Presence (Optional/Parallel)
-13. **Database:** Create `account_presence` table (account_id, user_id, last_seen)
-14. **Backend:** Add `/presence/heartbeat` and `/presence/{account_id}` endpoints
-15. **Extension:** Implement heartbeat when viewing account list
-16. **Extension:** Show "Occupied" for VAs, names for Admins
 
-**Rationale:** Presence is independent feature; can be built in parallel or deferred.
+PHASE 3: Collection Orchestration
+────────────────────────────────────────
+3.1 CollectionService
+    - start_collection() - creates run, spawns worker
+    - get_status() - reads from collection_runs
+    - stop_collection() - sets stopping flag
+    - store_sellers() - upsert logic with dedup
+
+3.2 Background worker
+    - collection_worker() async task
+    - Progress updates
+    - Stop signal handling
+
+    Delivers: Complete backend pipeline
+    Blocked by: Phase 2 (API services)
+    Blocks: Phase 4
+
+
+PHASE 4: Frontend UI
+────────────────────────────────────────
+4.1 Collection page layout
+4.2 Start collection button + API call
+4.3 Progress display (polling collection status)
+4.4 Sellers table with pagination
+4.5 Export functionality (JSON, CSV, clipboard)
+4.6 Collection history (past runs)
+
+    Delivers: Complete feature
+    Blocked by: Phase 3 (backend endpoints)
+    Blocks: Nothing
+
+
+OPTIONAL: Scheduling
+────────────────────────────────────────
+5.1 Scheduled collection (cron-like)
+5.2 Schedule UI in admin settings
+
+    Delivers: Automated monthly runs
+    Blocked by: Phase 4
+    Blocks: Nothing (optional enhancement)
+```
+
+---
+
+## Error Handling
+
+### API Errors
+
+```python
+class CollectionError(Exception):
+    """Base exception for collection errors."""
+    pass
+
+class AmazonApiError(CollectionError):
+    """Rainforest API error."""
+    pass
+
+class EbayApiError(CollectionError):
+    """ScraperAPI error."""
+    pass
+
+class CollectionStoppedError(CollectionError):
+    """Collection was stopped by user."""
+    pass
+```
+
+### Error Storage
+
+Collection errors are stored in `collection_runs.error_message` and `error_details`:
+
+```json
+{
+  "error_message": "Rainforest API rate limit exceeded",
+  "error_details": {
+    "phase": "amazon_fetch",
+    "progress": 45,
+    "api_response": {
+      "status_code": 429,
+      "message": "Rate limit exceeded"
+    }
+  }
+}
+```
+
+### Retry Logic
+
+- **API rate limits:** Exponential backoff (1s, 2s, 4s, max 3 retries)
+- **Network errors:** Retry once after 5 seconds
+- **Validation errors:** Fail immediately, log and skip item
+
+---
+
+## Rate Limiting
+
+### API Quotas
+
+| API | Estimated Quota | Collection Impact |
+|-----|-----------------|-------------------|
+| Rainforest | 100 req/min | ~100 products/min |
+| ScraperAPI | 1000 req/month (starter) | ~1000 products/month |
+
+### Internal Rate Limiting
+
+```python
+# In collection_worker
+
+# Delay between eBay searches (500ms)
+await asyncio.sleep(0.5)
+
+# Delay between Rainforest pages (1s)
+await asyncio.sleep(1.0)
+```
+
+---
+
+## Scalability Considerations
+
+| Concern | At 100 products | At 1K products | At 10K products |
+|---------|----------------|----------------|-----------------|
+| **Runtime** | ~1 minute | ~10 minutes | ~100 minutes |
+| **API cost** | $0.10-1.00 | $1-10 | $10-100 |
+| **DB rows** | ~500 sellers | ~5K sellers | ~50K sellers |
+| **Memory** | Minimal | Minimal | Minimal (streaming) |
+
+### For Large Scale (Future)
+
+- Batch API calls where possible
+- Paginate large result sets
+- Consider job queue (Redis) for distributed processing
+- API caching layer for repeated searches
+
+---
+
+## Security Considerations
+
+| Concern | Mitigation |
+|---------|------------|
+| API key exposure | Store in env vars, never in code |
+| Admin-only access | `require_permission_key("admin.*")` on all endpoints |
+| Rate limit abuse | Backend enforces delays, no client bypass |
+| Data privacy | Seller names are public data, no PII |
+
+---
+
+## Monitoring
+
+### Metrics to Track
+
+- Collection runs per day/week
+- Average collection duration
+- Sellers found per run
+- New vs. duplicate seller ratio
+- API error rate
+
+### Logging
+
+```python
+logger.info(f"Collection {run_id} started")
+logger.info(f"Collection {run_id} phase: {phase} ({progress}/{total})")
+logger.warning(f"Collection {run_id} API error: {error}")
+logger.info(f"Collection {run_id} completed: {sellers_found} sellers, {new_sellers} new")
+```
+
+---
 
 ## Sources
 
-- Existing codebase analysis:
-  - `apps/api/src/app/auth.py` - Current user auth patterns
-  - `apps/api/src/app/routers/automation.py` - Agent auth patterns
-  - `apps/api/src/app/permissions.py` - RBAC permission keys
-  - `packages/extension/service-worker.js` - Extension state management
-  - `apps/web/src/middleware.ts` - Role-based routing
-- Project context:
-  - `.planning/PROJECT.md` - Requirements and constraints
-  - `.planning/codebase/ARCHITECTURE.md` - Existing architecture patterns
-  - `.planning/codebase/INTEGRATIONS.md` - Integration patterns
+- EXISTING-ARCHITECTURE.md (project scraping architecture)
+- apps/api/src/app/background.py (existing background worker pattern)
+- apps/api/src/app/routers/automation.py (existing service pattern)
+- apps/api/src/app/services/access_code.py (existing service pattern)
+- PROJECT.md (v2 requirements)
 
 ---
-*Architecture research for: Access Code and Extension RBAC Integration*
-*Researched: 2026-01-18*
+
+*Architecture research for: v2 SellerCollection Pipeline*
+*Researched: 2026-01-20*
