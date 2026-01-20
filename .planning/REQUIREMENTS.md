@@ -1,0 +1,112 @@
+# Requirements: DS-ProSolution v2 SellerCollection
+
+**Defined:** 2026-01-20
+**Core Value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
+
+## v2 Requirements
+
+Requirements for the SellerCollection milestone. Each maps to roadmap phases.
+
+### Amazon Best Sellers
+
+- [ ] **AMZN-01**: Scrape product titles and prices from Amazon Best Sellers via third-party API
+- [ ] **AMZN-02**: Display list of Amazon categories with checkboxes for selection
+- [ ] **AMZN-03**: "Select All" preset to check all categories
+- [ ] **AMZN-04**: "Top 10" preset to select highest-volume categories
+- [ ] **AMZN-05**: Save custom category selection as named preset
+
+### eBay Search
+
+- [ ] **EBAY-01**: Search eBay with Amazon product titles via third-party API
+- [ ] **EBAY-02**: Apply filter: Condition = Brand New
+- [ ] **EBAY-03**: Apply filter: Free shipping only
+- [ ] **EBAY-04**: Apply filter: Price 80-120% of Amazon price
+- [ ] **EBAY-05**: Apply filter: US sellers only
+- [ ] **EBAY-06**: Extract seller names from search results
+
+### Collection Management
+
+- [ ] **COLL-01**: "Collect Sellers" button to trigger collection
+- [ ] **COLL-02**: Progress indicator showing current product / total products
+- [ ] **COLL-03**: Stop/cancel button to abort running collection
+- [ ] **COLL-04**: Collection history list showing past runs with timestamps
+- [ ] **COLL-05**: Scheduled monthly collection (configurable cron)
+- [ ] **COLL-06**: Display estimated API cost before starting collection
+- [ ] **COLL-07**: Hard budget cap per collection run (configurable, default $25)
+
+### Storage & Export
+
+- [ ] **STOR-01**: Deduplicate sellers against existing database (normalized comparison)
+- [ ] **STOR-02**: Store seller with collection metadata (discovered_at, from_product)
+- [ ] **STOR-03**: Export as JSON
+- [ ] **STOR-04**: Export as CSV
+- [ ] **STOR-05**: Copy sellers to clipboard
+
+## v2.1 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Seller Filtering Pipeline
+
+- **FILT-01**: Reverse image search to verify products sourced from Amazon
+- **FILT-02**: Hero image metadata detection (phone vs professional)
+- **FILT-03**: Win rate analysis (sellers with high sell-through)
+- **FILT-04**: Seller quality scoring based on multiple signals
+
+### Advanced Features
+
+- **ADV-01**: Multi-marketplace support (UK, DE, etc.)
+- **ADV-02**: Pause/resume for long-running collections
+- **ADV-03**: Collection presets (saved filter configurations)
+- **ADV-04**: Seller metadata capture (feedback score, item count)
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Profit calculator | Output goes to third-party software that handles this |
+| Listing automation | Separate project, not part of seller discovery |
+| Real-time monitoring | Brute force monthly is sufficient per cost/work ratio |
+| Custom scrapers/proxies | Buy from Oxylabs, don't build |
+| Authenticated scraping | All data is public, no account risk |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AMZN-01 | TBD | Pending |
+| AMZN-02 | TBD | Pending |
+| AMZN-03 | TBD | Pending |
+| AMZN-04 | TBD | Pending |
+| AMZN-05 | TBD | Pending |
+| EBAY-01 | TBD | Pending |
+| EBAY-02 | TBD | Pending |
+| EBAY-03 | TBD | Pending |
+| EBAY-04 | TBD | Pending |
+| EBAY-05 | TBD | Pending |
+| EBAY-06 | TBD | Pending |
+| COLL-01 | TBD | Pending |
+| COLL-02 | TBD | Pending |
+| COLL-03 | TBD | Pending |
+| COLL-04 | TBD | Pending |
+| COLL-05 | TBD | Pending |
+| COLL-06 | TBD | Pending |
+| COLL-07 | TBD | Pending |
+| STOR-01 | TBD | Pending |
+| STOR-02 | TBD | Pending |
+| STOR-03 | TBD | Pending |
+| STOR-04 | TBD | Pending |
+| STOR-05 | TBD | Pending |
+
+**Coverage:**
+- v2 requirements: 23 total
+- Mapped to phases: 0
+- Unmapped: 23
+
+---
+*Requirements defined: 2026-01-20*
+*Last updated: 2026-01-20 after initial definition*
