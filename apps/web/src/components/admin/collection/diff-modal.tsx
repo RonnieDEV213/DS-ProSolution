@@ -30,7 +30,7 @@ interface DiffResult {
 
 interface Seller {
   id: string;
-  name: string;
+  display_name: string;
 }
 
 export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalProps) {
@@ -87,7 +87,7 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
           });
           if (sourceRes.ok) {
             const data = await sourceRes.json();
-            setSourceSellers(data.sellers.map((s: Seller) => s.name) || []);
+            setSourceSellers(data.sellers.map((s: Seller) => s.display_name) || []);
           }
         }
 
@@ -107,7 +107,7 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
           });
           if (targetRes.ok) {
             const data = await targetRes.json();
-            setTargetSellers(data.sellers.map((s: Seller) => s.name) || []);
+            setTargetSellers(data.sellers.map((s: Seller) => s.display_name) || []);
           }
         }
       } catch (e) {
