@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 7 of 9 (Amazon Best Sellers)
-Plan: 2 of 5 complete
+Plan: 3 of 5 complete
 Status: In progress
-Last activity: 2026-01-20 — Completed 07-02-PLAN.md (Oxylabs Scraper Implementation)
+Last activity: 2026-01-20 — Completed 07-03-PLAN.md (Amazon Category & Preset API)
 
-Progress: [█████░░░░░] 42% (5/12 v2 plans)
+Progress: [██████░░░░] 50% (6/12 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [█████░░░░░] 42% (5/12 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 5
-- Average duration: ~3 min
-- Total execution time: ~16 min
+- Total plans completed: 6
+- Average duration: ~4 min
+- Total execution time: ~21 min
 
 ## Accumulated Context
 
@@ -58,6 +58,7 @@ Recent for v2:
 - Category IDs use namespaced format (e.g., electronics-computers) for uniqueness
 - Oxylabs cost tracking at 3 cents per bestsellers page (COST_PER_BESTSELLERS_PAGE_CENTS)
 - Rate limit (429) returns error field in ScrapeResult instead of raising exception
+- CategoryLoader minimal subclass pattern for accessing get_categories without full credentials
 
 ### Pending Todos
 
@@ -74,7 +75,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-20T20:48:40Z
-Stopped at: Completed 07-02-PLAN.md (Oxylabs Scraper Implementation)
+Last session: 2026-01-20T21:05:00Z
+Stopped at: Completed 07-03-PLAN.md (Amazon Category & Preset API)
 Resume file: None
-Next action: 07-03-PLAN.md (API Endpoints)
+Next action: 07-04-PLAN.md (Collection Worker Implementation)
