@@ -28,10 +28,12 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
   2. Collection run displays estimated API cost before starting
   3. Collection run aborts if budget cap would be exceeded
   4. Job state persists across API restarts (checkpointing)
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md — Database schema (collection_settings, collection_runs, collection_items, sellers)
+- [ ] 06-02-PLAN.md — CollectionService and API endpoints (cost estimation, budget enforcement, CRUD)
+- [ ] 06-03-PLAN.md — Collections UI tab (run list, create dialog with cost preview)
 
 ### Phase 7: Amazon Best Sellers
 
@@ -90,7 +92,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 6. Collection Infrastructure | v2 | 0/TBD | Not started | - |
+| 6. Collection Infrastructure | v2 | 0/3 | In progress | - |
 | 7. Amazon Best Sellers | v2 | 0/TBD | Not started | - |
 | 8. eBay Seller Search | v2 | 0/TBD | Not started | - |
 | 9. Storage, Export, and Collection UI | v2 | 0/TBD | Not started | - |
