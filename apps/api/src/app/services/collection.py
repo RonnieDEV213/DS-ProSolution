@@ -6,17 +6,22 @@ This module handles:
 - Run lifecycle (create, start, pause, cancel)
 - Checkpointing for crash recovery
 - Resume of interrupted runs on startup
+- Amazon collection execution via Oxylabs
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from supabase import Client
+
+from app.services.scrapers import OxylabsAmazonScraper, COST_PER_BESTSELLERS_PAGE_CENTS
 
 logger = logging.getLogger(__name__)
 
 # Cost constants (Oxylabs pricing)
 # These are estimates - actual costs tracked per-item
-COST_PER_AMAZON_PRODUCT_CENTS = 5  # ~$0.05 per product fetch
+COST_PER_AMAZON_PRODUCT_CENTS = 1  # ~$0.01 per product (page cost / ~50 products)
 COST_PER_EBAY_SEARCH_CENTS = 5     # ~$0.05 per search
 ESTIMATED_EBAY_SEARCHES_PER_PRODUCT = 1
 
@@ -762,7 +767,7 @@ class CollectionService:
                 "products_total, products_searched, "
                 "sellers_found, sellers_new, "
                 "actual_cost_cents, budget_cap_cents, "
-                "worker_status"
+                "worker_status, checkpoint"
             )
             .eq("id", run_id)
             .eq("org_id", org_id)
@@ -788,3 +793,180 @@ class CollectionService:
         data["cost_status"] = cost_status
 
         return data
+
+    # ============================================================
+    # Amazon Collection Execution
+    # ============================================================
+
+    async def run_amazon_collection(
+        self,
+        run_id: str,
+        org_id: str,
+        category_ids: list[str],
+    ) -> dict:
+        """
+        Execute Amazon best sellers collection for selected categories.
+
+        Fetches products from each category via Oxylabs API, tracks cost,
+        handles rate limiting and errors per CONTEXT.md requirements:
+        - Retry failed category 3x, then skip
+        - Pause on multiple consecutive failures
+        - Track cost per request
+
+        Args:
+            run_id: Collection run ID
+            org_id: Organization ID
+            category_ids: List of category IDs to fetch (from amazon_categories.json)
+
+        Returns:
+            dict with status, products_fetched, actual_cost_cents, errors
+        """
+        import json
+
+        # Load category data to get node IDs
+        categories_path = Path(__file__).parent.parent / "data" / "amazon_categories.json"
+        with open(categories_path) as f:
+            cat_data = json.load(f)
+
+        # Build category ID -> node_id lookup
+        node_lookup = {}
+        for dept in cat_data["departments"]:
+            for cat in dept.get("categories", []):
+                node_lookup[cat["id"]] = cat["node_id"]
+
+        # Initialize scraper
+        try:
+            scraper = OxylabsAmazonScraper()
+        except ValueError as e:
+            logger.error(f"Scraper initialization failed: {e}")
+            return {
+                "status": "failed",
+                "error": "Oxylabs credentials not configured",
+                "products_fetched": 0,
+                "actual_cost_cents": 0,
+            }
+
+        # Track progress
+        products_fetched = 0
+        actual_cost_cents = 0
+        consecutive_failures = 0
+        MAX_CONSECUTIVE_FAILURES = 5
+        errors: list[dict] = []
+
+        # Process each category
+        for cat_id in category_ids:
+            node_id = node_lookup.get(cat_id)
+            if not node_id:
+                logger.warning(f"Unknown category ID: {cat_id}")
+                errors.append({"category": cat_id, "error": "unknown_category"})
+                continue
+
+            # Retry logic (3 attempts per category)
+            for attempt in range(3):
+                result = await scraper.fetch_bestsellers(node_id)
+
+                # Handle rate limiting
+                if result.error == "rate_limited":
+                    logger.info(f"Rate limited, waiting 5s (attempt {attempt + 1}/3)")
+                    # Update run with throttle status
+                    self.supabase.table("collection_runs").update({
+                        "checkpoint": {
+                            "status": "rate_limited",
+                            "waiting_seconds": 5,
+                            "current_category": cat_id,
+                        },
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }).eq("id", run_id).execute()
+
+                    await asyncio.sleep(5)
+                    continue
+
+                # Handle other errors
+                if result.error:
+                    consecutive_failures += 1
+                    logger.warning(f"Error fetching {cat_id}: {result.error} (consecutive: {consecutive_failures})")
+
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                        # Pause collection and notify
+                        logger.error(f"Multiple consecutive failures, pausing run {run_id}")
+                        await self.pause_run(run_id, org_id)
+
+                        self.supabase.table("collection_runs").update({
+                            "checkpoint": {
+                                "status": "paused_failures",
+                                "consecutive_failures": consecutive_failures,
+                                "last_category": cat_id,
+                            },
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        }).eq("id", run_id).execute()
+
+                        return {
+                            "status": "paused",
+                            "error": "Multiple consecutive failures",
+                            "products_fetched": products_fetched,
+                            "actual_cost_cents": actual_cost_cents,
+                            "errors": errors,
+                        }
+
+                    errors.append({"category": cat_id, "error": result.error})
+                    break  # Move to next category after max retries
+
+                # Success - process products
+                consecutive_failures = 0
+                actual_cost_cents += result.cost_cents
+                products_fetched += len(result.products)
+
+                # Save products as collection items
+                for product in result.products:
+                    item_data = {
+                        "run_id": run_id,
+                        "item_type": "amazon_product",
+                        "external_id": product.asin,
+                        "data": {
+                            "title": product.title,
+                            "price": product.price,
+                            "currency": product.currency,
+                            "rating": product.rating,
+                            "url": product.url,
+                            "position": product.position,
+                            "category_id": cat_id,
+                        },
+                        "status": "pending",  # Will be processed by eBay search in Phase 8
+                    }
+                    self.supabase.table("collection_items").insert(item_data).execute()
+
+                # Update progress checkpoint
+                await self.checkpoint(
+                    run_id=run_id,
+                    checkpoint_data={
+                        "current_category": cat_id,
+                        "categories_completed": category_ids.index(cat_id) + 1,
+                        "total_categories": len(category_ids),
+                    },
+                    processed_items=products_fetched,
+                    failed_items=len(errors),
+                    actual_cost_cents=actual_cost_cents,
+                )
+
+                logger.info(f"Fetched {len(result.products)} products from {cat_id}")
+                break  # Success, move to next category
+
+        # Mark run as completed
+        now = datetime.now(timezone.utc).isoformat()
+        self.supabase.table("collection_runs").update({
+            "status": "completed",
+            "completed_at": now,
+            "total_items": products_fetched,
+            "processed_items": products_fetched,
+            "actual_cost_cents": actual_cost_cents,
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        logger.info(f"Collection run {run_id} completed: {products_fetched} products, ${actual_cost_cents/100:.2f}")
+
+        return {
+            "status": "completed",
+            "products_fetched": products_fetched,
+            "actual_cost_cents": actual_cost_cents,
+            "errors": errors if errors else None,
+        }
