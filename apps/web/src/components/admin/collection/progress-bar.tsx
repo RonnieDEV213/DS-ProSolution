@@ -45,7 +45,7 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
       if (!session) return;
 
       const action = progress.status === "paused" ? "resume" : "pause";
-      await fetch(`${API_BASE}/collections/runs/${progress.run_id}/${action}`, {
+      await fetch(`${API_BASE}/collection/runs/${progress.run_id}/${action}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -63,7 +63,7 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      await fetch(`${API_BASE}/collections/runs/${progress.run_id}/cancel`, {
+      await fetch(`${API_BASE}/collection/runs/${progress.run_id}/cancel`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
