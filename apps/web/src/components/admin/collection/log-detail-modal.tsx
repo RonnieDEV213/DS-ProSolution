@@ -47,13 +47,40 @@ export function LogDetailModal({
   const [sellers, setSellers] = useState<string[]>([]);
   const [allLogs, setAllLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sellersLoading, setSellersLoading] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelection, setCompareSelection] = useState<(string | null)[]>([null, null]);
+  const [viewingLogId, setViewingLogId] = useState<string | null>(null);
 
   const supabase = createClient();
 
+  // Fetch sellers for a specific log
+  const fetchSellersForLog = async (logId: string) => {
+    setSellersLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const sellersRes = await fetch(
+        `${API_BASE}/sellers/audit-log/${logId}/sellers`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } }
+      );
+      if (sellersRes.ok) {
+        const data = await sellersRes.json();
+        setSellers(data.sellers || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch sellers:", e);
+    } finally {
+      setSellersLoading(false);
+    }
+  };
+
+  // Initial fetch when modal opens
   useEffect(() => {
     if (!open || !selectedLogId) return;
+
+    setViewingLogId(selectedLogId);
 
     const fetchData = async () => {
       setLoading(true);
@@ -89,6 +116,16 @@ export function LogDetailModal({
 
     fetchData();
   }, [open, selectedLogId, supabase.auth]);
+
+  // Handle clicking a log entry in normal mode
+  const handleLogClick = (logId: string) => {
+    if (compareMode) {
+      handleLogSelect(logId);
+    } else {
+      setViewingLogId(logId);
+      fetchSellersForLog(logId);
+    }
+  };
 
   const handleLogSelect = (logId: string | null) => {
     if (!compareMode) return;
@@ -168,7 +205,9 @@ export function LogDetailModal({
                 Sellers at this point ({sellers.length})
               </h4>
               <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 p-2 min-h-0">
-                {sellers.length === 0 ? (
+                {sellersLoading ? (
+                  <div className="text-gray-500 text-sm">Loading sellers...</div>
+                ) : sellers.length === 0 ? (
                   <div className="text-gray-500 text-sm">No sellers at this point</div>
                 ) : (
                   <div className="space-y-1">
@@ -209,11 +248,11 @@ export function LogDetailModal({
                 {allLogs.map((log) => (
                   <button
                     key={log.id}
-                    onClick={() => compareMode && handleLogSelect(log.id)}
+                    onClick={() => handleLogClick(log.id)}
                     className={cn(
                       "w-full text-left px-3 py-2 border-b border-gray-700 last:border-0",
                       "hover:bg-gray-700 transition-colors",
-                      log.id === selectedLogId && "bg-gray-700",
+                      !compareMode && log.id === viewingLogId && "bg-gray-700",
                       compareMode && isSelected(log.id) && "bg-blue-900/50 ring-1 ring-blue-500"
                     )}
                   >
