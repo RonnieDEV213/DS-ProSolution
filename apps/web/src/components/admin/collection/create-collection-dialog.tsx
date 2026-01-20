@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, DollarSign, Loader2 } from "lucide-react";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
 interface CostEstimate {
   total_cents: number;
   breakdown: Record<string, number>;
@@ -72,7 +74,7 @@ export function CreateCollectionDialog({
         if (!session) return;
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/collection/estimate`,
+          `${API_BASE}/collection/estimate`,
           {
             method: "POST",
             headers: {
@@ -136,7 +138,7 @@ export function CreateCollectionDialog({
       if (!session) return;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/collection/runs`,
+        `${API_BASE}/collection/runs`,
         {
           method: "POST",
           headers: {

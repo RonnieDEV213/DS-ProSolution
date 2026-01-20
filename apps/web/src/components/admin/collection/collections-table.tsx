@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Play, Pause, XCircle, RefreshCw } from "lucide-react";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
 interface CollectionRun {
   id: string;
   name: string;
@@ -85,7 +87,7 @@ export function CollectionsTable({
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/collection/runs`,
+        `${API_BASE}/collection/runs`,
         {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -117,7 +119,7 @@ export function CollectionsTable({
       if (!session) return;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/collection/runs/${runId}/${action}`,
+        `${API_BASE}/collection/runs/${runId}/${action}`,
         {
           method: "POST",
           headers: {
