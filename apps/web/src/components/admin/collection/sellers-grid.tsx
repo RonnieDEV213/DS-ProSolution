@@ -235,7 +235,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
           </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1 p-2">
-            {sellers.map((seller) => (
+            {sellers.map((seller, index) => (
               <div
                 key={seller.id}
                 className={cn(
@@ -257,6 +257,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                   />
                 ) : (
                   <>
+                    <span className="text-gray-500 mr-1">{index + 1}.</span>
                     <span className="truncate">{seller.display_name}</span>
                     <button
                       onClick={(e) => {

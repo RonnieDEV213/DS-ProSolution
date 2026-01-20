@@ -157,6 +157,7 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
                           : "text-gray-300"
                       )}
                     >
+                      <span className="text-gray-500 mr-1">{i + 1}.</span>
                       {diff?.removed.includes(name) && "- "}
                       {name}
                     </div>
@@ -180,6 +181,7 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
                           : "text-gray-300"
                       )}
                     >
+                      <span className="text-gray-500 mr-1">{i + 1}.</span>
                       {diff?.added.includes(name) && "+ "}
                       {name}
                     </div>

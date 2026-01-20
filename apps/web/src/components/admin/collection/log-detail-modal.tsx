@@ -285,6 +285,7 @@ export function LogDetailModal({
                         key={i}
                         className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300 truncate"
                       >
+                        <span className="text-gray-500 mr-1">{i + 1}.</span>
                         {name}
                       </div>
                     ))}
