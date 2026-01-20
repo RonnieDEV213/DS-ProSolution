@@ -119,7 +119,7 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-gray-800 max-w-5xl max-h-[85vh]">
+      <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="text-white">
             Seller Comparison
