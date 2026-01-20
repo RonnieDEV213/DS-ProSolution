@@ -5,18 +5,22 @@ import { cn } from "@/lib/utils";
 import { PairingRequestsTable } from "@/components/admin/automation/pairing-requests-table";
 import { AgentsTable } from "@/components/admin/automation/agents-table";
 import { JobsTable } from "@/components/admin/automation/jobs-table";
+import { CollectionsTable } from "@/components/admin/collection/collections-table";
+import { CreateCollectionDialog } from "@/components/admin/collection/create-collection-dialog";
 
-type Tab = "pairing" | "agents" | "jobs";
+type Tab = "pairing" | "agents" | "jobs" | "collections";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "pairing", label: "Pairing Requests" },
   { id: "agents", label: "Agents" },
   { id: "jobs", label: "Jobs" },
+  { id: "collections", label: "Collections" },
 ];
 
 export default function AutomationPage() {
   const [activeTab, setActiveTab] = useState<Tab>("pairing");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
 
   const handleRefresh = () => setRefreshTrigger((n) => n + 1);
 
@@ -66,6 +70,20 @@ export default function AutomationPage() {
         )}
         {activeTab === "jobs" && (
           <JobsTable refreshTrigger={refreshTrigger} />
+        )}
+        {activeTab === "collections" && (
+          <>
+            <CollectionsTable
+              refreshTrigger={refreshTrigger}
+              onActionComplete={handleRefresh}
+              onCreateClick={() => setShowCreateCollection(true)}
+            />
+            <CreateCollectionDialog
+              open={showCreateCollection}
+              onOpenChange={setShowCreateCollection}
+              onCreated={handleRefresh}
+            />
+          </>
         )}
       </div>
     </div>
