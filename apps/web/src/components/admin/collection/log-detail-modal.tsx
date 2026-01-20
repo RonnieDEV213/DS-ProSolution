@@ -76,6 +76,14 @@ export function LogDetailModal({
     }
   };
 
+  // Reset compare mode when modal opens
+  useEffect(() => {
+    if (open) {
+      setCompareMode(false);
+      setCompareSelection(new Set());
+    }
+  }, [open]);
+
   // Initial fetch when modal opens
   useEffect(() => {
     if (!open || !selectedLogId) return;
