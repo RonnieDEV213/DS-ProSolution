@@ -813,3 +813,83 @@ class AccessCodeErrorResponse(BaseModel):
     error_code: str  # "INVALID_CODE", "ACCOUNT_DISABLED", "RATE_LIMITED", "CODE_EXPIRED"
     message: str  # User-facing message
     retry_after: Optional[int] = None  # Seconds until retry allowed (for rate limit)
+
+
+# ============================================================
+# Collection Models
+# ============================================================
+
+
+class CollectionRunStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class CostEstimate(BaseModel):
+    """Cost estimate for a collection run."""
+
+    total_cents: int
+    breakdown: dict[str, int]  # category_id -> estimated_cents
+    within_budget: bool
+    budget_cap_cents: int
+    warning_threshold_cents: int  # 80% of budget
+
+
+class CollectionSettingsResponse(BaseModel):
+    """Current collection settings."""
+
+    budget_cap_cents: int
+    soft_warning_percent: int
+    max_concurrent_runs: int
+
+
+class CollectionSettingsUpdate(BaseModel):
+    """Update collection settings."""
+
+    budget_cap_cents: Optional[int] = None
+    soft_warning_percent: Optional[int] = None
+    max_concurrent_runs: Optional[int] = None
+
+
+class CollectionRunCreate(BaseModel):
+    """Create a new collection run."""
+
+    name: Optional[str] = None  # Auto-generated if blank
+    category_ids: list[str]
+
+
+class CollectionRunResponse(BaseModel):
+    """Collection run details."""
+
+    id: str
+    name: str
+    status: CollectionRunStatus
+    estimated_cost_cents: int
+    actual_cost_cents: int
+    budget_cap_cents: int
+    total_items: int
+    processed_items: int
+    failed_items: int
+    category_ids: list[str]
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    paused_at: Optional[str] = None
+    created_by: str
+    created_at: str
+
+
+class CollectionRunListResponse(BaseModel):
+    """List of collection runs."""
+
+    runs: list[CollectionRunResponse]
+    total: int
+
+
+class EstimateRequest(BaseModel):
+    """Request cost estimate."""
+
+    category_ids: list[str]
