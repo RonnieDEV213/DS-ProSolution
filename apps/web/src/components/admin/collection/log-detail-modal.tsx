@@ -49,7 +49,7 @@ export function LogDetailModal({
   const [loading, setLoading] = useState(true);
   const [sellersLoading, setSellersLoading] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
-  const [compareSelection, setCompareSelection] = useState<(string | null)[]>([null, null]);
+  const [compareSelection, setCompareSelection] = useState<Set<string>>(new Set());
   const [viewingLogId, setViewingLogId] = useState<string | null>(null);
 
   const supabase = createClient();
@@ -120,34 +120,43 @@ export function LogDetailModal({
   // Handle clicking a log entry in normal mode
   const handleLogClick = (logId: string) => {
     if (compareMode) {
-      handleLogSelect(logId);
+      toggleLogSelection(logId);
     } else {
       setViewingLogId(logId);
       fetchSellersForLog(logId);
     }
   };
 
-  const handleLogSelect = (logId: string | null) => {
-    if (!compareMode) return;
+  // Toggle selection like a checkbox
+  const toggleLogSelection = (logId: string) => {
+    setCompareSelection((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(logId)) {
+        newSet.delete(logId);
+      } else if (newSet.size < 2) {
+        newSet.add(logId);
+      }
+      return newSet;
+    });
+  };
 
-    if (compareSelection[0] === null) {
-      setCompareSelection([logId, null]);
-    } else if (compareSelection[1] === null) {
-      setCompareSelection([compareSelection[0], logId]);
-    } else {
-      // Reset and start over
-      setCompareSelection([logId, null]);
-    }
+  // Enter compare mode and pre-select 2 most recent logs
+  const enterCompareMode = () => {
+    const preselected = new Set<string>();
+    if (allLogs.length >= 1) preselected.add(allLogs[0].id);
+    if (allLogs.length >= 2) preselected.add(allLogs[1].id);
+    setCompareSelection(preselected);
+    setCompareMode(true);
   };
 
   const startCompare = () => {
-    if (compareSelection[0] !== null || compareSelection[1] !== null) {
-      onCompare(compareSelection[0], compareSelection[1]);
+    const selected = Array.from(compareSelection);
+    if (selected.length === 2) {
+      onCompare(selected[0], selected[1]);
     }
   };
 
-  const isSelected = (logId: string | null) =>
-    compareSelection[0] === logId || compareSelection[1] === logId;
+  const isSelected = (logId: string) => compareSelection.has(logId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,14 +168,14 @@ export function LogDetailModal({
               {compareMode ? (
                 <>
                   <span className="text-sm text-gray-400">
-                    Select 2 logs to compare (or &quot;Current&quot; for live list)
+                    Select 2 logs to compare ({compareSelection.size}/2)
                   </span>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
                       setCompareMode(false);
-                      setCompareSelection([null, null]);
+                      setCompareSelection(new Set());
                     }}
                   >
                     Cancel
@@ -174,7 +183,7 @@ export function LogDetailModal({
                   <Button
                     size="sm"
                     onClick={startCompare}
-                    disabled={compareSelection[0] === null && compareSelection[1] === null}
+                    disabled={compareSelection.size !== 2}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     <GitCompare className="h-4 w-4 mr-1" />
@@ -185,7 +194,8 @@ export function LogDetailModal({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setCompareMode(true)}
+                  onClick={enterCompareMode}
+                  disabled={allLogs.length < 2}
                 >
                   <GitCompare className="h-4 w-4 mr-1" />
                   Compare
@@ -227,24 +237,6 @@ export function LogDetailModal({
                 Full History
               </h4>
               <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 min-h-0">
-                {/* Current list option for compare */}
-                {compareMode && (
-                  <button
-                    onClick={() => handleLogSelect(null)}
-                    className={cn(
-                      "w-full text-left px-3 py-2 border-b border-gray-700",
-                      "hover:bg-gray-700 transition-colors",
-                      isSelected(null) && "bg-blue-900/50 ring-1 ring-blue-500"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-blue-500/20 text-blue-400">Current</Badge>
-                      <span className="text-gray-300 text-sm">Live seller list</span>
-                      {isSelected(null) && <Check className="h-4 w-4 text-blue-400 ml-auto" />}
-                    </div>
-                  </button>
-                )}
-
                 {allLogs.map((log) => (
                   <button
                     key={log.id}
