@@ -78,35 +78,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AMZN-01 | TBD | Pending |
-| AMZN-02 | TBD | Pending |
-| AMZN-03 | TBD | Pending |
-| AMZN-04 | TBD | Pending |
-| AMZN-05 | TBD | Pending |
-| EBAY-01 | TBD | Pending |
-| EBAY-02 | TBD | Pending |
-| EBAY-03 | TBD | Pending |
-| EBAY-04 | TBD | Pending |
-| EBAY-05 | TBD | Pending |
-| EBAY-06 | TBD | Pending |
-| COLL-01 | TBD | Pending |
-| COLL-02 | TBD | Pending |
-| COLL-03 | TBD | Pending |
-| COLL-04 | TBD | Pending |
-| COLL-05 | TBD | Pending |
-| COLL-06 | TBD | Pending |
-| COLL-07 | TBD | Pending |
-| STOR-01 | TBD | Pending |
-| STOR-02 | TBD | Pending |
-| STOR-03 | TBD | Pending |
-| STOR-04 | TBD | Pending |
-| STOR-05 | TBD | Pending |
+| AMZN-01 | Phase 7 | Pending |
+| AMZN-02 | Phase 7 | Pending |
+| AMZN-03 | Phase 7 | Pending |
+| AMZN-04 | Phase 7 | Pending |
+| AMZN-05 | Phase 7 | Pending |
+| EBAY-01 | Phase 8 | Pending |
+| EBAY-02 | Phase 8 | Pending |
+| EBAY-03 | Phase 8 | Pending |
+| EBAY-04 | Phase 8 | Pending |
+| EBAY-05 | Phase 8 | Pending |
+| EBAY-06 | Phase 8 | Pending |
+| COLL-01 | Phase 6 | Pending |
+| COLL-02 | Phase 9 | Pending |
+| COLL-03 | Phase 9 | Pending |
+| COLL-04 | Phase 9 | Pending |
+| COLL-05 | Phase 9 | Pending |
+| COLL-06 | Phase 6 | Pending |
+| COLL-07 | Phase 6 | Pending |
+| STOR-01 | Phase 9 | Pending |
+| STOR-02 | Phase 9 | Pending |
+| STOR-03 | Phase 9 | Pending |
+| STOR-04 | Phase 9 | Pending |
+| STOR-05 | Phase 9 | Pending |
 
 **Coverage:**
 - v2 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23
+- Mapped to phases: 23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-20*
-*Last updated: 2026-01-20 after initial definition*
+*Last updated: 2026-01-20 after roadmap creation*

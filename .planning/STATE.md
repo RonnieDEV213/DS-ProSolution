@@ -4,17 +4,17 @@
 
 See: .planning/PROJECT.md (updated 2026-01-20)
 
-**Core value:** VAs can securely authenticate into the extension and see only the features their assigned roles permit
-**Current focus:** Planning next milestone
+**Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
+**Current focus:** Phase 6 - Collection Infrastructure
 
 ## Current Position
 
-Phase: v1 complete — ready for next milestone
-Plan: None
-Status: Ready for `/gsd:new-milestone`
-Last activity: 2026-01-20 — v1 milestone complete
+Phase: 6 of 9 (Collection Infrastructure)
+Plan: None — phase not yet planned
+Status: Ready for `/gsd:plan-phase 6`
+Last activity: 2026-01-20 — v2 roadmap created
 
-Progress: Milestone v1 shipped
+Progress: [░░░░░░░░░░] 0%
 
 ## Shipped Milestones
 
@@ -28,15 +28,24 @@ Progress: Milestone v1 shipped
 **v1 Milestone:**
 - Total plans completed: 12
 - Total execution time: ~65 min
-- Timeline: 3 days (2026-01-17 → 2026-01-20)
+- Timeline: 3 days (2026-01-17 -> 2026-01-20)
 - Files modified: 74
 - Lines added: +16,544
+
+**v2 Milestone:**
+- Total plans completed: 0
+- Average duration: -
+- Total execution time: -
 
 ## Accumulated Context
 
 ### Decisions
 
 Key decisions logged in PROJECT.md Key Decisions table.
+
+Recent for v2:
+- Use Oxylabs E-Commerce Scraper API for both Amazon and eBay ($49/month Micro plan)
+- Budget controls and progress tracking before any API calls (prevent cost overruns)
 
 ### Pending Todos
 
@@ -49,6 +58,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: v1 milestone complete
+Stopped at: v2 roadmap created
 Resume file: None
-Next action: `/gsd:new-milestone` to define next milestone
+Next action: `/gsd:plan-phase 6` to plan Collection Infrastructure
