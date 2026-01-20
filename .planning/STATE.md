@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** Phase 6 - Collection Infrastructure (COMPLETE)
+**Current focus:** Phase 7 - Amazon Best Sellers (In Progress)
 
 ## Current Position
 
-Phase: 6 of 9 (Collection Infrastructure) - COMPLETE
-Plan: 3 of 3 complete
-Status: Phase complete
-Last activity: 2026-01-20 — Completed 06-03-PLAN.md (Seller Management & Audit Extensions)
+Phase: 7 of 9 (Amazon Best Sellers)
+Plan: 1 of 5 complete
+Status: In progress
+Last activity: 2026-01-20 — Completed 07-01-PLAN.md (Foundation Artifacts)
 
-Progress: [███░░░░░░░] 25% (3/12 v2 plans)
+Progress: [████░░░░░░] 33% (4/12 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [███░░░░░░░] 25% (3/12 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: ~4 min
-- Total execution time: ~11 min
+- Total execution time: ~14 min
 
 ## Accumulated Context
 
@@ -53,6 +53,9 @@ Recent for v2:
 - Placeholder cost estimation (50 products/category) for Phase 6 - Phase 7 adds real estimates
 - Budget hard-block on create (not soft-warning) prevents accidental overspend
 - Audit log replay for seller snapshot reconstruction (simple, no snapshot tables needed)
+- Static JSON file for Amazon categories (not database) - rarely changes, no DB overhead
+- Abstract AmazonScraperService interface for swappable scraper implementations
+- Category IDs use namespaced format (e.g., electronics-computers) for uniqueness
 
 ### Pending Todos
 
@@ -61,6 +64,7 @@ Recent for v2:
 - Run migration 038_seller_audit_log.sql in Supabase SQL editor
 - Run migration 039_run_templates.sql in Supabase SQL editor
 - Run migration 040_enhanced_progress.sql in Supabase SQL editor
+- Run migration 041_amazon_category_presets.sql in Supabase SQL editor
 
 ### Blockers/Concerns
 
@@ -68,7 +72,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-20T14:30:00Z
-Stopped at: Completed 06-03-PLAN.md (Phase 6 complete)
+Last session: 2026-01-20T20:45:00Z
+Stopped at: Completed 07-01-PLAN.md (Foundation Artifacts)
 Resume file: None
-Next action: Phase 7 - Scraping Integration
+Next action: 07-02-PLAN.md (Oxylabs Scraper Implementation)
