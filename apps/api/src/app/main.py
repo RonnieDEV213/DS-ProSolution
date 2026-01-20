@@ -8,6 +8,7 @@ from app.routers import (
     access_codes_router,
     accounts_router,
     admin_router,
+    amazon_router,
     auth_router,
     automation_router,
     collection_router,
@@ -55,6 +56,7 @@ app.add_middleware(
 app.include_router(access_codes_router)
 app.include_router(accounts_router)
 app.include_router(admin_router)
+app.include_router(amazon_router)
 app.include_router(auth_router)
 app.include_router(automation_router)
 app.include_router(collection_router)

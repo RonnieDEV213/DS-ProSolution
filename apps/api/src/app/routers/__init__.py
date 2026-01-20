@@ -1,6 +1,7 @@
 from .access_codes import router as access_codes_router
 from .accounts import router as accounts_router
 from .admin import router as admin_router
+from .amazon import router as amazon_router
 from .auth import router as auth_router
 from .automation import router as automation_router
 from .collection import router as collection_router
@@ -12,6 +13,7 @@ __all__ = [
     "access_codes_router",
     "accounts_router",
     "admin_router",
+    "amazon_router",
     "auth_router",
     "automation_router",
     "collection_router",
