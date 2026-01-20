@@ -19,7 +19,13 @@ from app.models import (
     CollectionSettingsResponse,
     CollectionSettingsUpdate,
     CostEstimate,
+    EnhancedProgress,
     EstimateRequest,
+    RunTemplateCreate,
+    RunTemplateListResponse,
+    RunTemplateResponse,
+    RunTemplateUpdate,
+    WorkerStatus,
 )
 from app.services.collection import CollectionService
 
@@ -341,3 +347,166 @@ async def cancel_run(
             raise HTTPException(status_code=400, detail=result["message"])
 
     return result
+
+
+# ============================================================
+# Enhanced Progress Endpoint
+# ============================================================
+
+
+@router.get("/runs/{run_id}/progress", response_model=EnhancedProgress)
+async def get_run_progress(
+    run_id: str,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Get detailed progress for a collection run.
+
+    Returns hierarchical progress (departments, categories, products, sellers)
+    and real-time worker status.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+
+    try:
+        progress = await service.get_enhanced_progress(org_id, run_id)
+        return EnhancedProgress(
+            departments_total=progress["departments_total"],
+            departments_completed=progress["departments_completed"],
+            categories_total=progress["categories_total"],
+            categories_completed=progress["categories_completed"],
+            products_total=progress["products_total"],
+            products_searched=progress["products_searched"],
+            sellers_found=progress["sellers_found"],
+            sellers_new=progress["sellers_new"],
+            actual_cost_cents=progress["actual_cost_cents"],
+            budget_cap_cents=progress["budget_cap_cents"],
+            cost_status=progress["cost_status"],
+            worker_status=[
+                WorkerStatus(**w) for w in (progress["worker_status"] or [])
+            ],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ============================================================
+# Template Endpoints
+# ============================================================
+
+
+@router.get("/templates", response_model=RunTemplateListResponse)
+async def list_templates(
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Get all run templates.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    templates = await service.get_templates(org_id)
+
+    return RunTemplateListResponse(
+        templates=[
+            RunTemplateResponse(
+                id=t["id"],
+                name=t["name"],
+                description=t.get("description"),
+                department_ids=t["department_ids"],
+                concurrency=t["concurrency"],
+                is_default=t["is_default"],
+                created_at=t["created_at"],
+            )
+            for t in templates
+        ]
+    )
+
+
+@router.post("/templates", response_model=RunTemplateResponse, status_code=201)
+async def create_template(
+    data: RunTemplateCreate,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Create a new run template.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    user_id = user["user_id"]
+
+    try:
+        template = await service.create_template(
+            org_id=org_id,
+            user_id=user_id,
+            name=data.name,
+            description=data.description,
+            department_ids=data.department_ids,
+            concurrency=data.concurrency,
+            is_default=data.is_default,
+        )
+        return RunTemplateResponse(
+            id=template["id"],
+            name=template["name"],
+            description=template.get("description"),
+            department_ids=template["department_ids"],
+            concurrency=template["concurrency"],
+            is_default=template["is_default"],
+            created_at=template["created_at"],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/templates/{template_id}", response_model=RunTemplateResponse)
+async def update_template(
+    template_id: str,
+    data: RunTemplateUpdate,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Update a run template.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+
+    try:
+        updates = data.model_dump(exclude_unset=True)
+        template = await service.update_template(org_id, template_id, updates)
+        return RunTemplateResponse(
+            id=template["id"],
+            name=template["name"],
+            description=template.get("description"),
+            department_ids=template["department_ids"],
+            concurrency=template["concurrency"],
+            is_default=template["is_default"],
+            created_at=template["created_at"],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/templates/{template_id}", status_code=204)
+async def delete_template(
+    template_id: str,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Delete a run template.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+
+    try:
+        await service.delete_template(org_id, template_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
