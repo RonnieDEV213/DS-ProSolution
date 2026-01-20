@@ -1,10 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp, Pause, Play, Square } from "lucide-react";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 interface ProgressBarProps {
   progress: {
+    run_id: string;
+    status: "running" | "paused" | "pending";
     departments_total: number;
     departments_completed: number;
     categories_total: number;
@@ -18,16 +24,56 @@ interface ProgressBarProps {
     cost_status: "safe" | "warning" | "exceeded";
   } | null;
   onDetailsClick: () => void;
+  onRunStateChange: () => void;
 }
 
 function formatCost(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export function ProgressBar({ progress, onDetailsClick }: ProgressBarProps) {
+export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: ProgressBarProps) {
   const [expanded, setExpanded] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const supabase = createClient();
 
   if (!progress) return null;
+
+  const handlePauseResume = async () => {
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const action = progress.status === "paused" ? "resume" : "pause";
+      await fetch(`${API_BASE}/collections/runs/${progress.run_id}/${action}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      onRunStateChange();
+    } catch (e) {
+      console.error("Failed to pause/resume run:", e);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await fetch(`${API_BASE}/collections/runs/${progress.run_id}/cancel`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      onRunStateChange();
+    } catch (e) {
+      console.error("Failed to cancel run:", e);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const totalProgress = progress.products_total > 0
     ? (progress.products_searched / progress.products_total) * 100
@@ -105,21 +151,52 @@ export function ProgressBar({ progress, onDetailsClick }: ProgressBarProps) {
           </div>
         </div>
 
-        {/* Details button */}
-        <button
-          onClick={() => {
-            setExpanded(!expanded);
-            onDetailsClick();
-          }}
-          className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors"
-        >
-          <span>Details</span>
-          {expanded ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </button>
+        {/* Controls */}
+        <div className="flex items-center gap-2">
+          {/* Pause/Resume */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePauseResume}
+            disabled={actionLoading}
+            className="h-7 px-2"
+            title={progress.status === "paused" ? "Resume" : "Pause"}
+          >
+            {progress.status === "paused" ? (
+              <Play className="h-4 w-4 text-green-400" />
+            ) : (
+              <Pause className="h-4 w-4 text-yellow-400" />
+            )}
+          </Button>
+
+          {/* Cancel */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCancel}
+            disabled={actionLoading}
+            className="h-7 px-2"
+            title="Cancel"
+          >
+            <Square className="h-4 w-4 text-red-400" />
+          </Button>
+
+          {/* Details */}
+          <button
+            onClick={() => {
+              setExpanded(!expanded);
+              onDetailsClick();
+            }}
+            className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors"
+          >
+            <span>Details</span>
+            {expanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

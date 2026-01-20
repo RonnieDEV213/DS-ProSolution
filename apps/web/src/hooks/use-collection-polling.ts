@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/client";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 interface EnhancedProgress {
+  run_id: string;
+  status: "running" | "paused" | "pending";
   departments_total: number;
   departments_completed: number;
   categories_total: number;
@@ -61,19 +63,23 @@ export function useCollectionPolling(pollingInterval = 2000) {
   }, [supabase.auth]);
 
   // Fetch progress for active run
-  const fetchProgress = useCallback(async (runId: string) => {
+  const fetchProgress = useCallback(async (run: CollectionRun) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       const response = await fetch(
-        `${API_BASE}/collection/runs/${runId}/progress`,
+        `${API_BASE}/collection/runs/${run.id}/progress`,
         { headers: { Authorization: `Bearer ${session.access_token}` } }
       );
 
       if (response.ok) {
         const data = await response.json();
-        setProgress(data);
+        setProgress({
+          ...data,
+          run_id: run.id,
+          status: run.status,
+        });
       }
     } catch (e) {
       console.error("Failed to fetch progress:", e);
@@ -88,8 +94,8 @@ export function useCollectionPolling(pollingInterval = 2000) {
       if (!mounted) return;
 
       const run = await checkActiveRun();
-      if (run && run.status === "running") {
-        await fetchProgress(run.id);
+      if (run && (run.status === "running" || run.status === "paused")) {
+        await fetchProgress(run);
       } else {
         setProgress(null);
       }

@@ -121,6 +121,7 @@ export default function AutomationPage() {
               <ProgressBar
                 progress={progress}
                 onDetailsClick={() => setProgressDetailOpen(true)}
+                onRunStateChange={refresh}
               />
             )}
 
