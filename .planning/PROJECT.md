@@ -6,7 +6,20 @@ An in-house eBay automation account management platform for agency operations �
 
 ## Core Value
 
-VAs can securely authenticate into the extension and see only the features their assigned roles permit — enabling controlled, auditable account operations at scale.
+Automate the discovery and collection of Amazon-to-eBay dropshippers at scale — enabling data-driven product sourcing decisions.
+
+## Current Milestone: v2 SellerCollection
+
+**Goal:** Automatically find eBay sellers who dropship from Amazon by cross-referencing Amazon Best Sellers with eBay search results.
+
+**Target features:**
+- Scrape Amazon Best Sellers (all departments/categories) via third-party API
+- Search each product on eBay with dropshipper filters (Brand New, free shipping, 80-120% of Amazon price)
+- Collect and deduplicate seller names against existing database
+- Store sellers in Supabase with collection metadata
+- Admin UI: "Collect Sellers" button, progress display, seller list view
+- Export functionality: JSON, CSV, copy to clipboard
+- Optional scheduled collection (monthly recurring)
 
 ## Requirements
 
@@ -43,17 +56,29 @@ VAs can securely authenticate into the extension and see only the features their
 
 <!-- Current scope. Building toward these. -->
 
-(None — define next milestone with /gsd:new-milestone)
+**v2 SellerCollection:**
+- [ ] Amazon Best Sellers scraping via third-party API (Rainforest or similar)
+- [ ] eBay search via third-party API (ScraperAPI or similar)
+- [ ] Seller deduplication and persistent storage in Supabase
+- [ ] Collection orchestration with progress tracking
+- [ ] Admin UI: trigger collection, view sellers, track status
+- [ ] Export: JSON, CSV, copy to clipboard
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-- Full automation (removing VA clicks) — future milestone, not this one
-- Refactoring unrelated code — keep changes focused on the 4 features
-- New user types or auth methods — existing Admin/VA/Client model is sufficient
-- Extension features beyond RBAC tabs — extension internals unchanged except auth flow
+**v2 boundaries:**
+- Seller filtering/quality pipeline (reverse image search, hero image detection, win rate analysis) — future milestone after collection is working
+- Listing automation (copying dropshipper listings to your accounts) — separate project
+- Real-time monitoring of Amazon/eBay changes — brute force monthly is sufficient given work/cost ratio
+- Amazon price change tracking — not needed for seller discovery
+- Authenticated scraping — all data is public, use third-party APIs only
+- Building custom scrapers/proxies — buy from Rainforest/ScraperAPI, don't build
+
+**General boundaries (carried from v1):**
 - Mobile app or responsive redesign — desktop-first for VA workflow
+- New user types or auth methods — existing Admin/VA/Client model is sufficient
 
 ## Context
 
@@ -61,26 +86,39 @@ VAs can securely authenticate into the extension and see only the features their
 - Monorepo: `apps/web` (Next.js 14+), `apps/api` (FastAPI), `packages/extension` (Chrome MV3)
 - Supabase for auth, database (PostgreSQL + RLS), and real-time
 - RBAC already implemented for VAs via department roles/access profiles
-- Extension already has pairing flow; this adds access code as second auth factor
 
-**Existing Patterns to Follow:**
-- "Sidebar tabs" modal pattern exists in codebase — reuse for Profile Settings
-- Permission keys like `order_tracking.read`, `order_tracking.write.basic_fields`
-- User types via `UserRole` enum in `apps/api/src/app/models.py`
-- JWT tokens for both user auth (Supabase) and agent auth (self-issued)
+**v2 Architecture (from research docs):**
+- Third-party APIs handle scraping (Rainforest for Amazon, ScraperAPI for eBay)
+- All data is public — no authentication required, no account risk
+- FastAPI backend orchestrates collection flow and stores results
+- Next.js frontend provides Admin UI for triggering and viewing results
+- No proxy management needed — third-party services handle it
+
+**Data Flow:**
+```
+Amazon Best Sellers (Rainforest API)
+    → Product titles + prices
+    → eBay search (ScraperAPI) with filters
+    → Seller names from results
+    → Dedup against Supabase
+    → Store new sellers
+```
 
 **User Types (source of truth = codebase):**
 - Admin: Superuser, bypasses RBAC, full access to web app and extension
 - VA: RBAC applies, access controlled by assigned roles/permissions
 - Client: Read-only dashboard, no RBAC, no extension access or access codes
 
+**v2 Access:** SellerCollection is Admin-only (data sourcing tool, not VA workflow)
+
 ## Constraints
 
-- **Tech stack**: Next.js 14+ / FastAPI / Supabase / Chrome Extension (MV3) — no new frameworks
-- **UI patterns**: Use existing shadcn/ui components and sidebar tabs modal pattern
-- **Scope**: Only the 4 features described; no scope creep
-- **Access codes**: Treat as secrets (hashed storage, masked display, secure rotation)
-- **RBAC**: Only applies to VAs; Admins bypass, Clients excluded
+- **Tech stack**: Next.js 14+ / FastAPI / Supabase — no new frameworks
+- **Scraping**: Use third-party APIs (Rainforest, ScraperAPI) — don't build scrapers
+- **Cost/Work ratio**: Prefer simple brute-force over complex monitoring systems
+- **Public data only**: No authenticated scraping, no account risk
+- **UI patterns**: Use existing shadcn/ui components
+- **Admin-only**: SellerCollection UI is for Admins only (not VAs or Clients)
 
 ## Key Decisions
 
@@ -99,9 +137,10 @@ VAs can securely authenticate into the extension and see only the features their
 
 ## Current State
 
+**Active:** v2 SellerCollection (started 2026-01-20)
 **Shipped:** v1 Extension Auth & RBAC (2026-01-20)
 **Tech Stack:** Next.js 14+, FastAPI, Supabase, Chrome Extension MV3
 **Codebase:** ~16,500 lines added in v1 milestone across 74 files
 
 ---
-*Last updated: 2026-01-20 after v1 milestone*
+*Last updated: 2026-01-20 after starting v2 SellerCollection milestone*
