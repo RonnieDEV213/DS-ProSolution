@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-18)
 
 **Core value:** VAs can securely authenticate into the extension and see only the features their assigned roles permit
-**Current focus:** Phase 5 - Presence System
+**Current focus:** Milestone complete - all phases executed
 
 ## Current Position
 
-Phase: 5 of 5 (Presence System)
-Plan: 1 of TBD in current phase
-Status: In progress
-Last activity: 2026-01-19 — Completed 05-01-PLAN.md
+Phase: 5 of 5 (Presence System) - COMPLETE
+Plan: 2 of 2 in current phase - COMPLETE
+Status: Milestone complete
+Last activity: 2026-01-20 — Phase 5 verified complete
 
-Progress: [██████████░] ~95%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: 5 min
-- Total execution time: 57 min
+- Total execution time: ~65 min
 
 **By Phase:**
 
@@ -33,11 +33,7 @@ Progress: [██████████░] ~95%
 | 03-extension-auth-flow | 2 | 11 min | 5.5 min |
 | 04-extension-rbac | 1 | 12 min | 12 min |
 | 04.1-auto-order-tab-organization | 2 | 5 min | 2.5 min |
-| 05-presence-system | 1 | 4 min | 4 min |
-
-**Recent Trend:**
-- Last 5 plans: 04-01 (12 min), 04.1-01 (3 min), 04.1-02 (2 min), 05-01 (4 min)
-- Trend: Stable
+| 05-presence-system | 2 | ~15 min | 7.5 min |
 
 *Updated after each plan completion*
 
@@ -82,16 +78,17 @@ Recent decisions affecting current work:
 - [05-01]: Upsert with (user_id, org_id) constraint for atomic presence swap
 - [05-01]: Access code JWT auth dependency for extension endpoints
 - [05-01]: RLS allows authenticated users to SELECT presence for their org
+- [05-02]: Presence displays on Accounts page (not AccountSelector dropdown)
+- [05-02]: Live duration timer updates every minute for admin view
+- [05-02]: Extension sends account_id on clock-in for presence recording
 
 ### Pending Todos
 
-- Run migration 035_access_codes.sql in Supabase SQL editor (if not already done)
-- Run migration 036_presence_system.sql in Supabase SQL editor
-- ~~Add ACCESS_CODE_JWT_SECRET environment variable~~ (done)
+- Run migration 036_presence_system.sql in Supabase SQL editor (if not already done)
 
 ### Blockers/Concerns
 
-None yet.
+None.
 
 ### Roadmap Evolution
 
@@ -100,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-19
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-01-20
+Stopped at: Milestone complete
 Resume file: None

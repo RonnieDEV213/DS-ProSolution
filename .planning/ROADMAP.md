@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Extension Auth Flow** - Extension authentication using access codes with JWT storage
 - [x] **Phase 4: Extension RBAC** - Permission-based tab rendering with admin bypass
 - [x] **Phase 4.1: Auto Order Tab Organization** - Move hub content under auto_order permission, reorganize layout (INSERTED)
-- [ ] **Phase 5: Presence System** - Account occupancy indicators with privacy-aware display
+- [x] **Phase 5: Presence System** - Account occupancy indicators with privacy-aware display
 
 ## Phase Details
 
@@ -127,8 +127,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Backend presence schema, service, clock-in/out integration
-- [ ] 05-02-PLAN.md — Frontend usePresence hook, OccupancyBadge, AccountSelector integration
+- [x] 05-01-PLAN.md — Backend presence schema, service, clock-in/out integration
+- [x] 05-02-PLAN.md — Frontend usePresence hook, OccupancyBadge, AccountsTable integration
 
 ## Progress
 
@@ -143,8 +143,8 @@ Phases execute in numeric order: 1 -> 2 -> 2.1 -> 3 -> 4 -> 4.1 -> 5
 | 3. Extension Auth Flow | 2/2 | Complete | 2026-01-19 |
 | 4. Extension RBAC | 1/1 | Complete | 2026-01-19 |
 | 4.1. Auto Order Tab Organization (INSERTED) | 2/2 | Complete | 2026-01-19 |
-| 5. Presence System | 0/2 | Ready for execution | - |
+| 5. Presence System | 2/2 | Complete | 2026-01-20 |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 5 planned*
+*Last updated: 2026-01-20 — Phase 5 complete, milestone complete*
