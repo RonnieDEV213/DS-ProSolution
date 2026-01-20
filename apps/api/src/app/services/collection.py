@@ -1,8 +1,6 @@
 """Collection service for managing seller collection runs.
 
 This module handles:
-- Cost estimation before runs
-- Budget enforcement (soft warning + hard block)
 - Run lifecycle (create, start, pause, cancel)
 - Checkpointing for crash recovery
 - Resume of interrupted runs on startup
@@ -15,19 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from supabase import Client
 
-from app.services.scrapers import OxylabsAmazonScraper, COST_PER_BESTSELLERS_PAGE_CENTS
+from app.services.scrapers import OxylabsAmazonScraper
 
 logger = logging.getLogger(__name__)
 
-# Cost constants (Oxylabs pricing)
-# These are estimates - actual costs tracked per-item
-COST_PER_AMAZON_PRODUCT_CENTS = 1  # ~$0.01 per product (page cost / ~50 products)
-COST_PER_EBAY_SEARCH_CENTS = 5     # ~$0.05 per search
-ESTIMATED_EBAY_SEARCHES_PER_PRODUCT = 1
-
 
 class CollectionService:
-    """Orchestrates collection runs with budget enforcement and checkpointing."""
+    """Orchestrates collection runs with checkpointing."""
 
     def __init__(self, supabase: Client):
         self.supabase = supabase
@@ -47,8 +39,6 @@ class CollectionService:
         # Create default settings
         default = {
             "org_id": org_id,
-            "budget_cap_cents": 2500,  # $25 default
-            "soft_warning_percent": 80,
             "max_concurrent_runs": 3,
         }
         insert_result = (
@@ -61,18 +51,12 @@ class CollectionService:
     async def update_settings(
         self,
         org_id: str,
-        budget_cap_cents: int | None = None,
-        soft_warning_percent: int | None = None,
         max_concurrent_runs: int | None = None,
     ) -> dict:
         """Update collection settings."""
         settings = await self.get_settings(org_id)
 
         update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
-        if budget_cap_cents is not None:
-            update_data["budget_cap_cents"] = budget_cap_cents
-        if soft_warning_percent is not None:
-            update_data["soft_warning_percent"] = soft_warning_percent
         if max_concurrent_runs is not None:
             update_data["max_concurrent_runs"] = max_concurrent_runs
 
@@ -84,48 +68,6 @@ class CollectionService:
         )
         return result.data[0] if result.data else settings
 
-    async def estimate_cost(
-        self,
-        org_id: str,
-        category_ids: list[str],
-    ) -> dict:
-        """
-        Calculate estimated API cost before starting a run.
-
-        Returns cost estimate with per-category breakdown.
-        Phase 6 uses placeholder product counts - Phase 7 will add real estimates.
-        """
-        settings = await self.get_settings(org_id)
-        budget_cap = settings["budget_cap_cents"]
-        warning_percent = settings["soft_warning_percent"]
-
-        # Placeholder: estimate 50 products per category
-        # Phase 7 will replace with actual category product counts
-        PRODUCTS_PER_CATEGORY = 50
-
-        breakdown = {}
-        total_cents = 0
-
-        for cat_id in category_ids:
-            # Cost per category: Amazon fetch + eBay searches
-            amazon_cost = PRODUCTS_PER_CATEGORY * COST_PER_AMAZON_PRODUCT_CENTS
-            ebay_cost = PRODUCTS_PER_CATEGORY * ESTIMATED_EBAY_SEARCHES_PER_PRODUCT * COST_PER_EBAY_SEARCH_CENTS
-            category_total = amazon_cost + ebay_cost
-
-            breakdown[cat_id] = category_total
-            total_cents += category_total
-
-        warning_threshold = int(budget_cap * warning_percent / 100)
-
-        return {
-            "total_cents": total_cents,
-            "breakdown": breakdown,
-            "within_budget": total_cents <= budget_cap,
-            "budget_cap_cents": budget_cap,
-            "warning_threshold_cents": warning_threshold,
-            "exceeds_warning": total_cents > warning_threshold,
-        }
-
     async def create_run(
         self,
         org_id: str,
@@ -135,19 +77,7 @@ class CollectionService:
     ) -> dict:
         """
         Create a new collection run in pending state.
-
-        Validates budget before creating. Returns error if would exceed budget.
         """
-        # Get cost estimate
-        estimate = await self.estimate_cost(org_id, category_ids)
-
-        if not estimate["within_budget"]:
-            return {
-                "error": "budget_exceeded",
-                "message": f"Estimated cost ${estimate['total_cents']/100:.2f} exceeds budget cap ${estimate['budget_cap_cents']/100:.2f}",
-                "estimate": estimate,
-            }
-
         # Check concurrent run limit
         settings = await self.get_settings(org_id)
         active_runs = (
@@ -174,9 +104,6 @@ class CollectionService:
             "org_id": org_id,
             "name": name,
             "status": "pending",
-            "estimated_cost_cents": estimate["total_cents"],
-            "actual_cost_cents": 0,
-            "budget_cap_cents": estimate["budget_cap_cents"],
             "total_items": 0,
             "processed_items": 0,
             "failed_items": 0,
@@ -194,7 +121,7 @@ class CollectionService:
         run = result.data[0]
         logger.info(f"Created collection run {run['id']} for org {org_id}")
 
-        return {"run": run, "estimate": estimate}
+        return {"run": run}
 
     async def get_run(self, run_id: str, org_id: str) -> dict | None:
         """Get a collection run by ID."""
@@ -306,7 +233,6 @@ class CollectionService:
         checkpoint_data: dict,
         processed_items: int,
         failed_items: int,
-        actual_cost_cents: int,
     ) -> None:
         """Save checkpoint for crash recovery."""
         now = datetime.now(timezone.utc).isoformat()
@@ -314,7 +240,6 @@ class CollectionService:
             "checkpoint": checkpoint_data,
             "processed_items": processed_items,
             "failed_items": failed_items,
-            "actual_cost_cents": actual_cost_cents,
             "updated_at": now,
         }).eq("id", run_id).execute()
 
@@ -766,7 +691,6 @@ class CollectionService:
                 "categories_total, categories_completed, "
                 "products_total, products_searched, "
                 "sellers_found, sellers_new, "
-                "actual_cost_cents, budget_cap_cents, "
                 "worker_status, checkpoint"
             )
             .eq("id", run_id)
@@ -777,22 +701,7 @@ class CollectionService:
         if not result.data:
             raise ValueError("Run not found")
 
-        data = result.data[0]
-
-        # Calculate cost status
-        actual = data["actual_cost_cents"]
-        budget = data["budget_cap_cents"]
-
-        if actual > budget:
-            cost_status = "exceeded"
-        elif actual > budget * 0.8:
-            cost_status = "warning"
-        else:
-            cost_status = "safe"
-
-        data["cost_status"] = cost_status
-
-        return data
+        return result.data[0]
 
     # ============================================================
     # Amazon Collection Execution
@@ -807,11 +716,10 @@ class CollectionService:
         """
         Execute Amazon best sellers collection for selected categories.
 
-        Fetches products from each category via Oxylabs API, tracks cost,
-        handles rate limiting and errors per CONTEXT.md requirements:
+        Fetches products from each category via Oxylabs API,
+        handles rate limiting and errors:
         - Retry failed category 3x, then skip
         - Pause on multiple consecutive failures
-        - Track cost per request
 
         Args:
             run_id: Collection run ID
@@ -819,7 +727,7 @@ class CollectionService:
             category_ids: List of category IDs to fetch (from amazon_categories.json)
 
         Returns:
-            dict with status, products_fetched, actual_cost_cents, errors
+            dict with status, products_fetched, errors
         """
         import json
 
@@ -843,12 +751,10 @@ class CollectionService:
                 "status": "failed",
                 "error": "Oxylabs credentials not configured",
                 "products_fetched": 0,
-                "actual_cost_cents": 0,
             }
 
         # Track progress
         products_fetched = 0
-        actual_cost_cents = 0
         consecutive_failures = 0
         MAX_CONSECUTIVE_FAILURES = 5
         errors: list[dict] = []
@@ -904,7 +810,6 @@ class CollectionService:
                             "status": "paused",
                             "error": "Multiple consecutive failures",
                             "products_fetched": products_fetched,
-                            "actual_cost_cents": actual_cost_cents,
                             "errors": errors,
                         }
 
@@ -913,7 +818,6 @@ class CollectionService:
 
                 # Success - process products
                 consecutive_failures = 0
-                actual_cost_cents += result.cost_cents
                 products_fetched += len(result.products)
 
                 # Save products as collection items
@@ -945,7 +849,6 @@ class CollectionService:
                     },
                     processed_items=products_fetched,
                     failed_items=len(errors),
-                    actual_cost_cents=actual_cost_cents,
                 )
 
                 logger.info(f"Fetched {len(result.products)} products from {cat_id}")
@@ -958,15 +861,13 @@ class CollectionService:
             "completed_at": now,
             "total_items": products_fetched,
             "processed_items": products_fetched,
-            "actual_cost_cents": actual_cost_cents,
             "updated_at": now,
         }).eq("id", run_id).execute()
 
-        logger.info(f"Collection run {run_id} completed: {products_fetched} products, ${actual_cost_cents/100:.2f}")
+        logger.info(f"Collection run {run_id} completed: {products_fetched} products")
 
         return {
             "status": "completed",
             "products_fetched": products_fetched,
-            "actual_cost_cents": actual_cost_cents,
             "errors": errors if errors else None,
         }

@@ -829,29 +829,15 @@ class CollectionRunStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class CostEstimate(BaseModel):
-    """Cost estimate for a collection run."""
-
-    total_cents: int
-    breakdown: dict[str, int]  # category_id -> estimated_cents
-    within_budget: bool
-    budget_cap_cents: int
-    warning_threshold_cents: int  # 80% of budget
-
-
 class CollectionSettingsResponse(BaseModel):
     """Current collection settings."""
 
-    budget_cap_cents: int
-    soft_warning_percent: int
     max_concurrent_runs: int
 
 
 class CollectionSettingsUpdate(BaseModel):
     """Update collection settings."""
 
-    budget_cap_cents: Optional[int] = None
-    soft_warning_percent: Optional[int] = None
     max_concurrent_runs: Optional[int] = None
 
 
@@ -868,9 +854,6 @@ class CollectionRunResponse(BaseModel):
     id: str
     name: str
     status: CollectionRunStatus
-    estimated_cost_cents: int
-    actual_cost_cents: int
-    budget_cap_cents: int
     total_items: int
     processed_items: int
     failed_items: int
@@ -887,12 +870,6 @@ class CollectionRunListResponse(BaseModel):
 
     runs: list[CollectionRunResponse]
     total: int
-
-
-class EstimateRequest(BaseModel):
-    """Request cost estimate."""
-
-    category_ids: list[str]
 
 
 # ============================================================
@@ -1051,10 +1028,6 @@ class EnhancedProgress(BaseModel):
     products_searched: int
     sellers_found: int
     sellers_new: int
-    # Cost
-    actual_cost_cents: int
-    budget_cap_cents: int
-    cost_status: Literal["safe", "warning", "exceeded"]
     # Workers
     worker_status: list[WorkerStatus]
 

@@ -13,9 +13,6 @@ from .base import AmazonProduct, AmazonScraperService, ScrapeResult
 
 logger = logging.getLogger(__name__)
 
-# Cost per bestsellers page request in cents (~$0.03 per page, ~50 products)
-COST_PER_BESTSELLERS_PAGE_CENTS = 3
-
 
 class OxylabsAmazonScraper(AmazonScraperService):
     """Oxylabs E-Commerce API implementation for Amazon Best Sellers."""
@@ -57,7 +54,6 @@ class OxylabsAmazonScraper(AmazonScraperService):
                 logger.warning(f"Rate limited on category {category_node_id}")
                 return ScrapeResult(
                     products=[],
-                    cost_cents=0,
                     page=page,
                     total_pages=None,
                     error="rate_limited",
@@ -71,7 +67,6 @@ class OxylabsAmazonScraper(AmazonScraperService):
             if not results:
                 return ScrapeResult(
                     products=[],
-                    cost_cents=COST_PER_BESTSELLERS_PAGE_CENTS,
                     page=page,
                     total_pages=None,
                     error="empty_response",
@@ -102,7 +97,6 @@ class OxylabsAmazonScraper(AmazonScraperService):
 
             return ScrapeResult(
                 products=products,
-                cost_cents=COST_PER_BESTSELLERS_PAGE_CENTS,
                 page=page,
                 total_pages=None,  # Oxylabs doesn't report total pages
                 error=None,
@@ -112,7 +106,6 @@ class OxylabsAmazonScraper(AmazonScraperService):
             logger.error(f"Timeout fetching category {category_node_id}")
             return ScrapeResult(
                 products=[],
-                cost_cents=0,
                 page=page,
                 total_pages=None,
                 error="timeout",
@@ -121,7 +114,6 @@ class OxylabsAmazonScraper(AmazonScraperService):
             logger.error(f"HTTP error fetching category {category_node_id}: {e}")
             return ScrapeResult(
                 products=[],
-                cost_cents=0,
                 page=page,
                 total_pages=None,
                 error=f"http_error:{e.response.status_code}",
@@ -130,7 +122,6 @@ class OxylabsAmazonScraper(AmazonScraperService):
             logger.error(f"Unexpected error fetching category {category_node_id}: {e}")
             return ScrapeResult(
                 products=[],
-                cost_cents=0,
                 page=page,
                 total_pages=None,
                 error=str(e),

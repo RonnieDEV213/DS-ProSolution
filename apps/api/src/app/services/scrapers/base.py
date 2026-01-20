@@ -31,7 +31,6 @@ class ScrapeResult:
     """Result from a scrape operation."""
 
     products: list[AmazonProduct]
-    cost_cents: int
     page: int
     total_pages: int | None
     error: str | None = None
@@ -58,7 +57,7 @@ class AmazonScraperService(ABC):
             page: Page number to fetch (1-indexed)
 
         Returns:
-            ScrapeResult with products, cost tracking, and error info
+            ScrapeResult with products and error info
         """
         pass
 

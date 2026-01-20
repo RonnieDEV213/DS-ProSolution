@@ -19,9 +19,6 @@ interface ProgressBarProps {
     products_searched: number;
     sellers_found: number;
     sellers_new: number;
-    actual_cost_cents: number;
-    budget_cap_cents: number;
-    cost_status: "safe" | "warning" | "exceeded";
     // Checkpoint field for throttle status
     checkpoint?: {
       status?: "rate_limited" | "paused_failures" | string;
@@ -31,10 +28,6 @@ interface ProgressBarProps {
   } | null;
   onDetailsClick: () => void;
   onRunStateChange: () => void;
-}
-
-function formatCost(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: ProgressBarProps) {
@@ -85,12 +78,6 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
     ? (progress.products_searched / progress.products_total) * 100
     : 0;
 
-  const costColorClass = {
-    safe: "text-green-400",
-    warning: "text-yellow-400",
-    exceeded: "text-red-400",
-  }[progress.cost_status];
-
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
       {/* Progress bar */}
@@ -112,20 +99,6 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
       {/* Quick info */}
       <div className="px-4 py-2 flex items-center justify-between text-sm">
         <div className="flex items-center gap-4 flex-wrap">
-          {/* Cost */}
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">API cost so far:</span>
-            <span className={costColorClass}>
-              {formatCost(progress.actual_cost_cents)}
-            </span>
-            <span className="text-gray-600">/</span>
-            <span className="text-gray-400">
-              {formatCost(progress.budget_cap_cents)}
-            </span>
-          </div>
-
-          <span className="text-gray-700">|</span>
-
           {/* Departments */}
           <div className="flex items-center gap-1">
             <span className="text-gray-500">Depts:</span>

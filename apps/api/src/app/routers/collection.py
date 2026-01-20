@@ -2,7 +2,6 @@
 
 Admin endpoints for:
 - Settings configuration
-- Cost estimation
 - Run CRUD (create, list, pause, cancel)
 - Progress tracking (placeholder for WebSocket in later phase)
 """
@@ -18,9 +17,7 @@ from app.models import (
     CollectionRunResponse,
     CollectionSettingsResponse,
     CollectionSettingsUpdate,
-    CostEstimate,
     EnhancedProgress,
-    EstimateRequest,
     RunTemplateCreate,
     RunTemplateListResponse,
     RunTemplateResponse,
@@ -58,8 +55,6 @@ async def get_settings(
     settings = await service.get_settings(org_id)
 
     return CollectionSettingsResponse(
-        budget_cap_cents=settings["budget_cap_cents"],
-        soft_warning_percent=settings["soft_warning_percent"],
         max_concurrent_runs=settings["max_concurrent_runs"],
     )
 
@@ -78,48 +73,11 @@ async def update_settings(
     org_id = user["membership"]["org_id"]
     settings = await service.update_settings(
         org_id,
-        budget_cap_cents=body.budget_cap_cents,
-        soft_warning_percent=body.soft_warning_percent,
         max_concurrent_runs=body.max_concurrent_runs,
     )
 
     return CollectionSettingsResponse(
-        budget_cap_cents=settings["budget_cap_cents"],
-        soft_warning_percent=settings["soft_warning_percent"],
         max_concurrent_runs=settings["max_concurrent_runs"],
-    )
-
-
-# ============================================================
-# Estimation Endpoint
-# ============================================================
-
-
-@router.post("/estimate", response_model=CostEstimate)
-async def estimate_cost(
-    body: EstimateRequest,
-    user: dict = Depends(require_permission_key("admin.automation")),
-    service: CollectionService = Depends(get_collection_service),
-):
-    """
-    Get cost estimate for a collection run.
-
-    Returns estimated cost with per-category breakdown and budget status.
-    Requires admin.automation permission.
-    """
-    org_id = user["membership"]["org_id"]
-
-    if not body.category_ids:
-        raise HTTPException(status_code=400, detail="At least one category required")
-
-    estimate = await service.estimate_cost(org_id, body.category_ids)
-
-    return CostEstimate(
-        total_cents=estimate["total_cents"],
-        breakdown=estimate["breakdown"],
-        within_budget=estimate["within_budget"],
-        budget_cap_cents=estimate["budget_cap_cents"],
-        warning_threshold_cents=estimate["warning_threshold_cents"],
     )
 
 
@@ -137,7 +95,6 @@ async def create_run(
     """
     Create a new collection run.
 
-    Validates budget before creating. Returns 400 if would exceed budget.
     Requires admin.automation permission.
     """
     org_id = user["membership"]["org_id"]
@@ -154,9 +111,7 @@ async def create_run(
     )
 
     if "error" in result:
-        if result["error"] == "budget_exceeded":
-            raise HTTPException(status_code=400, detail=result["message"])
-        elif result["error"] == "concurrent_limit":
+        if result["error"] == "concurrent_limit":
             raise HTTPException(status_code=429, detail=result["message"])
         else:
             raise HTTPException(status_code=500, detail=result["message"])
@@ -166,9 +121,6 @@ async def create_run(
         id=run["id"],
         name=run["name"],
         status=run["status"],
-        estimated_cost_cents=run["estimated_cost_cents"],
-        actual_cost_cents=run["actual_cost_cents"],
-        budget_cap_cents=run["budget_cap_cents"],
         total_items=run["total_items"],
         processed_items=run["processed_items"],
         failed_items=run["failed_items"],
@@ -202,9 +154,6 @@ async def list_runs(
                 id=r["id"],
                 name=r["name"],
                 status=r["status"],
-                estimated_cost_cents=r["estimated_cost_cents"],
-                actual_cost_cents=r["actual_cost_cents"],
-                budget_cap_cents=r["budget_cap_cents"],
                 total_items=r["total_items"],
                 processed_items=r["processed_items"],
                 failed_items=r["failed_items"],
@@ -242,9 +191,6 @@ async def get_run(
         id=run["id"],
         name=run["name"],
         status=run["status"],
-        estimated_cost_cents=run["estimated_cost_cents"],
-        actual_cost_cents=run["actual_cost_cents"],
-        budget_cap_cents=run["budget_cap_cents"],
         total_items=run["total_items"],
         processed_items=run["processed_items"],
         failed_items=run["failed_items"],
@@ -421,9 +367,6 @@ async def get_run_progress(
             products_searched=progress["products_searched"],
             sellers_found=progress["sellers_found"],
             sellers_new=progress["sellers_new"],
-            actual_cost_cents=progress["actual_cost_cents"],
-            budget_cap_cents=progress["budget_cap_cents"],
-            cost_status=progress["cost_status"],
             worker_status=[
                 WorkerStatus(**w) for w in (progress["worker_status"] or [])
             ],
