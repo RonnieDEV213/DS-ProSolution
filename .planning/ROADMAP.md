@@ -20,7 +20,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 
 ### Phase 6: Collection Infrastructure
 
-**Goal:** Establish foundation for collection pipeline with cost controls and progress tracking
+**Goal:** Establish foundation for collection pipeline with seller management, cost controls, and progress tracking
 **Depends on:** v1 complete (existing auth/RBAC infrastructure)
 **Requirements:** COLL-01, COLL-06, COLL-07
 **Success Criteria** (what must be TRUE):
@@ -28,12 +28,16 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
   2. Collection run displays estimated API cost before starting
   3. Collection run aborts if budget cap would be exceeded
   4. Job state persists across API restarts (checkpointing)
-**Plans:** 3 plans
+  5. Admin can view/edit/add/remove sellers directly
+  6. All seller changes are logged with full audit trail
+  7. Admin can compare seller list snapshots (diff view)
+**Plans:** 4 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Database schema (collection_settings, collection_runs, collection_items, sellers)
-- [ ] 06-02-PLAN.md — CollectionService and API endpoints (cost estimation, budget enforcement, CRUD)
-- [ ] 06-03-PLAN.md — Collections UI tab (run list, create dialog with cost preview)
+- [x] 06-01-PLAN.md — Database schema (collection_settings, collection_runs, collection_items, sellers)
+- [x] 06-02-PLAN.md — CollectionService and API endpoints (cost estimation, budget enforcement, CRUD)
+- [ ] 06-03-PLAN.md — Backend extensions (audit log, seller CRUD, diff, templates, enhanced progress)
+- [ ] 06-04-PLAN.md — Collections UI (sellers grid, history/diff modals, progress bar, run config)
 
 ### Phase 7: Amazon Best Sellers
 
@@ -92,7 +96,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 6. Collection Infrastructure | v2 | 0/3 | In progress | - |
+| 6. Collection Infrastructure | v2 | 2/4 | In progress | - |
 | 7. Amazon Best Sellers | v2 | 0/TBD | Not started | - |
 | 8. eBay Seller Search | v2 | 0/TBD | Not started | - |
 | 9. Storage, Export, and Collection UI | v2 | 0/TBD | Not started | - |
