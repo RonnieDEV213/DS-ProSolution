@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 6 of 9 (Collection Infrastructure)
-Plan: None — phase not yet planned
-Status: Ready for `/gsd:plan-phase 6`
-Last activity: 2026-01-20 — v2 roadmap created
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-01-20 — Completed 06-01-PLAN.md (Collection Infrastructure Schema)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 8% (1/12 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [░░░░░░░░░░] 0%
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: -
+- Total plans completed: 1
+- Average duration: 2 min
+- Total execution time: 2 min
 
 ## Accumulated Context
 
@@ -46,10 +46,15 @@ Key decisions logged in PROJECT.md Key Decisions table.
 Recent for v2:
 - Use Oxylabs E-Commerce Scraper API for both Amazon and eBay ($49/month Micro plan)
 - Budget controls and progress tracking before any API calls (prevent cost overruns)
+- Budget cap in cents (INT) for integer arithmetic
+- JSONB checkpoint column for flexible crash recovery
+- CHECK constraints for status state machine (vs enum for easier migration)
+- Normalized name uniqueness for seller deduplication
 
 ### Pending Todos
 
 - Run migration 036_presence_system.sql in Supabase SQL editor (if not already done)
+- Run migration 037_collection_infrastructure.sql in Supabase SQL editor
 
 ### Blockers/Concerns
 
@@ -57,7 +62,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-20
-Stopped at: v2 roadmap created
+Last session: 2026-01-20T13:32:11Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
-Next action: `/gsd:plan-phase 6` to plan Collection Infrastructure
+Next action: `/gsd:execute-plan .planning/phases/06-collection-infrastructure/06-02-PLAN.md`
