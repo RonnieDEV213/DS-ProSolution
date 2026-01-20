@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 7 of 9 (Amazon Best Sellers)
-Plan: 3 of 5 complete
+Plan: 4 of 5 complete
 Status: In progress
-Last activity: 2026-01-20 — Completed 07-03-PLAN.md (Amazon Category & Preset API)
+Last activity: 2026-01-20 — Completed 07-04-PLAN.md (Category Selection UI)
 
-Progress: [██████░░░░] 50% (6/12 v2 plans)
+Progress: [██████░░░░] 58% (7/12 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [██████░░░░] 50% (6/12 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 6
-- Average duration: ~4 min
-- Total execution time: ~21 min
+- Total plans completed: 7
+- Average duration: ~3 min
+- Total execution time: ~24 min
 
 ## Accumulated Context
 
@@ -59,6 +59,8 @@ Recent for v2:
 - Oxylabs cost tracking at 3 cents per bestsellers page (COST_PER_BESTSELLERS_PAGE_CENTS)
 - Rate limit (429) returns error field in ScrapeResult instead of raising exception
 - CategoryLoader minimal subclass pattern for accessing get_categories without full credentials
+- Preset dropdown separate component from selector for reusability
+- Collapsible department hierarchy with expandedDepts Set pattern
 
 ### Pending Todos
 
@@ -75,7 +77,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-20T21:05:00Z
-Stopped at: Completed 07-03-PLAN.md (Amazon Category & Preset API)
+Last session: 2026-01-20T20:53:11Z
+Stopped at: Completed 07-04-PLAN.md (Category Selection UI)
 Resume file: None
-Next action: 07-04-PLAN.md (Collection Worker Implementation)
+Next action: 07-05-PLAN.md (Collection Worker Implementation)
