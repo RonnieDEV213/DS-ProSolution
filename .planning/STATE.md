@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 6 of 9 (Collection Infrastructure)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: In progress
-Last activity: 2026-01-20 — Completed 06-01-PLAN.md (Collection Infrastructure Schema)
+Last activity: 2026-01-20 — Completed 06-02-PLAN.md (Collection Service & API)
 
-Progress: [█░░░░░░░░░] 8% (1/12 v2 plans)
+Progress: [██░░░░░░░░] 17% (2/12 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [█░░░░░░░░░] 8% (1/12 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 1
-- Average duration: 2 min
-- Total execution time: 2 min
+- Total plans completed: 2
+- Average duration: 3.5 min
+- Total execution time: 7 min
 
 ## Accumulated Context
 
@@ -50,6 +50,8 @@ Recent for v2:
 - JSONB checkpoint column for flexible crash recovery
 - CHECK constraints for status state machine (vs enum for easier migration)
 - Normalized name uniqueness for seller deduplication
+- Placeholder cost estimation (50 products/category) for Phase 6 - Phase 7 adds real estimates
+- Budget hard-block on create (not soft-warning) prevents accidental overspend
 
 ### Pending Todos
 
@@ -62,7 +64,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-20T13:32:11Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-01-20T13:45:00Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
-Next action: `/gsd:execute-plan .planning/phases/06-collection-infrastructure/06-02-PLAN.md`
+Next action: `/gsd:execute-plan .planning/phases/06-collection-infrastructure/06-03-PLAN.md`
