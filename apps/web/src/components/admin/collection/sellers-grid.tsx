@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,6 @@ import { X, Download, Copy, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const CELL_WIDTH = 140; // pixels per seller cell
-const MIN_COLUMNS = 3;
-const MAX_COLUMNS = 8;
 
 interface Seller {
   id: string;
@@ -29,15 +26,12 @@ interface SellersGridProps {
 export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new Set() }: SellersGridProps) {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
-  const [columns, setColumns] = useState(5);
   const [newSellerName, setNewSellerName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const resizeRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   // Fetch sellers
@@ -64,37 +58,6 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   useEffect(() => {
     fetchSellers();
   }, [refreshTrigger, fetchSellers]);
-
-  // Resize handling
-  useEffect(() => {
-    const handle = resizeRef.current;
-    if (!handle) return;
-
-    let startX = 0;
-    let startWidth = 0;
-
-    const onMouseDown = (e: MouseEvent) => {
-      startX = e.clientX;
-      startWidth = containerRef.current?.offsetWidth || CELL_WIDTH * columns;
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    };
-
-    const onMouseMove = (e: MouseEvent) => {
-      const delta = e.clientX - startX;
-      const newWidth = startWidth + delta;
-      const newCols = Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, Math.round(newWidth / CELL_WIDTH)));
-      setColumns(newCols);
-    };
-
-    const onMouseUp = () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
-
-    handle.addEventListener("mousedown", onMouseDown);
-    return () => handle.removeEventListener("mousedown", onMouseDown);
-  }, [columns]);
 
   // Add seller
   const handleAddSeller = async () => {
@@ -223,8 +186,6 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return <div className="text-gray-400 p-4">Loading sellers...</div>;
   }
 
-  const gridWidth = columns * CELL_WIDTH;
-
   return (
     <div className="flex flex-col h-full">
       {/* Header with add + export */}
@@ -263,68 +224,52 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
         </div>
       </div>
 
-      {/* Grid container with resize handle */}
-      <div className="relative flex-1 min-h-0">
-        <div
-          ref={containerRef}
-          style={{ width: gridWidth }}
-          className="h-full overflow-y-auto bg-gray-900 border border-gray-800 rounded-lg"
-        >
-          {sellers.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              No sellers yet. Add one above or run a collection.
-            </div>
-          ) : (
-            <div
-              className="grid gap-1 p-2"
-              style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
-            >
-              {sellers.map((seller) => (
-                <div
-                  key={seller.id}
-                  className={cn(
-                    "group relative px-2 py-1 bg-gray-800 rounded text-sm text-gray-200 truncate",
-                    "hover:bg-gray-700 transition-colors cursor-pointer",
-                    newSellerIds.has(seller.id) && "ring-1 ring-green-500 bg-green-900/20"
-                  )}
-                  onClick={() => startEdit(seller)}
-                >
-                  {editingId === seller.id ? (
-                    <input
-                      value={editValue ?? ""}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={saveEdit}
-                      onKeyDown={(e) => e.key === "Enter" && saveEdit()}
-                      className="w-full bg-gray-700 px-1 rounded outline-none text-white"
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    <>
-                      <span className="truncate">{seller.display_name}</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(seller.id);
-                        }}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Resize handle */}
-        <div
-          ref={resizeRef}
-          className="absolute right-0 top-0 h-full w-2 cursor-ew-resize hover:bg-blue-500/30"
-          style={{ right: `calc(100% - ${gridWidth}px - 8px)` }}
-        />
+      {/* Grid container */}
+      <div className="flex-1 min-h-0 overflow-y-auto bg-gray-900 border border-gray-800 rounded-lg">
+        {sellers.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            No sellers yet. Add one above or run a collection.
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1 p-2">
+            {sellers.map((seller) => (
+              <div
+                key={seller.id}
+                className={cn(
+                  "group relative px-2 py-1 bg-gray-800 rounded text-sm text-gray-200 truncate",
+                  "hover:bg-gray-700 transition-colors cursor-pointer",
+                  newSellerIds.has(seller.id) && "ring-1 ring-green-500 bg-green-900/20"
+                )}
+                onClick={() => startEdit(seller)}
+              >
+                {editingId === seller.id ? (
+                  <input
+                    value={editValue ?? ""}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={saveEdit}
+                    onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                    className="w-full bg-gray-700 px-1 rounded outline-none text-white"
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <>
+                    <span className="truncate">{seller.display_name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(seller.id);
+                      }}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
