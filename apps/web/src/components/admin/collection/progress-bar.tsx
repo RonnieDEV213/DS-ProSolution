@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Pause, Play, Square } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Pause, Play, Square } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -22,6 +22,12 @@ interface ProgressBarProps {
     actual_cost_cents: number;
     budget_cap_cents: number;
     cost_status: "safe" | "warning" | "exceeded";
+    // Checkpoint field for throttle status
+    checkpoint?: {
+      status?: "rate_limited" | "paused_failures" | string;
+      waiting_seconds?: number;
+      current_category?: string;
+    };
   } | null;
   onDetailsClick: () => void;
   onRunStateChange: () => void;
@@ -95,12 +101,20 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
         />
       </div>
 
+      {/* Throttle status banner */}
+      {progress.checkpoint?.status === "rate_limited" && progress.checkpoint?.waiting_seconds && (
+        <div className="px-4 py-2 bg-yellow-900/30 border-b border-yellow-700/50 flex items-center gap-2 text-sm text-yellow-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Waiting {progress.checkpoint.waiting_seconds} seconds before next request...</span>
+        </div>
+      )}
+
       {/* Quick info */}
       <div className="px-4 py-2 flex items-center justify-between text-sm">
         <div className="flex items-center gap-4 flex-wrap">
           {/* Cost */}
           <div className="flex items-center gap-1">
-            <span className="text-gray-500">Cost:</span>
+            <span className="text-gray-500">API cost so far:</span>
             <span className={costColorClass}>
               {formatCost(progress.actual_cost_cents)}
             </span>
