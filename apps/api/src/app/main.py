@@ -10,10 +10,11 @@ from app.routers import (
     admin_router,
     auth_router,
     automation_router,
+    collection_router,
     presence_router,
     records_router,
 )
-from app.background import cleanup_worker
+from app.background import cleanup_worker, collection_startup_recovery
 
 _cleanup_task = None
 
@@ -24,6 +25,10 @@ async def lifespan(app: FastAPI):
     global _cleanup_task
     # Startup
     _cleanup_task = asyncio.create_task(cleanup_worker())
+
+    # Check for interrupted collection runs
+    await collection_startup_recovery()
+
     yield
     # Shutdown
     if _cleanup_task:
@@ -51,6 +56,7 @@ app.include_router(accounts_router)
 app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(automation_router)
+app.include_router(collection_router)
 app.include_router(presence_router)
 app.include_router(records_router)
 

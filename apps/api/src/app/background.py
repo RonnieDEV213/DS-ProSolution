@@ -46,3 +46,22 @@ async def cleanup_worker():
     while True:
         await cleanup_stale_replacing_agents()
         await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+
+
+async def collection_startup_recovery():
+    """
+    One-time task on startup to check for interrupted collection runs.
+
+    Logs any runs that were in running/paused state when server stopped.
+    Full resume logic will be implemented in Phase 7 when actual collection runs.
+    """
+    try:
+        from app.services.collection import CollectionService
+
+        supabase = get_supabase()
+        service = CollectionService(supabase)
+        count = await service.resume_incomplete_runs()
+        if count > 0:
+            logger.info(f"Collection startup recovery: {count} run(s) need attention")
+    except Exception as e:
+        logger.error(f"Collection startup recovery failed: {e}")
