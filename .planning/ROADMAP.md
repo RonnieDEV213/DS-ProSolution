@@ -12,7 +12,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Phases
 
 - [x] **Phase 6: Collection Infrastructure** - Database schema, job framework, budget controls
-- [ ] **Phase 7: Amazon Best Sellers** - API integration and category selection UI
+- [x] **Phase 7: Amazon Best Sellers** - API integration and category selection UI
 - [ ] **Phase 8: eBay Seller Search** - API integration with dropshipper filters
 - [ ] **Phase 9: Storage, Export, and Collection UI** - Deduplication, export, progress tracking
 
@@ -52,11 +52,11 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Foundation (categories JSON, abstract scraper interface, presets schema)
-- [ ] 07-02-PLAN.md — Oxylabs scraper implementation
-- [ ] 07-03-PLAN.md — Amazon API endpoints (categories, presets CRUD)
-- [ ] 07-04-PLAN.md — Category selector UI (department hierarchy, search, presets dropdown)
-- [ ] 07-05-PLAN.md — Integration (collection execution, UI wiring)
+- [x] 07-01-PLAN.md — Foundation (categories JSON, abstract scraper interface, presets schema)
+- [x] 07-02-PLAN.md — Oxylabs scraper implementation
+- [x] 07-03-PLAN.md — Amazon API endpoints (categories, presets CRUD)
+- [x] 07-04-PLAN.md — Category selector UI (department hierarchy, search, presets dropdown)
+- [x] 07-05-PLAN.md — Integration (collection execution, UI wiring)
 
 ### Phase 8: eBay Seller Search
 
@@ -100,7 +100,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 6. Collection Infrastructure | v2 | 4/4 | Complete | 2026-01-20 |
-| 7. Amazon Best Sellers | v2 | 0/5 | Not started | - |
+| 7. Amazon Best Sellers | v2 | 5/5 | Complete | 2026-01-20 |
 | 8. eBay Seller Search | v2 | 0/TBD | Not started | - |
 | 9. Storage, Export, and Collection UI | v2 | 0/TBD | Not started | - |
 

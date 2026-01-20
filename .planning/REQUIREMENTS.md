@@ -78,24 +78,24 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AMZN-01 | Phase 7 | Pending |
-| AMZN-02 | Phase 7 | Pending |
-| AMZN-03 | Phase 7 | Pending |
-| AMZN-04 | Phase 7 | Pending |
-| AMZN-05 | Phase 7 | Pending |
+| AMZN-01 | Phase 7 | Complete |
+| AMZN-02 | Phase 7 | Complete |
+| AMZN-03 | Phase 7 | Complete |
+| AMZN-04 | Phase 7 | Omitted |
+| AMZN-05 | Phase 7 | Complete |
 | EBAY-01 | Phase 8 | Pending |
 | EBAY-02 | Phase 8 | Pending |
 | EBAY-03 | Phase 8 | Pending |
 | EBAY-04 | Phase 8 | Pending |
 | EBAY-05 | Phase 8 | Pending |
 | EBAY-06 | Phase 8 | Pending |
-| COLL-01 | Phase 6 | Pending |
+| COLL-01 | Phase 6 | Complete |
 | COLL-02 | Phase 9 | Pending |
 | COLL-03 | Phase 9 | Pending |
 | COLL-04 | Phase 9 | Pending |
 | COLL-05 | Phase 9 | Pending |
-| COLL-06 | Phase 6 | Pending |
-| COLL-07 | Phase 6 | Pending |
+| COLL-06 | Phase 6 | Complete |
+| COLL-07 | Phase 6 | Complete |
 | STOR-01 | Phase 9 | Pending |
 | STOR-02 | Phase 9 | Pending |
 | STOR-03 | Phase 9 | Pending |
