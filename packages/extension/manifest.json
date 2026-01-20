@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "DS-Pro Automation Hub",
+  "version": "0.1.0",
+  "description": "Automates eBay-to-Amazon order processing for DS-ProSolution",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs",
+    "tabGroups",
+    "bookmarks",
+    "scripting",
+    "sidePanel",
+    "windows"
+  ],
+
+  "host_permissions": [
+    "https://www.ebay.com/*",
+    "https://www.amazon.com/*",
+    "https://*.ecomsniper.com/*",
+    "http://localhost:8000/*"
+  ],
+
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.ebay.com/*", "https://www.amazon.com/*"],
+      "js": ["content/overlay.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+
+  "commands": {
+    "pause-all": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "Pause all automations"
+    },
+    "emergency-stop": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+X",
+        "mac": "Command+Shift+X"
+      },
+      "description": "Emergency stop all automations"
+    }
+  },
+
+  "icons": {
+    "128": "icons/icon-128.png"
+  }
+}

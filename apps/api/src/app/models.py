@@ -386,3 +386,430 @@ class AdminAccountListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# ============================================================
+# Automation Hub Models
+# ============================================================
+
+
+class AgentRole(str, Enum):
+    EBAY_AGENT = "EBAY_AGENT"
+    AMAZON_AGENT = "AMAZON_AGENT"
+
+
+class AgentStatus(str, Enum):
+    ACTIVE = "active"
+    PAUSED = "paused"
+    REVOKED = "revoked"
+    OFFLINE = "offline"
+
+
+class ApprovalStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    REVOKED = "revoked"
+    REPLACING = "replacing"
+
+
+class JobStatus(str, Enum):
+    QUEUED = "QUEUED"
+    CLAIMED = "CLAIMED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED_RETRYABLE = "FAILED_RETRYABLE"
+    FAILED_NEEDS_ATTENTION = "FAILED_NEEDS_ATTENTION"
+    EXPIRED = "EXPIRED"
+
+
+# ============================================================
+# Pairing Request Models (Extension-initiated flow)
+# ============================================================
+
+
+class PairingRequestCreate(BaseModel):
+    """Request body for extension requesting pairing."""
+
+    install_instance_id: str
+    ebay_account_key: Optional[str] = None
+    amazon_account_key: Optional[str] = None
+    ebay_account_display: Optional[str] = None
+    amazon_account_display: Optional[str] = None
+
+
+class PairingRequestResponse(BaseModel):
+    """Response from pairing request endpoint."""
+
+    device_status: str  # 'cooldown', 'pending', 'created', 'auto_approved'
+    request_id: Optional[UUID] = None
+    status: Optional[str] = None
+    next_allowed_at: Optional[datetime] = None
+    cooldown_seconds: int = 0
+    lifetime_request_count: int = 0
+    expires_at: Optional[datetime] = None  # When request expires (15 min)
+    # Auto-approve response fields
+    agent_id: Optional[UUID] = None
+    install_token: Optional[str] = None
+    role: Optional[AgentRole] = None
+    label: Optional[str] = None
+    account_id: Optional[UUID] = None  # For presence tracking on clock-in
+    account_name: Optional[str] = None
+    requires_checkin: bool = False
+    checkin_deadline_seconds: int = 0
+
+
+class PendingRequestResponse(BaseModel):
+    """Pending pairing request for admin view."""
+
+    id: UUID
+    install_instance_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None  # When request expires (15 min)
+    lifetime_request_count: int  # From automation_devices
+    # Detected account info
+    ebay_account_key: Optional[str] = None
+    amazon_account_key: Optional[str] = None
+    ebay_account_display: Optional[str] = None
+    amazon_account_display: Optional[str] = None
+    detected_role: Optional[AgentRole] = None
+
+
+class PendingRequestListResponse(BaseModel):
+    """List of pending pairing requests."""
+
+    requests: list[PendingRequestResponse]
+
+
+class ApprovalRequest(BaseModel):
+    """Request body for approving a pairing request."""
+
+    account_id: Optional[UUID] = None  # Required for EBAY_AGENT (or auto-created)
+    ebay_agent_id: Optional[UUID] = None  # Required for AMAZON_AGENT
+    role: AgentRole
+    label: Optional[str] = None
+
+
+class ApprovalResponse(BaseModel):
+    """Response from approving a pairing request."""
+
+    agent_id: UUID
+    message: str = "Request approved and agent created"
+
+
+class RejectionRequest(BaseModel):
+    """Request body for rejecting a pairing request."""
+
+    reason: Optional[str] = None
+
+
+# ============================================================
+# Available Accounts for Automation (from existing accounts table)
+# ============================================================
+
+
+class AvailableAccountResponse(BaseModel):
+    """Account available for agent assignment (from existing accounts table)."""
+
+    id: UUID
+    account_code: str
+    name: Optional[str] = None
+
+
+class AvailableAccountListResponse(BaseModel):
+    """List of available accounts for automation agent assignment."""
+
+    accounts: list[AvailableAccountResponse]
+
+
+class AvailableEbayAgentResponse(BaseModel):
+    """eBay agent available for Amazon agent assignment."""
+
+    id: UUID
+    account_id: UUID
+    account_code: str
+    account_name: Optional[str] = None
+    label: Optional[str] = None
+
+
+class AvailableEbayAgentListResponse(BaseModel):
+    """List of available eBay agents for Amazon agent assignment."""
+
+    ebay_agents: list[AvailableEbayAgentResponse]
+
+
+# ============================================================
+# Pairing Status Poll Models (for extension)
+# ============================================================
+
+
+class PairingPollResponse(BaseModel):
+    """Response from polling pairing status (extension)."""
+
+    status: str  # 'pending', 'approved', 'rejected', 'expired', 'not_found'
+    agent_id: Optional[UUID] = None
+    install_token: Optional[str] = None
+    role: Optional[AgentRole] = None
+    label: Optional[str] = None
+    account_id: Optional[UUID] = None  # For presence tracking on clock-in
+    account_name: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    expires_at: Optional[datetime] = None
+
+
+# ============================================================
+# Agent Models
+# ============================================================
+
+
+class AgentUpdate(BaseModel):
+    """Request body for updating an agent."""
+
+    label: Optional[str] = None
+    status: Optional[AgentStatus] = None
+
+
+class AgentStatusUpdate(BaseModel):
+    """Request body for updating agent status (by agent itself)."""
+
+    status: AgentStatus
+
+
+class AgentResponse(BaseModel):
+    """Agent data in API responses."""
+
+    id: UUID
+    org_id: UUID
+    account_id: Optional[UUID] = None  # For eBay agents (links to accounts)
+    account_code: Optional[str] = None  # From accounts table
+    account_name: Optional[str] = None  # From accounts table (may be null)
+    ebay_agent_id: Optional[UUID] = None  # For Amazon agents (links to eBay agent)
+    role: Optional[AgentRole] = None
+    label: Optional[str] = None
+    install_instance_id: str
+    status: AgentStatus
+    approval_status: ApprovalStatus = ApprovalStatus.APPROVED
+    ebay_account_key: Optional[str] = None
+    amazon_account_key: Optional[str] = None
+    ebay_account_display: Optional[str] = None
+    amazon_account_display: Optional[str] = None
+    replaced_by_id: Optional[UUID] = None
+    replaced_at: Optional[datetime] = None
+    last_seen_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class AgentListResponse(BaseModel):
+    """List of agents."""
+
+    agents: list[AgentResponse]
+
+
+# Job Models
+class JobCreate(BaseModel):
+    """Request body for creating a job (eBay agent)."""
+
+    ebay_order_id: str
+    item_name: Optional[str] = None
+    qty: int = 1
+    sale_price_cents: Optional[int] = None
+    ebay_fees_cents: Optional[int] = None
+    sale_date: Optional[date] = None
+    auto_order_url: str
+
+    @field_validator("qty")
+    @classmethod
+    def qty_must_be_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("qty must be at least 1")
+        return v
+
+
+class JobCreateResponse(BaseModel):
+    """Response from creating a job."""
+
+    job_id: UUID
+    status: JobStatus
+
+
+class JobClaimResponse(BaseModel):
+    """Response from claiming a job."""
+
+    job: Optional["JobResponse"] = None
+
+
+class JobComplete(BaseModel):
+    """Request body for completing a job."""
+
+    amazon_order_id: str
+    amazon_price_cents: int
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
+
+    @field_validator("amazon_price_cents")
+    @classmethod
+    def price_must_be_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("amazon_price_cents cannot be negative")
+        return v
+
+
+class JobFail(BaseModel):
+    """Request body for reporting a job failure."""
+
+    reason: str
+    details: Optional[str] = None
+
+
+class JobFailResponse(BaseModel):
+    """Response from failing a job."""
+
+    ok: bool
+    requeued: bool
+    status: JobStatus
+
+
+class JobResponse(BaseModel):
+    """Job data in API responses."""
+
+    id: UUID
+    org_id: UUID
+    status: JobStatus
+    attempt_count: int
+    ebay_order_id: str
+    item_name: Optional[str] = None
+    qty: Optional[int] = None
+    sale_price_cents: Optional[int] = None
+    ebay_fees_cents: Optional[int] = None
+    sale_date: Optional[date] = None
+    auto_order_url: str
+    amazon_order_id: Optional[str] = None
+    amazon_price_cents: Optional[int] = None
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
+    created_by_agent_id: Optional[UUID] = None
+    claimed_by_agent_id: Optional[UUID] = None
+    claimed_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    failure_reason: Optional[str] = None
+    failure_details: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class JobListResponse(BaseModel):
+    """Paginated list of jobs."""
+
+    jobs: list[JobResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+# Update forward reference
+JobClaimResponse.model_rebuild()
+
+
+# ============================================================
+# Agent Checkin Models
+# ============================================================
+
+
+class AgentCheckinResponse(BaseModel):
+    """Response from agent checkin endpoint."""
+
+    ok: bool
+    status: ApprovalStatus
+    message: str = ""
+
+
+# ============================================================
+# Access Code Models
+# ============================================================
+
+
+class AccessCodeGenerateRequest(BaseModel):
+    """Request body for generating an access code."""
+
+    custom_secret: Optional[str] = None  # If provided, use instead of random
+
+
+class AccessCodeGenerateResponse(BaseModel):
+    """Response from generating an access code.
+
+    Note: full_code is returned ONLY on generation. It cannot be retrieved later.
+    """
+
+    prefix: str  # 4-char prefix (always visible)
+    full_code: str  # prefix-secret (shown once, then only prefix visible)
+    expires_at: datetime
+
+
+class AccessCodeRotateRequest(BaseModel):
+    """Request body for rotating an access code secret."""
+
+    custom_secret: Optional[str] = None  # If provided, use instead of random
+
+
+class AccessCodeRotateResponse(BaseModel):
+    """Response from rotating an access code."""
+
+    prefix: str
+    full_code: str
+    rotated_at: datetime
+    expires_at: datetime
+
+
+class AccessCodeInfoResponse(BaseModel):
+    """Access code info (without secret)."""
+
+    prefix: str
+    created_at: datetime
+    expires_at: datetime
+    rotated_at: Optional[datetime] = None
+
+
+class RoleResponse(BaseModel):
+    """Role data in access code validation response."""
+
+    id: str
+    name: str
+    priority: int
+    permission_keys: list[str]
+
+
+class AccessCodeUserContext(BaseModel):
+    """User context returned on successful validation."""
+
+    id: str
+    name: Optional[str] = None
+    email: str
+    user_type: str  # "admin" | "va"
+    org_id: str
+    is_admin: bool
+
+
+class AccessCodeValidateRequest(BaseModel):
+    """Request body for validating an access code."""
+
+    code: str  # Full code: prefix-secret
+    account_id: str | None = None  # Optional account to clock into (records presence)
+
+
+class AccessCodeValidateResponse(BaseModel):
+    """Response from successful access code validation."""
+
+    access_token: str
+    expires_in: int  # seconds
+    user: AccessCodeUserContext
+    roles: list[RoleResponse]
+    effective_permission_keys: list[str]
+    rbac_version: str  # ISO timestamp of last permission change
+
+
+class AccessCodeErrorResponse(BaseModel):
+    """Response for failed access code validation."""
+
+    error_code: str  # "INVALID_CODE", "ACCOUNT_DISABLED", "RATE_LIMITED", "CODE_EXPIRED"
+    message: str  # User-facing message
+    retry_after: Optional[int] = None  # Seconds until retry allowed (for rate limit)

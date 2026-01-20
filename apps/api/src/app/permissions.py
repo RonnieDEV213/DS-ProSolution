@@ -19,6 +19,10 @@ DEPT_ROLE_PERMISSION_KEYS = {
     "order_tracking.write.order_remark",
     "order_tracking.read.service_remark",
     "order_tracking.write.service_remark",
+    # Accounts - view only access
+    "accounts.view",
+    # Auto Order - extension tab access
+    "auto_order.read",
 }
 
 # Permissions that CANNOT be assigned to department roles
@@ -75,6 +79,8 @@ PERMISSION_LABELS = {
     "order_tracking.write.order_remark": "Edit Order Remarks",
     "order_tracking.read.service_remark": "View Service Remarks",
     "order_tracking.write.service_remark": "Edit Service Remarks",
+    "accounts.view": "View Assigned Accounts",
+    "auto_order.read": "Auto Order Tab",
     "payouts.read": "View Payouts",
     "profit.read": "View Profit",
 }

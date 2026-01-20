@@ -8,13 +8,14 @@ import type { UserRole } from "@/lib/api";
  * Hook to get the current user's role and access profile information.
  * Returns flags for route guarding and admin detection.
  */
-export function useUserRole(): UserRole & { loading: boolean } {
+export function useUserRole(): UserRole & { loading: boolean; userId: string | null } {
   const [role, setRole] = useState<UserRole>({
     role: null,
     isAdmin: false,
     hasAccessProfile: false,
   });
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchRole() {
@@ -30,6 +31,8 @@ export function useUserRole(): UserRole & { loading: boolean } {
           setLoading(false);
           return;
         }
+
+        setUserId(user.id);
 
         // Fetch membership with access profile count
         const { data: membership } = await supabase
@@ -69,5 +72,5 @@ export function useUserRole(): UserRole & { loading: boolean } {
     fetchRole();
   }, []);
 
-  return { ...role, loading };
+  return { ...role, loading, userId };
 }

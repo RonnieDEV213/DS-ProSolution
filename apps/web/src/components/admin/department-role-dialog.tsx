@@ -32,6 +32,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 // All available permission keys for department roles
 const AVAILABLE_PERMISSIONS = [
   // Ordering Permissions
+  { key: "auto_order.read", label: "Auto Order Tab", group: "Ordering Permissions" },
   { key: "order_tracking.read", label: "View Order Tracking", group: "Ordering Permissions" },
   { key: "order_tracking.write.basic_fields", label: "Edit Basic Fields", group: "Ordering Permissions" },
   { key: "order_tracking.write.order_fields", label: "Edit Order Fields", group: "Ordering Permissions" },
@@ -43,6 +44,8 @@ const AVAILABLE_PERMISSIONS = [
   { key: "order_tracking.write.service_fields", label: "Edit Service Fields", group: "Customer Service Permissions" },
   { key: "order_tracking.read.service_remark", label: "View Service Remarks", group: "Customer Service Permissions" },
   { key: "order_tracking.write.service_remark", label: "Edit Service Remarks", group: "Customer Service Permissions" },
+  // Account Permissions
+  { key: "accounts.view", label: "View Assigned Accounts", group: "Account Permissions" },
 ];
 
 // Group permissions by category

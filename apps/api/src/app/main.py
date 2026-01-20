@@ -1,9 +1,40 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import accounts_router, admin_router, auth_router, records_router
+from app.routers import (
+    access_codes_router,
+    accounts_router,
+    admin_router,
+    auth_router,
+    automation_router,
+    presence_router,
+    records_router,
+)
+from app.background import cleanup_worker
 
-app = FastAPI(title="DS-ProSolution API", version="0.1.0")
+_cleanup_task = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle - start/stop background tasks."""
+    global _cleanup_task
+    # Startup
+    _cleanup_task = asyncio.create_task(cleanup_worker())
+    yield
+    # Shutdown
+    if _cleanup_task:
+        _cleanup_task.cancel()
+        try:
+            await _cleanup_task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="DS-ProSolution API", version="0.1.0", lifespan=lifespan)
 
 # CORS middleware for local development
 app.add_middleware(
@@ -15,9 +46,12 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(access_codes_router)
 app.include_router(accounts_router)
 app.include_router(admin_router)
 app.include_router(auth_router)
+app.include_router(automation_router)
+app.include_router(presence_router)
 app.include_router(records_router)
 
 
