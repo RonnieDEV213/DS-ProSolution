@@ -20,6 +20,7 @@ interface LogEntry {
 interface RecentLogsSidebarProps {
   refreshTrigger: number;
   onLogClick: (logId: string) => void;
+  onHeaderClick: (mostRecentLogId: string | null) => void;
   onStartRunClick: () => void;
   hasActiveRun: boolean;
 }
@@ -39,6 +40,7 @@ const sourceIcons = {
 export function RecentLogsSidebar({
   refreshTrigger,
   onLogClick,
+  onHeaderClick,
   onStartRunClick,
   hasActiveRun,
 }: RecentLogsSidebarProps) {
@@ -72,10 +74,13 @@ export function RecentLogsSidebar({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-3">
-        <History className="h-4 w-4 text-gray-400" />
-        <h3 className="text-sm font-medium text-gray-300">Recent Activity</h3>
-      </div>
+      <button
+        onClick={() => onHeaderClick(logs.length > 0 ? logs[0].id : null)}
+        className="flex items-center gap-2 mb-3 hover:text-white transition-colors group"
+      >
+        <History className="h-4 w-4 text-gray-400 group-hover:text-gray-300" />
+        <h3 className="text-sm font-medium text-gray-300 group-hover:text-white">Recent Activity</h3>
+      </button>
 
       {/* Log entries */}
       <div className="flex-1 overflow-y-auto space-y-1 min-h-0">

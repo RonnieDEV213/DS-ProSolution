@@ -47,6 +47,13 @@ export default function AutomationPage() {
     setLogDetailOpen(true);
   };
 
+  const handleHeaderClick = (mostRecentLogId: string | null) => {
+    if (mostRecentLogId) {
+      setSelectedLogId(mostRecentLogId);
+      setLogDetailOpen(true);
+    }
+  };
+
   const handleCompare = (sourceId: string | null, targetId: string | null) => {
     setDiffSourceId(sourceId);
     setDiffTargetId(targetId);
@@ -133,6 +140,7 @@ export default function AutomationPage() {
                 <RecentLogsSidebar
                   refreshTrigger={refreshTrigger}
                   onLogClick={handleLogClick}
+                  onHeaderClick={handleHeaderClick}
                   onStartRunClick={() => setRunConfigOpen(true)}
                   hasActiveRun={!!activeRun}
                 />
