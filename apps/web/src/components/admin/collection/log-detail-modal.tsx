@@ -228,9 +228,12 @@ export function LogDetailModal({
                 ) : sellers.length === 0 ? (
                   <div className="text-gray-500 text-sm">No sellers at this point</div>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-1">
                     {sellers.map((name, i) => (
-                      <div key={i} className="text-sm text-gray-300 truncate">
+                      <div
+                        key={i}
+                        className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300 truncate"
+                      >
                         {name}
                       </div>
                     ))}
