@@ -8,9 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { GitCompare, Plus, Minus, Edit3, Check } from "lucide-react";
+import { GitCompare, Plus, Minus, Edit3, Check, Download, FileText, Braces, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -166,6 +172,25 @@ export function LogDetailModal({
 
   const isSelected = (logId: string) => compareSelection.has(logId);
 
+  // Export functions
+  const downloadCSV = () => {
+    const content = "seller_name\n" + sellers.join("\n");
+    const blob = new Blob([content], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "sellers_snapshot.csv";
+    a.click();
+  };
+
+  const copyJSON = async () => {
+    await navigator.clipboard.writeText(JSON.stringify(sellers, null, 2));
+  };
+
+  const copyRawText = async () => {
+    await navigator.clipboard.writeText(sellers.join("\n"));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gray-900 border-gray-800 max-w-4xl h-[80vh] flex flex-col" hideCloseButton>
@@ -219,9 +244,35 @@ export function LogDetailModal({
           <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
             {/* Left: Sellers at this log point */}
             <div className="flex flex-col min-h-0">
-              <h4 className="text-sm font-medium text-gray-300 mb-2 flex-shrink-0">
-                Sellers at this point ({sellers.length})
-              </h4>
+              <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                <h4 className="text-sm font-medium text-gray-300">
+                  Sellers at this point ({sellers.length})
+                </h4>
+                {sellers.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                        Export
+                        <ChevronDown className="h-3 w-3 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
+                      <DropdownMenuItem onClick={downloadCSV} className="text-gray-200 focus:bg-gray-700">
+                        <Download className="h-4 w-4 mr-2" />
+                        Download CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={copyJSON} className="text-gray-200 focus:bg-gray-700">
+                        <Braces className="h-4 w-4 mr-2" />
+                        Copy JSON
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={copyRawText} className="text-gray-200 focus:bg-gray-700">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Copy Raw Text
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
               <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 p-2 min-h-0">
                 {sellersLoading ? (
                   <div className="text-gray-500 text-sm">Loading sellers...</div>

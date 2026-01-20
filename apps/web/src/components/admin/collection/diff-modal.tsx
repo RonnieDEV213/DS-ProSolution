@@ -8,8 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Download, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -17,8 +15,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 interface DiffModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  sourceId: string | null; // null = current list
-  targetId: string | null; // null = current list
+  sourceId: string | null;
+  targetId: string | null;
 }
 
 interface DiffResult {
@@ -38,7 +36,6 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
   const [sourceSellers, setSourceSellers] = useState<string[]>([]);
   const [targetSellers, setTargetSellers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -120,46 +117,6 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
     fetchDiff();
   }, [open, sourceId, targetId, supabase.auth]);
 
-  const copyList = async (type: "added" | "removed" | "source" | "target") => {
-    let list: string[] = [];
-    switch (type) {
-      case "added":
-        list = diff?.added || [];
-        break;
-      case "removed":
-        list = diff?.removed || [];
-        break;
-      case "source":
-        list = sourceSellers;
-        break;
-      case "target":
-        list = targetSellers;
-        break;
-    }
-    await navigator.clipboard.writeText(list.join("\n"));
-    setCopySuccess(type);
-    setTimeout(() => setCopySuccess(null), 2000);
-  };
-
-  const downloadCSV = (type: "added" | "removed", list: string[]) => {
-    const content = "seller_name\n" + list.join("\n");
-    const blob = new Blob([content], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${type}_sellers.csv`;
-    a.click();
-  };
-
-  const downloadJSON = (type: "added" | "removed", list: string[]) => {
-    const blob = new Blob([JSON.stringify(list, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${type}_sellers.json`;
-    a.click();
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gray-900 border-gray-800 max-w-5xl max-h-[85vh]">
@@ -183,25 +140,12 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 h-[50vh]">
+            <div className="grid grid-cols-2 gap-4 h-[60vh]">
               {/* Source list */}
               <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-gray-300">
-                    {sourceId ? "Source Snapshot" : "Current List"} ({sourceSellers.length})
-                  </h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyList("source")}
-                  >
-                    {copySuccess === "source" ? (
-                      <Check className="h-4 w-4 text-green-400" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                  {sourceId ? "Source Snapshot" : "Current List"} ({sourceSellers.length})
+                </h4>
                 <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 p-2">
                   {sourceSellers.map((name, i) => (
                     <div
@@ -222,22 +166,9 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
 
               {/* Target list */}
               <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-gray-300">
-                    {targetId ? "Target Snapshot" : "Current List"} ({targetSellers.length})
-                  </h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyList("target")}
-                  >
-                    {copySuccess === "target" ? (
-                      <Check className="h-4 w-4 text-green-400" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                  {targetId ? "Target Snapshot" : "Current List"} ({targetSellers.length})
+                </h4>
                 <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 p-2">
                   {targetSellers.map((name, i) => (
                     <div
@@ -253,87 +184,6 @@ export function DiffModal({ open, onOpenChange, sourceId, targetId }: DiffModalP
                       {name}
                     </div>
                   ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Added/Removed export sections */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Added sellers */}
-              <div className="bg-green-900/10 border border-green-900/30 rounded p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-green-400">
-                    Added ({diff?.added_count || 0})
-                  </h4>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyList("added")}
-                      className="text-green-400"
-                    >
-                      {copySuccess === "added" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => downloadCSV("added", diff?.added || [])}
-                      className="text-green-400"
-                    >
-                      CSV
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => downloadJSON("added", diff?.added || [])}
-                      className="text-green-400"
-                    >
-                      JSON
-                    </Button>
-                  </div>
-                </div>
-                <div className="max-h-24 overflow-y-auto text-sm text-green-300">
-                  {diff?.added.slice(0, 10).join(", ")}
-                  {(diff?.added.length || 0) > 10 && "..."}
-                </div>
-              </div>
-
-              {/* Removed sellers */}
-              <div className="bg-red-900/10 border border-red-900/30 rounded p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-red-400">
-                    Removed ({diff?.removed_count || 0})
-                  </h4>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyList("removed")}
-                      className="text-red-400"
-                    >
-                      {copySuccess === "removed" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => downloadCSV("removed", diff?.removed || [])}
-                      className="text-red-400"
-                    >
-                      CSV
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => downloadJSON("removed", diff?.removed || [])}
-                      className="text-red-400"
-                    >
-                      JSON
-                    </Button>
-                  </div>
-                </div>
-                <div className="max-h-24 overflow-y-auto text-sm text-red-300">
-                  {diff?.removed.slice(0, 10).join(", ")}
-                  {(diff?.removed.length || 0) > 10 && "..."}
                 </div>
               </div>
             </div>
