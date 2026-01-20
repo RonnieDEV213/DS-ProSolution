@@ -6,6 +6,7 @@ from .automation import router as automation_router
 from .collection import router as collection_router
 from .presence import router as presence_router
 from .records import router as records_router
+from .sellers import router as sellers_router
 
 __all__ = [
     "access_codes_router",
@@ -16,4 +17,5 @@ __all__ = [
     "collection_router",
     "presence_router",
     "records_router",
+    "sellers_router",
 ]

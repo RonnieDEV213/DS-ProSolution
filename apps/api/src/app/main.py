@@ -13,6 +13,7 @@ from app.routers import (
     collection_router,
     presence_router,
     records_router,
+    sellers_router,
 )
 from app.background import cleanup_worker, collection_startup_recovery
 
@@ -59,6 +60,7 @@ app.include_router(automation_router)
 app.include_router(collection_router)
 app.include_router(presence_router)
 app.include_router(records_router)
+app.include_router(sellers_router)
 
 
 @app.get("/health")
