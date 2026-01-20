@@ -14,8 +14,10 @@ const MAX_COLUMNS = 8;
 
 interface Seller {
   id: string;
-  name: string;
-  discovered_at: string;
+  display_name: string;
+  normalized_name: string;
+  platform: string;
+  times_seen: number;
 }
 
 interface SellersGridProps {
@@ -129,7 +131,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   // Edit seller
   const startEdit = (seller: Seller) => {
     setEditingId(seller.id);
-    setEditValue(seller.name);
+    setEditValue(seller.display_name);
   };
 
   const saveEdit = async () => {
@@ -211,7 +213,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   };
 
   const copyToClipboard = async () => {
-    const names = sellers.map(s => s.name).join("\n");
+    const names = sellers.map(s => s.display_name).join("\n");
     await navigator.clipboard.writeText(names);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2000);
@@ -299,7 +301,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                     />
                   ) : (
                     <>
-                      <span className="truncate">{seller.name}</span>
+                      <span className="truncate">{seller.display_name}</span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
