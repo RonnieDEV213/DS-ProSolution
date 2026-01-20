@@ -133,8 +133,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   };
 
   const saveEdit = async () => {
-    if (!editingId || !editValue.trim()) {
+    if (!editingId || !editValue?.trim()) {
       setEditingId(null);
+      setEditValue("");
       return;
     }
 
