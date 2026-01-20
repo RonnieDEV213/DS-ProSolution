@@ -43,17 +43,20 @@ Plans:
 
 **Goal:** Admin can fetch products from Amazon Best Sellers with category selection
 **Depends on:** Phase 6
-**Requirements:** AMZN-01, AMZN-02, AMZN-03, AMZN-04, AMZN-05
+**Requirements:** AMZN-01, AMZN-02, AMZN-03, AMZN-05 (AMZN-04 omitted per user decision - no "Top 10" preset)
 **Success Criteria** (what must be TRUE):
   1. Admin can view list of Amazon categories with checkboxes
   2. Admin can use "Select All" preset to check all categories
-  3. Admin can use "Top 10" preset to select highest-volume categories
-  4. Admin can save custom category selection as named preset
-  5. Collection fetches product titles and prices from selected categories
-**Plans:** TBD
+  3. Admin can save custom category selection as named preset
+  4. Collection fetches product titles and prices from selected categories
+**Plans:** 5 plans
 
 Plans:
-- [ ] 07-01: TBD
+- [ ] 07-01-PLAN.md — Foundation (categories JSON, abstract scraper interface, presets schema)
+- [ ] 07-02-PLAN.md — Oxylabs scraper implementation
+- [ ] 07-03-PLAN.md — Amazon API endpoints (categories, presets CRUD)
+- [ ] 07-04-PLAN.md — Category selector UI (department hierarchy, search, presets dropdown)
+- [ ] 07-05-PLAN.md — Integration (collection execution, UI wiring)
 
 ### Phase 8: eBay Seller Search
 
@@ -97,17 +100,17 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 6. Collection Infrastructure | v2 | 4/4 | Complete | 2026-01-20 |
-| 7. Amazon Best Sellers | v2 | 0/TBD | Not started | - |
+| 7. Amazon Best Sellers | v2 | 0/5 | Not started | - |
 | 8. eBay Seller Search | v2 | 0/TBD | Not started | - |
 | 9. Storage, Export, and Collection UI | v2 | 0/TBD | Not started | - |
 
 ## Requirement Coverage
 
-**v2 SellerCollection:** 23/23 requirements mapped
+**v2 SellerCollection:** 22/23 requirements mapped (AMZN-04 omitted per user decision)
 
 | Category | Requirements | Phase |
 |----------|--------------|-------|
-| Amazon Best Sellers | AMZN-01, AMZN-02, AMZN-03, AMZN-04, AMZN-05 | Phase 7 |
+| Amazon Best Sellers | AMZN-01, AMZN-02, AMZN-03, AMZN-05 | Phase 7 |
 | eBay Search | EBAY-01, EBAY-02, EBAY-03, EBAY-04, EBAY-05, EBAY-06 | Phase 8 |
 | Collection Management | COLL-01, COLL-06, COLL-07 | Phase 6 |
 | Collection Management | COLL-02, COLL-03, COLL-04, COLL-05 | Phase 9 |
