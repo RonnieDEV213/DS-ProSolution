@@ -1057,3 +1057,54 @@ class EnhancedProgress(BaseModel):
     cost_status: Literal["safe", "warning", "exceeded"]
     # Workers
     worker_status: list[WorkerStatus]
+
+
+# ============================================================
+# Amazon Category Presets
+# ============================================================
+
+
+class CategoryPresetCreate(BaseModel):
+    """Request to create a category preset."""
+
+    name: str
+    category_ids: list[str]
+
+
+class CategoryPresetResponse(BaseModel):
+    """Category preset response."""
+
+    id: str
+    name: str
+    category_ids: list[str]
+    is_builtin: bool
+    created_at: str
+
+
+class CategoryPresetListResponse(BaseModel):
+    """List of category presets."""
+
+    presets: list[CategoryPresetResponse]
+
+
+class AmazonCategory(BaseModel):
+    """Single Amazon category."""
+
+    id: str
+    name: str
+    node_id: str
+
+
+class AmazonDepartment(BaseModel):
+    """Amazon department with child categories."""
+
+    id: str
+    name: str
+    node_id: str
+    categories: list[AmazonCategory]
+
+
+class AmazonCategoriesResponse(BaseModel):
+    """Response containing all Amazon departments and categories."""
+
+    departments: list[AmazonDepartment]
