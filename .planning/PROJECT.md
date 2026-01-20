@@ -12,31 +12,38 @@ VAs can securely authenticate into the extension and see only the features their
 
 ### Validated
 
-<!-- Shipped and confirmed valuable. Inferred from existing codebase. -->
+<!-- Shipped and confirmed valuable. -->
 
-- ✓ User authentication via Supabase (login, session, role-based routing) — existing
-- ✓ Admin dashboard with user management, account management, VA assignment — existing
-- ✓ VA dashboard with order tracking and bookkeeping records — existing
-- ✓ Client dashboard with metrics/summary views — existing
-- ✓ Chrome extension with pairing flow (request → admin approval → install token) — existing
-- ✓ Automation agents (eBay creates jobs, Amazon claims/completes jobs) — existing
-- ✓ Department roles/access profiles with granular permissions for VAs — existing
-- ✓ Field-level permissions on bookkeeping records — existing
-- ✓ Audit logging for admin mutations — existing
+**Pre-existing (inferred from codebase):**
+- ✓ User authentication via Supabase (login, session, role-based routing)
+- ✓ Admin dashboard with user management, account management, VA assignment
+- ✓ VA dashboard with order tracking and bookkeeping records
+- ✓ Client dashboard with metrics/summary views
+- ✓ Chrome extension with pairing flow (request → admin approval → install token)
+- ✓ Automation agents (eBay creates jobs, Amazon claims/completes jobs)
+- ✓ Department roles/access profiles with granular permissions for VAs
+- ✓ Field-level permissions on bookkeeping records
+- ✓ Audit logging for admin mutations
+
+**v1 Extension Auth & RBAC (shipped 2026-01-20):**
+- ✓ Access code system: immutable 4-char prefix + rotatable 12-char secret, Argon2id hashing
+- ✓ Access code UI: masked display, hold-to-reveal, copy, rotate, custom secret with validation
+- ✓ Profile Settings modal with sidebar tabs pattern (Profile, Security, Extension tabs)
+- ✓ Security tab with access code UI for Admin/VA only (Clients excluded)
+- ✓ Extension auth flow: require access code after pairing approval, JWT storage
+- ✓ Extension RBAC: load roles/permissions, render tabs per assigned role
+- ✓ Admin extension bypass: see all tabs without RBAC filtering
+- ✓ Permission `accounts.view`: view-only account list for VAs, VA-assignment column hidden
+- ✓ Permission `auto_order.read`: controls Auto Order tab visibility in extension
+- ✓ Account presence/occupancy: real-time indicators, Admin sees VA name, VAs see "Occupied"
+- ✓ Extension inactivity timeout: 1-hour with 5-minute warning, session recovery on restart
+- ✓ Permission re-check: periodic alarm detects role changes, forces re-auth
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Profile Settings modal replacing bottom-left user info + sign-out (sidebar tabs pattern)
-- [ ] Access code system: immutable user prefix + rotatable secret portion
-- [ ] Access code UI: masked display, reveal toggle, copy, rotate, customize with validation
-- [ ] Extension tab in Profile Settings: install/download for all; access code UI for Admin/VA only
-- [ ] Extension auth flow: require access code after pairing approval
-- [ ] Extension RBAC: load roles/permissions on auth success, render tabs per assigned role
-- [ ] Admin extension access: bypass RBAC, see all tabs
-- [ ] Permission `account:view`: view-only account list, hide VA-assignment column
-- [ ] Account presence/occupancy: Admin sees who, VAs see "Occupied"
+(None — define next milestone with /gsd:new-milestone)
 
 ### Out of Scope
 
@@ -81,10 +88,20 @@ VAs can securely authenticate into the extension and see only the features their
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Access code = prefix + secret | Prefix provides user identification, secret provides rotatability without breaking integrations that might cache prefix | — Pending |
-| One extension tab per role | Simplifies RBAC mapping; role name = tab name; VAs see tabs for their assigned roles | — Pending |
-| Presence shows "Occupied" for VAs | Privacy/simplicity; VAs don't need to know who, just that account is in use | — Pending |
-| Clients see extension download but no access code | Allows clients to install extension (future use?) but blocks auth today | — Pending |
+| Access code = 4-char prefix + 12-char secret | Prefix enables O(1) lookup, secret hashed with Argon2id for security | ✓ Good — v1 |
+| One extension tab per role | Simplifies RBAC mapping; role name = tab name; VAs see tabs for their assigned roles | ✓ Good — v1 |
+| Presence shows "Occupied" for VAs | Privacy/simplicity; VAs don't need to know who, just that account is in use | ✓ Good — v1 |
+| Clients see extension download but no access code | Allows clients to install extension (future use?) but blocks auth today | ✓ Good — v1 |
+| 15-minute JWT expiry for extension | Balance between security (short-lived tokens) and UX (not too frequent re-auth) | ✓ Good — v1 |
+| 1-hour inactivity timeout with 5-min warning | Protects account access while allowing reasonable work sessions | ✓ Good — v1 |
+| Service layer pattern for API | Business logic in services/, routes in routers/ — clean separation | ✓ Good — v1 |
+| Upsert for presence with user/org constraint | Atomic presence swap ensures VA can only be on one account at a time | ✓ Good — v1 |
+
+## Current State
+
+**Shipped:** v1 Extension Auth & RBAC (2026-01-20)
+**Tech Stack:** Next.js 14+, FastAPI, Supabase, Chrome Extension MV3
+**Codebase:** ~16,500 lines added in v1 milestone across 74 files
 
 ---
-*Last updated: 2026-01-18 after initialization*
+*Last updated: 2026-01-20 after v1 milestone*
