@@ -193,7 +193,7 @@ export function LogDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-gray-800 max-w-4xl h-[80vh] flex flex-col" hideCloseButton>
+      <DialogContent className="bg-gray-900 border-gray-800 max-w-3xl h-[80vh] flex flex-col" hideCloseButton>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-white flex items-center justify-between">
             <span>Log Details</span>
