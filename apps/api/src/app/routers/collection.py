@@ -8,7 +8,7 @@ Admin endpoints for:
 """
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.auth import require_permission_key
 from app.database import get_supabase
@@ -278,6 +278,46 @@ async def start_run(
             raise HTTPException(status_code=400, detail=result["message"])
 
     return result
+
+
+@router.post("/runs/{run_id}/execute")
+async def execute_run(
+    run_id: str,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Execute a collection run (start Amazon product fetching).
+
+    This starts the actual scraping process in the background.
+    The run must be in 'running' status (call /start first).
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    run = await service.get_run(run_id, org_id)
+
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    if run["status"] != "running":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Run must be in 'running' status to execute (current: {run['status']})"
+        )
+
+    # Start collection in background
+    async def run_collection():
+        await service.run_amazon_collection(
+            run_id=run_id,
+            org_id=org_id,
+            category_ids=run["category_ids"],
+        )
+
+    background_tasks.add_task(run_collection)
+
+    return {"ok": True, "message": "Collection started", "run_id": run_id}
 
 
 @router.post("/runs/{run_id}/pause")
