@@ -585,6 +585,8 @@ class CollectionService:
 
     async def get_sellers_at_log(self, org_id: str, log_id: str) -> list[str]:
         """Get the seller list as it was right after a specific log entry."""
+        import json
+
         # Get the log entry timestamp
         log_result = (
             self.supabase.table("seller_audit_log")
@@ -598,10 +600,10 @@ class CollectionService:
 
         timestamp = log_result.data[0]["created_at"]
 
-        # Get all log entries up to that timestamp
+        # Get all log entries up to that timestamp (include old_value for edits)
         entries = (
             self.supabase.table("seller_audit_log")
-            .select("action, seller_name")
+            .select("action, seller_name, old_value")
             .eq("org_id", org_id)
             .lte("created_at", timestamp)
             .order("created_at", desc=False)
@@ -616,9 +618,17 @@ class CollectionService:
             elif entry["action"] == "remove":
                 sellers.discard(entry["seller_name"])
             elif entry["action"] == "edit":
-                # For edits, the seller_name is the new name
-                # We'd need old_value to properly track, but for simplicity
-                # we just ensure current name is in the set
+                # For edits: remove old name, add new name
+                # old_value is JSON string like {"display_name": "Old Name"}
+                if entry.get("old_value"):
+                    try:
+                        old_data = json.loads(entry["old_value"])
+                        old_name = old_data.get("display_name")
+                        if old_name:
+                            sellers.discard(old_name)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                # seller_name is the new name
                 sellers.add(entry["seller_name"])
 
         return sorted(list(sellers))
