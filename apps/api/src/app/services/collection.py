@@ -513,10 +513,7 @@ class CollectionService:
 
         name = result.data[0]["display_name"]
 
-        # Delete
-        self.supabase.table("sellers").delete().eq("id", seller_id).execute()
-
-        # Log the removal
+        # Log the removal BEFORE deleting (to satisfy foreign key constraint)
         await self._log_seller_change(
             org_id=org_id,
             user_id=user_id,
@@ -529,6 +526,9 @@ class CollectionService:
             run_id=None,
             criteria=criteria,
         )
+
+        # Delete after logging
+        self.supabase.table("sellers").delete().eq("id", seller_id).execute()
 
     # ============================================================
     # Audit Logging
