@@ -289,11 +289,11 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                 >
                   {editingId === seller.id ? (
                     <input
-                      value={editValue}
+                      value={editValue ?? ""}
                       onChange={(e) => setEditValue(e.target.value)}
                       onBlur={saveEdit}
                       onKeyDown={(e) => e.key === "Enter" && saveEdit()}
-                      className="w-full bg-gray-700 px-1 rounded outline-none"
+                      className="w-full bg-gray-700 px-1 rounded outline-none text-white"
                       autoFocus
                       onClick={(e) => e.stopPropagation()}
                     />
