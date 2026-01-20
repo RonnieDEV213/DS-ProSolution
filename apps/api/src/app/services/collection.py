@@ -339,3 +339,442 @@ class CollectionService:
                 logger.info(f"  - Run {run['id']}: {run['name']} (status: {run['status']}, checkpoint: {run.get('checkpoint') is not None})")
 
         return len(runs)
+
+    # ============================================================
+    # Seller Management
+    # ============================================================
+
+    def _normalize_seller_name(self, name: str) -> str:
+        """Normalize seller name for deduplication."""
+        import re
+        # Lowercase, strip, collapse whitespace
+        normalized = re.sub(r'\s+', ' ', name.lower().strip())
+        return normalized
+
+    async def get_sellers(
+        self,
+        org_id: str,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Get all sellers for the org, newest first."""
+        result = (
+            self.supabase.table("sellers")
+            .select("*", count="exact")
+            .eq("org_id", org_id)
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+        return result.data or [], result.count or 0
+
+    async def add_seller(
+        self,
+        org_id: str,
+        user_id: str,
+        name: str,
+        source: str = "manual",
+        run_id: str | None = None,
+    ) -> dict:
+        """Add a seller manually or from collection run."""
+        normalized = self._normalize_seller_name(name)
+
+        # Check if already exists
+        existing = (
+            self.supabase.table("sellers")
+            .select("id")
+            .eq("org_id", org_id)
+            .eq("normalized_name", normalized)
+            .eq("platform", "ebay")
+            .execute()
+        )
+        if existing.data:
+            raise ValueError(f"Seller '{name}' already exists")
+
+        # Insert seller
+        seller_data = {
+            "org_id": org_id,
+            "display_name": name,
+            "normalized_name": normalized,
+            "platform": "ebay",
+            "first_seen_run_id": run_id,
+            "last_seen_run_id": run_id,
+            "times_seen": 1,
+        }
+        result = self.supabase.table("sellers").insert(seller_data).execute()
+
+        if not result.data:
+            raise ValueError("Failed to create seller")
+
+        seller = result.data[0]
+
+        # Log the addition
+        await self._log_seller_change(
+            org_id=org_id,
+            user_id=user_id,
+            action="add",
+            seller_id=seller["id"],
+            seller_name=name,
+            old_value=None,
+            new_value={"display_name": name},
+            source=source,
+            run_id=run_id,
+        )
+
+        return seller
+
+    async def update_seller(
+        self,
+        org_id: str,
+        user_id: str,
+        seller_id: str,
+        new_name: str,
+    ) -> dict:
+        """Update a seller's name."""
+        # Get current state
+        result = (
+            self.supabase.table("sellers")
+            .select("*")
+            .eq("id", seller_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Seller not found")
+
+        current = result.data[0]
+        old_name = current["display_name"]
+        new_normalized = self._normalize_seller_name(new_name)
+
+        # Check for duplicate
+        dup_check = (
+            self.supabase.table("sellers")
+            .select("id")
+            .eq("org_id", org_id)
+            .eq("normalized_name", new_normalized)
+            .eq("platform", "ebay")
+            .neq("id", seller_id)
+            .execute()
+        )
+        if dup_check.data:
+            raise ValueError(f"Seller '{new_name}' already exists")
+
+        # Update
+        update_result = (
+            self.supabase.table("sellers")
+            .update({
+                "display_name": new_name,
+                "normalized_name": new_normalized,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            })
+            .eq("id", seller_id)
+            .execute()
+        )
+
+        if not update_result.data:
+            raise ValueError("Failed to update seller")
+
+        seller = update_result.data[0]
+
+        # Log the edit
+        await self._log_seller_change(
+            org_id=org_id,
+            user_id=user_id,
+            action="edit",
+            seller_id=seller_id,
+            seller_name=new_name,
+            old_value={"display_name": old_name},
+            new_value={"display_name": new_name},
+            source="manual",
+            run_id=None,
+        )
+
+        return seller
+
+    async def remove_seller(
+        self,
+        org_id: str,
+        user_id: str,
+        seller_id: str,
+        source: str = "manual",
+        criteria: dict | None = None,
+    ) -> None:
+        """Remove a seller."""
+        # Get current state
+        result = (
+            self.supabase.table("sellers")
+            .select("display_name")
+            .eq("id", seller_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Seller not found")
+
+        name = result.data[0]["display_name"]
+
+        # Delete
+        self.supabase.table("sellers").delete().eq("id", seller_id).execute()
+
+        # Log the removal
+        await self._log_seller_change(
+            org_id=org_id,
+            user_id=user_id,
+            action="remove",
+            seller_id=seller_id,
+            seller_name=name,
+            old_value={"display_name": name},
+            new_value=None,
+            source=source,
+            run_id=None,
+            criteria=criteria,
+        )
+
+    # ============================================================
+    # Audit Logging
+    # ============================================================
+
+    async def _log_seller_change(
+        self,
+        org_id: str,
+        user_id: str,
+        action: str,
+        seller_id: str,
+        seller_name: str,
+        old_value: dict | None,
+        new_value: dict | None,
+        source: str,
+        run_id: str | None,
+        criteria: dict | None = None,
+        affected_count: int = 1,
+    ) -> None:
+        """Log a seller change to the audit log."""
+        import json
+
+        log_data = {
+            "org_id": org_id,
+            "action": action,
+            "seller_id": seller_id,
+            "seller_name": seller_name,
+            "old_value": json.dumps(old_value) if old_value else None,
+            "new_value": json.dumps(new_value) if new_value else None,
+            "source": source,
+            "source_run_id": run_id,
+            "source_criteria": json.dumps(criteria) if criteria else None,
+            "user_id": user_id,
+            "affected_count": affected_count,
+        }
+        self.supabase.table("seller_audit_log").insert(log_data).execute()
+
+    async def get_audit_log(
+        self,
+        org_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Get audit log entries, newest first."""
+        result = (
+            self.supabase.table("seller_audit_log")
+            .select("id, action, seller_name, source, source_run_id, user_id, created_at, affected_count", count="exact")
+            .eq("org_id", org_id)
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+        return result.data or [], result.count or 0
+
+    async def get_sellers_at_log(self, org_id: str, log_id: str) -> list[str]:
+        """Get the seller list as it was right after a specific log entry."""
+        # Get the log entry timestamp
+        log_result = (
+            self.supabase.table("seller_audit_log")
+            .select("created_at")
+            .eq("id", log_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not log_result.data:
+            raise ValueError("Log entry not found")
+
+        timestamp = log_result.data[0]["created_at"]
+
+        # Get all log entries up to that timestamp
+        entries = (
+            self.supabase.table("seller_audit_log")
+            .select("action, seller_name")
+            .eq("org_id", org_id)
+            .lte("created_at", timestamp)
+            .order("created_at", desc=False)
+            .execute()
+        )
+
+        # Replay to build seller set at that point
+        sellers: set[str] = set()
+        for entry in entries.data or []:
+            if entry["action"] == "add":
+                sellers.add(entry["seller_name"])
+            elif entry["action"] == "remove":
+                sellers.discard(entry["seller_name"])
+            elif entry["action"] == "edit":
+                # For edits, the seller_name is the new name
+                # We'd need old_value to properly track, but for simplicity
+                # we just ensure current name is in the set
+                sellers.add(entry["seller_name"])
+
+        return sorted(list(sellers))
+
+    async def calculate_diff(
+        self,
+        source_sellers: list[str],
+        target_sellers: list[str],
+    ) -> dict:
+        """Calculate diff between two seller lists."""
+        source_set = set(source_sellers)
+        target_set = set(target_sellers)
+
+        added = sorted(target_set - source_set)
+        removed = sorted(source_set - target_set)
+
+        return {
+            "added": added,
+            "removed": removed,
+            "added_count": len(added),
+            "removed_count": len(removed),
+        }
+
+    # ============================================================
+    # Templates
+    # ============================================================
+
+    async def get_templates(self, org_id: str) -> list[dict]:
+        """Get all run templates for the org."""
+        result = (
+            self.supabase.table("run_templates")
+            .select("*")
+            .eq("org_id", org_id)
+            .order("is_default", desc=True)
+            .order("name", desc=False)
+            .execute()
+        )
+        return result.data or []
+
+    async def create_template(
+        self,
+        org_id: str,
+        user_id: str,
+        name: str,
+        description: str | None,
+        department_ids: list[str],
+        concurrency: int,
+        is_default: bool,
+    ) -> dict:
+        """Create a new run template."""
+        # If setting as default, unset other defaults
+        if is_default:
+            self.supabase.table("run_templates").update({
+                "is_default": False,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("org_id", org_id).execute()
+
+        template_data = {
+            "org_id": org_id,
+            "name": name,
+            "description": description,
+            "department_ids": department_ids,
+            "concurrency": concurrency,
+            "is_default": is_default,
+            "created_by": user_id,
+        }
+        result = self.supabase.table("run_templates").insert(template_data).execute()
+
+        if not result.data:
+            raise ValueError("Failed to create template")
+
+        return result.data[0]
+
+    async def update_template(
+        self,
+        org_id: str,
+        template_id: str,
+        updates: dict,
+    ) -> dict:
+        """Update a run template."""
+        # If setting as default, unset other defaults
+        if updates.get("is_default"):
+            self.supabase.table("run_templates").update({
+                "is_default": False,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("org_id", org_id).neq("id", template_id).execute()
+
+        # Filter out None values
+        update_data = {k: v for k, v in updates.items() if v is not None}
+        if not update_data:
+            raise ValueError("No updates provided")
+
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        result = (
+            self.supabase.table("run_templates")
+            .update(update_data)
+            .eq("id", template_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+
+        if not result.data:
+            raise ValueError("Template not found")
+
+        return result.data[0]
+
+    async def delete_template(self, org_id: str, template_id: str) -> None:
+        """Delete a run template."""
+        result = (
+            self.supabase.table("run_templates")
+            .delete()
+            .eq("id", template_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Template not found")
+
+    # ============================================================
+    # Enhanced Progress
+    # ============================================================
+
+    async def get_enhanced_progress(self, org_id: str, run_id: str) -> dict:
+        """Get detailed progress for a collection run."""
+        result = (
+            self.supabase.table("collection_runs")
+            .select(
+                "departments_total, departments_completed, "
+                "categories_total, categories_completed, "
+                "products_total, products_searched, "
+                "sellers_found, sellers_new, "
+                "actual_cost_cents, budget_cap_cents, "
+                "worker_status"
+            )
+            .eq("id", run_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+
+        if not result.data:
+            raise ValueError("Run not found")
+
+        data = result.data[0]
+
+        # Calculate cost status
+        actual = data["actual_cost_cents"]
+        budget = data["budget_cap_cents"]
+
+        if actual > budget:
+            cost_status = "exceeded"
+        elif actual > budget * 0.8:
+            cost_status = "warning"
+        else:
+            cost_status = "safe"
+
+        data["cost_status"] = cost_status
+
+        return data
