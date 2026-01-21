@@ -12,6 +12,8 @@ dependencies = [
     "argon2-cffi>=25.1.0",
     "slowapi>=0.1.9",
     "httpx>=0.26.0",
+    "apscheduler>=3.10.0,<4.0.0",
+    "croniter>=2.0.0,<3.0.0",
 ]
 
 [project.optional-dependencies]
