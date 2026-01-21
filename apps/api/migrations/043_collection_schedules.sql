@@ -4,7 +4,7 @@
 -- Collection schedules table (one per org for now)
 CREATE TABLE IF NOT EXISTS collection_schedules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
     preset_id UUID REFERENCES amazon_category_presets(id) ON DELETE SET NULL,
     cron_expression TEXT NOT NULL DEFAULT '0 0 1 * *',  -- Default: 1st of month at midnight UTC
     enabled BOOLEAN NOT NULL DEFAULT false,
