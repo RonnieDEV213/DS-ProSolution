@@ -14,6 +14,7 @@ import { ProgressBar } from "@/components/admin/collection/progress-bar";
 import { ProgressDetailModal } from "@/components/admin/collection/progress-detail-modal";
 import { RunConfigModal } from "@/components/admin/collection/run-config-modal";
 import { CollectionHistory } from "@/components/admin/collection/collection-history";
+import { ScheduleConfig } from "@/components/admin/collection/schedule-config";
 import { useCollectionPolling } from "@/hooks/use-collection-polling";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -185,6 +186,9 @@ export default function AutomationPage() {
                 setRunConfigOpen(true);
               }}
             />
+
+            {/* Schedule Configuration */}
+            <ScheduleConfig />
 
             {/* Modals */}
             <LogDetailModal
