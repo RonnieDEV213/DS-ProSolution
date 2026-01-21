@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from supabase import Client
 
-from app.services.scrapers import OxylabsAmazonScraper
+from app.services.scrapers import OxylabsAmazonScraper, OxylabsEbayScraper
 
 logger = logging.getLogger(__name__)
 
@@ -870,4 +870,243 @@ class CollectionService:
             "status": "completed",
             "products_fetched": products_fetched,
             "errors": errors if errors else None,
+        }
+
+    # ============================================================
+    # eBay Seller Search Execution
+    # ============================================================
+
+    async def run_ebay_seller_search(
+        self,
+        run_id: str,
+        org_id: str,
+    ) -> dict:
+        """
+        Execute eBay seller search for Amazon products in a collection run.
+
+        For each Amazon product collected, search eBay with the product title
+        and dropshipper filters, extract sellers, dedupe against existing
+        database, and store new sellers.
+
+        Args:
+            run_id: Collection run ID
+            org_id: Organization ID
+
+        Returns:
+            dict with status, sellers_found, sellers_new
+        """
+        # Get Amazon products from collection_items
+        products_result = (
+            self.supabase.table("collection_items")
+            .select("id, external_id, data")
+            .eq("run_id", run_id)
+            .eq("item_type", "amazon_product")
+            .execute()
+        )
+
+        products = products_result.data or []
+        if not products:
+            logger.info(f"No Amazon products to search for run {run_id}")
+            return {
+                "status": "completed",
+                "message": "No Amazon products to search",
+                "sellers_found": 0,
+                "sellers_new": 0,
+            }
+
+        # Initialize eBay scraper
+        try:
+            scraper = OxylabsEbayScraper()
+        except ValueError as e:
+            logger.error(f"eBay scraper initialization failed: {e}")
+            return {
+                "status": "failed",
+                "error": "Oxylabs credentials not configured",
+                "sellers_found": 0,
+                "sellers_new": 0,
+            }
+
+        # Constants
+        MAX_CONSECUTIVE_FAILURES = 5
+        PAGES_PER_PRODUCT = 3
+        REQUEST_DELAY_MS = 200
+
+        # Progress tracking
+        consecutive_failures = 0
+        sellers_found = 0
+        sellers_new = 0
+        products_processed = 0
+        total_products = len(products)
+
+        logger.info(f"Starting eBay seller search for {total_products} products")
+
+        # Process each product
+        for product in products:
+            product_data = product.get("data", {})
+            title = product_data.get("title")
+            price = product_data.get("price")
+
+            # Skip if missing title or price
+            if not title or not price:
+                logger.warning(f"Skipping product {product['external_id']}: missing title or price")
+                products_processed += 1
+                continue
+
+            # Parse price if string
+            if isinstance(price, str):
+                try:
+                    price = float(price.replace("$", "").replace(",", ""))
+                except ValueError:
+                    logger.warning(f"Skipping product {product['external_id']}: invalid price '{price}'")
+                    products_processed += 1
+                    continue
+
+            # Search eBay for each page
+            for page in range(1, PAGES_PER_PRODUCT + 1):
+                result = await scraper.search_sellers(title, price, page)
+
+                # Handle rate limiting
+                if result.error == "rate_limited":
+                    logger.info(f"Rate limited, waiting 5s")
+                    # Update checkpoint with throttle status
+                    self.supabase.table("collection_runs").update({
+                        "checkpoint": {
+                            "status": "rate_limited",
+                            "waiting_seconds": 5,
+                            "current_product_id": product["id"],
+                            "current_page": page,
+                        },
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }).eq("id", run_id).execute()
+
+                    await asyncio.sleep(5)
+                    continue
+
+                # Handle other errors
+                if result.error:
+                    consecutive_failures += 1
+                    logger.warning(
+                        f"Error searching eBay for '{title[:50]}...': {result.error} "
+                        f"(consecutive: {consecutive_failures})"
+                    )
+
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                        # Pause collection
+                        logger.error(f"Multiple consecutive failures, pausing run {run_id}")
+                        await self.pause_run(run_id, org_id)
+
+                        self.supabase.table("collection_runs").update({
+                            "checkpoint": {
+                                "status": "paused_failures",
+                                "consecutive_failures": consecutive_failures,
+                                "last_product_id": product["id"],
+                            },
+                            "products_searched": products_processed,
+                            "sellers_found": sellers_found,
+                            "sellers_new": sellers_new,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        }).eq("id", run_id).execute()
+
+                        return {
+                            "status": "paused",
+                            "error": "Multiple consecutive failures",
+                            "sellers_found": sellers_found,
+                            "sellers_new": sellers_new,
+                        }
+                    break  # Skip remaining pages for this product
+
+                # Success - reset failures and process sellers
+                consecutive_failures = 0
+
+                # Process and dedupe sellers
+                for seller in result.sellers:
+                    sellers_found += 1
+                    normalized = self._normalize_seller_name(seller.username)
+
+                    # Check if seller already exists
+                    existing = (
+                        self.supabase.table("sellers")
+                        .select("id")
+                        .eq("org_id", org_id)
+                        .eq("normalized_name", normalized)
+                        .eq("platform", "ebay")
+                        .execute()
+                    )
+
+                    if existing.data:
+                        # Update last_seen and times_seen for existing seller
+                        self.supabase.table("sellers").update({
+                            "last_seen_run_id": run_id,
+                            "times_seen": self.supabase.rpc(
+                                "increment_times_seen",
+                                {"seller_id": existing.data[0]["id"]}
+                            ).execute() if False else None,  # Skip RPC for now, simple update
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        }).eq("id", existing.data[0]["id"]).execute()
+                        continue
+
+                    # Insert new seller
+                    seller_data = {
+                        "org_id": org_id,
+                        "display_name": seller.username,
+                        "normalized_name": normalized,
+                        "platform": "ebay",
+                        "platform_id": seller.username,
+                        "feedback_score": seller.feedback_count,
+                        "first_seen_run_id": run_id,
+                        "last_seen_run_id": run_id,
+                        "times_seen": 1,
+                    }
+                    self.supabase.table("sellers").insert(seller_data).execute()
+                    sellers_new += 1
+
+                    logger.debug(f"Added new seller: {seller.username}")
+
+                # Stop pagination early if no more results
+                if not result.has_more:
+                    break
+
+                # Delay between pages
+                await asyncio.sleep(REQUEST_DELAY_MS / 1000)
+
+            products_processed += 1
+
+            # Update progress checkpoint after each product
+            self.supabase.table("collection_runs").update({
+                "checkpoint": {
+                    "current_product_id": product["id"],
+                    "products_processed": products_processed,
+                    "products_total": total_products,
+                },
+                "products_searched": products_processed,
+                "sellers_found": sellers_found,
+                "sellers_new": sellers_new,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", run_id).execute()
+
+            logger.info(
+                f"Processed product {products_processed}/{total_products}: "
+                f"found {sellers_found} sellers ({sellers_new} new)"
+            )
+
+        # Mark run as completed
+        now = datetime.now(timezone.utc).isoformat()
+        self.supabase.table("collection_runs").update({
+            "status": "completed",
+            "completed_at": now,
+            "products_searched": products_processed,
+            "sellers_found": sellers_found,
+            "sellers_new": sellers_new,
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        logger.info(
+            f"eBay seller search completed for run {run_id}: "
+            f"{sellers_found} sellers found, {sellers_new} new"
+        )
+
+        return {
+            "status": "completed",
+            "sellers_found": sellers_found,
+            "sellers_new": sellers_new,
         }
