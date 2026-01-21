@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** Phase 7 - Amazon Best Sellers (Complete)
+**Current focus:** Phase 8 - eBay Seller Search (In progress)
 
 ## Current Position
 
-Phase: 7 of 9 (Amazon Best Sellers)
-Plan: 5 of 5 complete
-Status: Phase complete
-Last activity: 2026-01-20 - Completed 07-05-PLAN.md (Scraper Integration)
+Phase: 8 of 9 (eBay Seller Search)
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-01-21 - Completed 08-01-PLAN.md (eBay Scraper Service)
 
-Progress: [███████░░░] 66% (8/12 v2 plans)
+Progress: [████████░░] 75% (9/12 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [███████░░░] 66% (8/12 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: ~4 min
-- Total execution time: ~32 min
+- Total execution time: ~36 min
 
 ## Accumulated Context
 
@@ -64,6 +64,9 @@ Recent for v2:
 - Background task execution for scraping keeps API responsive
 - Checkpoint JSONB stores throttle status for UI display
 - 5 consecutive failures auto-pauses collection
+- eBay scraper uses URL-embedded filters (not post-fetch filtering) for efficiency
+- EbayScraperService interface mirrors AmazonScraperService pattern
+- Seller info parsing with three-tier regex fallback (full, partial, minimal formats)
 
 ### Pending Todos
 
@@ -80,7 +83,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-20T20:59:00Z
-Stopped at: Completed 07-05-PLAN.md (Scraper Integration)
+Last session: 2026-01-21T00:05:00Z
+Stopped at: Completed 08-01-PLAN.md (eBay Scraper Service)
 Resume file: None
-Next action: Phase 8 - eBay Seller Search
+Next action: Execute 08-02-PLAN.md (eBay Search Endpoint)
