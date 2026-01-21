@@ -12,6 +12,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from app.auth import require_permission_key
 from app.database import get_supabase
 from app.models import (
+    CollectionHistoryEntry,
+    CollectionHistoryResponse,
     CollectionRunCreate,
     CollectionRunListResponse,
     CollectionRunResponse,
@@ -163,6 +165,48 @@ async def list_runs(
                 paused_at=r.get("paused_at"),
                 created_by=r["created_by"],
                 created_at=r["created_at"],
+            )
+            for r in runs
+        ],
+        total=total,
+    )
+
+
+@router.get("/runs/history", response_model=CollectionHistoryResponse)
+async def get_collection_history(
+    limit: int = 50,
+    offset: int = 0,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Get collection run history with full statistics.
+
+    Returns completed, failed, and cancelled runs sorted by completion time.
+    Includes duration calculation, seller counts, and cost tracking.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    runs, total = await service.get_history(org_id, limit=limit, offset=offset)
+
+    return CollectionHistoryResponse(
+        runs=[
+            CollectionHistoryEntry(
+                id=r["id"],
+                name=r["name"],
+                status=r["status"],
+                started_at=r.get("started_at"),
+                completed_at=r.get("completed_at"),
+                duration_seconds=r.get("duration_seconds"),
+                categories_count=r["categories_count"],
+                products_total=r["products_total"],
+                products_searched=r["products_searched"],
+                sellers_found=r["sellers_found"],
+                sellers_new=r["sellers_new"],
+                cost_cents=r["cost_cents"],
+                failed_items=r["failed_items"],
+                created_by=r["created_by"],
             )
             for r in runs
         ],
