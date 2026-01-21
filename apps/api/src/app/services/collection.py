@@ -298,6 +298,22 @@ class CollectionService:
         )
         return result.data or [], result.count or 0
 
+    async def get_sellers_by_run(
+        self,
+        org_id: str,
+        run_id: str,
+    ) -> list[dict]:
+        """Get all sellers discovered in a specific collection run."""
+        result = (
+            self.supabase.table("sellers")
+            .select("*")
+            .eq("org_id", org_id)
+            .eq("first_seen_run_id", run_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return result.data or []
+
     async def add_seller(
         self,
         org_id: str,
