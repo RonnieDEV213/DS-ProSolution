@@ -70,10 +70,11 @@ Plans:
   4. Results filtered to 80-120% of Amazon price
   5. Results filtered to US sellers only
   6. Seller names extracted from search results
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 08-01: TBD
+- [ ] 08-01-PLAN.md — eBay scraper service (abstract interface, Oxylabs implementation, dropshipper filters)
+- [ ] 08-02-PLAN.md — Collection integration (eBay search method, API endpoint, Amazon->eBay chaining)
 
 ### Phase 9: Storage, Export, and Collection UI
 
@@ -101,7 +102,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 6. Collection Infrastructure | v2 | 4/4 | Complete | 2026-01-20 |
 | 7. Amazon Best Sellers | v2 | 5/5 | Complete | 2026-01-20 |
-| 8. eBay Seller Search | v2 | 0/TBD | Not started | - |
+| 8. eBay Seller Search | v2 | 0/2 | Planned | - |
 | 9. Storage, Export, and Collection UI | v2 | 0/TBD | Not started | - |
 
 ## Requirement Coverage
