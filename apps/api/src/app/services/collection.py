@@ -151,6 +151,62 @@ class CollectionService:
         )
         return result.data or [], result.count or 0
 
+    async def get_history(
+        self,
+        org_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """
+        Get collection history (completed/failed/cancelled runs) with statistics.
+
+        Returns runs sorted by completed_at descending.
+        """
+        result = (
+            self.supabase.table("collection_runs")
+            .select(
+                "id, name, status, category_ids, "
+                "started_at, completed_at, "
+                "products_total, products_searched, "
+                "sellers_found, sellers_new, "
+                "actual_cost_cents, failed_items, created_by",
+                count="exact"
+            )
+            .eq("org_id", org_id)
+            .in_("status", ["completed", "failed", "cancelled"])
+            .order("completed_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+
+        # Compute duration for each run
+        runs = []
+        for r in result.data or []:
+            duration = None
+            if r.get("started_at") and r.get("completed_at"):
+                started = datetime.fromisoformat(r["started_at"].replace("Z", "+00:00"))
+                completed = datetime.fromisoformat(r["completed_at"].replace("Z", "+00:00"))
+                duration = int((completed - started).total_seconds())
+
+            runs.append({
+                "id": r["id"],
+                "name": r["name"],
+                "status": r["status"],
+                "started_at": r.get("started_at"),
+                "completed_at": r.get("completed_at"),
+                "duration_seconds": duration,
+                "categories_count": len(r.get("category_ids") or []),
+                "products_total": r.get("products_total") or 0,
+                "products_searched": r.get("products_searched") or 0,
+                "sellers_found": r.get("sellers_found") or 0,
+                "sellers_new": r.get("sellers_new") or 0,
+                "cost_cents": r.get("actual_cost_cents") or 0,
+                "failed_items": r.get("failed_items") or 0,
+                "created_by": r["created_by"],
+            })
+
+        return runs, result.count or 0
+
     async def start_run(self, run_id: str, org_id: str) -> dict:
         """Start a pending run."""
         run = await self.get_run(run_id, org_id)
