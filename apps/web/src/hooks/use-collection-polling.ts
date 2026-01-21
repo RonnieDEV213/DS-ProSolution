@@ -57,6 +57,11 @@ export function useCollectionPolling(pollingInterval = 2000) {
         return active || null;
       }
     } catch (e) {
+      // Suppress transient network errors during polling (common with dev servers)
+      if (e instanceof TypeError && (e as Error).message === "Failed to fetch") {
+        // Silently ignore - will retry on next poll
+        return null;
+      }
       console.error("Failed to check active run:", e);
     }
     return null;
@@ -82,6 +87,10 @@ export function useCollectionPolling(pollingInterval = 2000) {
         });
       }
     } catch (e) {
+      // Suppress transient network errors during polling
+      if (e instanceof TypeError && (e as Error).message === "Failed to fetch") {
+        return;
+      }
       console.error("Failed to fetch progress:", e);
     }
   }, [supabase.auth]);
