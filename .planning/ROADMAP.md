@@ -13,7 +13,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 
 - [x] **Phase 6: Collection Infrastructure** - Database schema, job framework, budget controls
 - [x] **Phase 7: Amazon Best Sellers** - API integration and category selection UI
-- [ ] **Phase 8: eBay Seller Search** - API integration with dropshipper filters
+- [x] **Phase 8: eBay Seller Search** - API integration with dropshipper filters
 - [ ] **Phase 9: Storage, Export, and Collection UI** - Deduplication, export, progress tracking
 
 ## Phase Details
@@ -73,8 +73,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — eBay scraper service (abstract interface, Oxylabs implementation, dropshipper filters)
-- [ ] 08-02-PLAN.md — Collection integration (eBay search method, API endpoint, Amazon->eBay chaining)
+- [x] 08-01-PLAN.md — eBay scraper service (abstract interface, Oxylabs implementation, dropshipper filters)
+- [x] 08-02-PLAN.md — Collection integration (eBay search method, API endpoint, Amazon->eBay chaining)
 
 ### Phase 9: Storage, Export, and Collection UI
 
@@ -102,7 +102,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 6. Collection Infrastructure | v2 | 4/4 | Complete | 2026-01-20 |
 | 7. Amazon Best Sellers | v2 | 5/5 | Complete | 2026-01-20 |
-| 8. eBay Seller Search | v2 | 0/2 | Planned | - |
+| 8. eBay Seller Search | v2 | 2/2 | Complete | 2026-01-21 |
 | 9. Storage, Export, and Collection UI | v2 | 0/TBD | Not started | - |
 
 ## Requirement Coverage
