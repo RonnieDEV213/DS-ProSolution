@@ -27,20 +27,20 @@ Requirements for the SellerCollection milestone. Each maps to roadmap phases.
 ### Collection Management
 
 - [ ] **COLL-01**: "Collect Sellers" button to trigger collection
-- [ ] **COLL-02**: Progress indicator showing current product / total products
-- [ ] **COLL-03**: Stop/cancel button to abort running collection
-- [ ] **COLL-04**: Collection history list showing past runs with timestamps
-- [ ] **COLL-05**: Scheduled monthly collection (configurable cron)
-- [ ] **COLL-06**: Display estimated API cost before starting collection
-- [ ] **COLL-07**: Hard budget cap per collection run (configurable, default $25)
+- [x] **COLL-02**: Progress indicator showing current product / total products
+- [x] **COLL-03**: Stop/cancel button to abort running collection
+- [x] **COLL-04**: Collection history list showing past runs with timestamps
+- [x] **COLL-05**: Scheduled monthly collection (configurable cron)
+- ~~**COLL-06**: Display estimated API cost before starting collection~~ (Removed - flat-rate subscription)
+- ~~**COLL-07**: Hard budget cap per collection run (configurable, default $25)~~ (Removed - flat-rate subscription)
 
 ### Storage & Export
 
-- [ ] **STOR-01**: Deduplicate sellers against existing database (normalized comparison)
-- [ ] **STOR-02**: Store seller with collection metadata (discovered_at, from_product)
-- [ ] **STOR-03**: Export as JSON
-- [ ] **STOR-04**: Export as CSV
-- [ ] **STOR-05**: Copy sellers to clipboard
+- [x] **STOR-01**: Deduplicate sellers against existing database (normalized comparison)
+- [x] **STOR-02**: Store seller with collection metadata (discovered_at, from_product)
+- [x] **STOR-03**: Export as JSON
+- [x] **STOR-04**: Export as CSV
+- [x] **STOR-05**: Copy sellers to clipboard
 
 ## v2.1 Requirements
 
@@ -90,17 +90,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EBAY-05 | Phase 8 | Complete |
 | EBAY-06 | Phase 8 | Complete |
 | COLL-01 | Phase 6 | Complete |
-| COLL-02 | Phase 9 | Pending |
-| COLL-03 | Phase 9 | Pending |
-| COLL-04 | Phase 9 | Pending |
-| COLL-05 | Phase 9 | Pending |
-| COLL-06 | Phase 6 | Complete |
-| COLL-07 | Phase 6 | Complete |
-| STOR-01 | Phase 9 | Pending |
-| STOR-02 | Phase 9 | Pending |
-| STOR-03 | Phase 9 | Pending |
-| STOR-04 | Phase 9 | Pending |
-| STOR-05 | Phase 9 | Pending |
+| COLL-02 | Phase 9 | Complete |
+| COLL-03 | Phase 9 | Complete |
+| COLL-04 | Phase 9 | Complete |
+| COLL-05 | Phase 9 | Complete |
+| COLL-06 | Phase 6 | Removed |
+| COLL-07 | Phase 6 | Removed |
+| STOR-01 | Phase 9 | Complete |
+| STOR-02 | Phase 9 | Complete |
+| STOR-03 | Phase 9 | Complete |
+| STOR-04 | Phase 9 | Complete |
+| STOR-05 | Phase 9 | Complete |
 
 **Coverage:**
 - v2 requirements: 23 total

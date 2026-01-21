@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** Phase 9 - Storage, Export, and Collection UI
+**Current focus:** v2 Milestone complete - ready for audit
 
 ## Current Position
 
@@ -94,6 +94,7 @@ Recent for v2:
 - Run migration 039_run_templates.sql in Supabase SQL editor
 - Run migration 040_enhanced_progress.sql in Supabase SQL editor
 - Run migration 041_amazon_category_presets.sql in Supabase SQL editor
+- Run migration 042_remove_cost_tracking.sql in Supabase SQL editor
 - Run migration 043_collection_schedules.sql in Supabase SQL editor
 
 ### Blockers/Concerns
