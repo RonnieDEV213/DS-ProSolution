@@ -164,9 +164,20 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     a.click();
   };
 
-  const copyJSON = async () => {
-    const json = JSON.stringify(sellers.map(s => s.display_name), null, 2);
-    await navigator.clipboard.writeText(json);
+  const downloadJSON = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const response = await fetch(`${API_BASE}/sellers/export?format=json`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sellers_${new Date().toISOString().split("T")[0]}_full.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const copyRawText = async () => {
@@ -214,13 +225,13 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                 <Download className="h-4 w-4 mr-2" />
                 Download CSV
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={copyJSON} className="text-gray-200 focus:bg-gray-700">
+              <DropdownMenuItem onClick={downloadJSON} className="text-gray-200 focus:bg-gray-700">
                 <Braces className="h-4 w-4 mr-2" />
-                Copy JSON
+                Download JSON
               </DropdownMenuItem>
               <DropdownMenuItem onClick={copyRawText} className="text-gray-200 focus:bg-gray-700">
                 <FileText className="h-4 w-4 mr-2" />
-                Copy Raw Text
+                Copy to Clipboard
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
