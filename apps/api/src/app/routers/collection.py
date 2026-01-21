@@ -234,9 +234,12 @@ async def execute_run(
     service: CollectionService = Depends(get_collection_service),
 ):
     """
-    Execute a collection run (start Amazon product fetching).
+    Execute a collection run (Amazon product fetching + eBay seller search).
 
-    This starts the actual scraping process in the background.
+    This starts the full collection pipeline in the background:
+    1. Amazon best sellers collection
+    2. eBay seller search for each Amazon product
+
     The run must be in 'running' status (call /start first).
 
     Requires admin.automation permission.
@@ -253,17 +256,63 @@ async def execute_run(
             detail=f"Run must be in 'running' status to execute (current: {run['status']})"
         )
 
-    # Start collection in background
+    # Start full collection pipeline in background
     async def run_collection():
-        await service.run_amazon_collection(
+        # Phase 1: Amazon collection
+        amazon_result = await service.run_amazon_collection(
             run_id=run_id,
             org_id=org_id,
             category_ids=run["category_ids"],
         )
 
+        # If Amazon failed or was paused, don't continue to eBay
+        if amazon_result.get("status") in ("failed", "paused"):
+            return
+
+        # Phase 2: eBay seller search
+        await service.run_ebay_seller_search(run_id=run_id, org_id=org_id)
+
     background_tasks.add_task(run_collection)
 
-    return {"ok": True, "message": "Collection started", "run_id": run_id}
+    return {"ok": True, "message": "Collection started (Amazon + eBay)", "run_id": run_id}
+
+
+@router.post("/runs/{run_id}/execute-ebay")
+async def execute_ebay_search(
+    run_id: str,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Execute eBay seller search for Amazon products in a collection run.
+
+    Searches eBay for each Amazon product with dropshipper filters,
+    extracts sellers, and stores new ones (deduped).
+
+    The run must be in 'running' status.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    run = await service.get_run(run_id, org_id)
+
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    if run["status"] != "running":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Run must be in 'running' status (current: {run['status']})"
+        )
+
+    # Start eBay search in background
+    async def run_ebay_search():
+        await service.run_ebay_seller_search(run_id=run_id, org_id=org_id)
+
+    background_tasks.add_task(run_ebay_search)
+
+    return {"ok": True, "message": "eBay seller search started", "run_id": run_id}
 
 
 @router.post("/runs/{run_id}/pause")
