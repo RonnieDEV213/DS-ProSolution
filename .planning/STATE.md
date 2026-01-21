@@ -33,9 +33,9 @@ Progress: [██████████] 20/20 v2 plans
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 19
+- Total plans completed: 20
 - Average duration: ~4 min
-- Total execution time: ~79 min
+- Total execution time: ~87 min
 
 ## Accumulated Context
 
@@ -94,6 +94,9 @@ Recent for v2:
 - 200ms click timeout to distinguish single-click (selection) from double-click (edit mode)
 - Selection refs map pattern for drag-to-select element registration
 - Conditional hover card metadata rendering (handles undefined gracefully)
+- Two-panel modal layout with 1fr/320px grid for balanced category selector and controls
+- Recurring presets generate cron expressions from selected date (day of week or day of month)
+- Calendar highlights next 6 months of scheduled dates based on recurring pattern
 
 ### Pending Todos
 
@@ -113,9 +116,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 10-03-PLAN.md (Sellers Grid Enhancement)
+Stopped at: Completed 10-04-PLAN.md (Run Config Modal Consolidation)
 Resume file: None
-Next action: Execute 10-04-PLAN.md (Run Config Modal Consolidation)
+Next action: Execute 10-05-PLAN.md (if exists, or Phase 10 complete)
 
 ## Roadmap Evolution
 
