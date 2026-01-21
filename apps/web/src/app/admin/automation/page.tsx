@@ -7,14 +7,13 @@ import { PairingRequestsTable } from "@/components/admin/automation/pairing-requ
 import { AgentsTable } from "@/components/admin/automation/agents-table";
 import { JobsTable } from "@/components/admin/automation/jobs-table";
 import { SellersGrid } from "@/components/admin/collection/sellers-grid";
-import { RecentLogsSidebar } from "@/components/admin/collection/recent-logs-sidebar";
+import { HistoryPanel } from "@/components/admin/collection/history-panel";
+import { HierarchicalRunModal } from "@/components/admin/collection/hierarchical-run-modal";
 import { LogDetailModal } from "@/components/admin/collection/log-detail-modal";
 import { DiffModal } from "@/components/admin/collection/diff-modal";
 import { ProgressBar } from "@/components/admin/collection/progress-bar";
 import { ProgressDetailModal } from "@/components/admin/collection/progress-detail-modal";
 import { RunConfigModal } from "@/components/admin/collection/run-config-modal";
-import { CollectionHistory } from "@/components/admin/collection/collection-history";
-import { ScheduleConfig } from "@/components/admin/collection/schedule-config";
 import { useCollectionPolling } from "@/hooks/use-collection-polling";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -42,6 +41,8 @@ export default function AutomationPage() {
   const [runConfigOpen, setRunConfigOpen] = useState(false);
   const [progressMinimized, setProgressMinimized] = useState(false);
   const [preselectedCategories, setPreselectedCategories] = useState<string[]>([]);
+  const [hierarchicalRunOpen, setHierarchicalRunOpen] = useState(false);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   // Collection polling
   const { activeRun, progress, newSellerIds, clearNewSellerIds, refresh } =
@@ -155,9 +156,9 @@ export default function AutomationPage() {
               />
             )}
 
-            {/* Main content: Grid (left) + Sidebar (right) */}
-            <div className="flex gap-4 h-[calc(100vh-400px)] min-h-[400px]">
-              {/* Sellers Grid - dominant left section */}
+            {/* Main content: Grid (left) + History Panel (right) */}
+            <div className="flex gap-4 h-[calc(100vh-300px)] min-h-[500px]">
+              {/* Sellers Grid - reduced columns per CONTEXT.md */}
               <div className="flex-1 min-w-0">
                 <SellersGrid
                   refreshTrigger={refreshTrigger}
@@ -166,29 +167,20 @@ export default function AutomationPage() {
                 />
               </div>
 
-              {/* Recent Logs Sidebar - right section */}
-              <div className="w-64 flex-shrink-0">
-                <RecentLogsSidebar
+              {/* History Panel - wider than old sidebar */}
+              <div className="w-80 flex-shrink-0">
+                <HistoryPanel
                   refreshTrigger={refreshTrigger}
-                  onLogClick={handleLogClick}
-                  onHeaderClick={handleHeaderClick}
                   onStartRunClick={() => setRunConfigOpen(true)}
                   hasActiveRun={!!activeRun}
+                  onManualEditClick={handleLogClick}
+                  onCollectionRunClick={(runId) => {
+                    setSelectedRunId(runId);
+                    setHierarchicalRunOpen(true);
+                  }}
                 />
               </div>
             </div>
-
-            {/* Collection History */}
-            <CollectionHistory
-              refreshTrigger={refreshTrigger}
-              onRerun={(categoryIds) => {
-                setPreselectedCategories(categoryIds);
-                setRunConfigOpen(true);
-              }}
-            />
-
-            {/* Schedule Configuration */}
-            <ScheduleConfig />
 
             {/* Modals */}
             <LogDetailModal
@@ -222,6 +214,16 @@ export default function AutomationPage() {
               }}
               onRunStarted={handleRunStarted}
               initialCategories={preselectedCategories}
+            />
+
+            <HierarchicalRunModal
+              open={hierarchicalRunOpen}
+              onOpenChange={setHierarchicalRunOpen}
+              runId={selectedRunId}
+              onRerun={(categoryIds) => {
+                setPreselectedCategories(categoryIds);
+                setRunConfigOpen(true);
+              }}
             />
           </div>
         )}
