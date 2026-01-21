@@ -65,3 +65,37 @@ async def collection_startup_recovery():
             logger.info(f"Collection startup recovery: {count} run(s) need attention")
     except Exception as e:
         logger.error(f"Collection startup recovery failed: {e}")
+
+
+async def scheduler_startup():
+    """
+    Start the APScheduler and load schedules from database.
+
+    Called during application startup.
+    """
+    try:
+        from app.services.scheduler import scheduler, load_schedules
+
+        # Start scheduler
+        scheduler.start()
+        logger.info("APScheduler started")
+
+        # Load schedules from database
+        await load_schedules()
+    except Exception as e:
+        logger.error(f"Scheduler startup failed: {e}")
+
+
+def scheduler_shutdown():
+    """
+    Shutdown the APScheduler gracefully.
+
+    Called during application shutdown.
+    """
+    try:
+        from app.services.scheduler import scheduler
+
+        scheduler.shutdown(wait=False)
+        logger.info("APScheduler shutdown")
+    except Exception as e:
+        logger.error(f"Scheduler shutdown failed: {e}")

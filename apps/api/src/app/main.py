@@ -16,7 +16,12 @@ from app.routers import (
     records_router,
     sellers_router,
 )
-from app.background import cleanup_worker, collection_startup_recovery
+from app.background import (
+    cleanup_worker,
+    collection_startup_recovery,
+    scheduler_shutdown,
+    scheduler_startup,
+)
 
 _cleanup_task = None
 
@@ -31,8 +36,14 @@ async def lifespan(app: FastAPI):
     # Check for interrupted collection runs
     await collection_startup_recovery()
 
+    # Start scheduler and load schedules
+    await scheduler_startup()
+
     yield
+
     # Shutdown
+    scheduler_shutdown()
+
     if _cleanup_task:
         _cleanup_task.cancel()
         try:
