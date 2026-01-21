@@ -78,23 +78,26 @@ Plans:
 
 ### Phase 9: Storage, Export, and Collection UI
 
-**Goal:** Admin can view, export, and manage collected sellers
+**Goal:** Admin can view, export, and manage collected sellers with full metadata, history, and scheduled runs
 **Depends on:** Phase 8
 **Requirements:** STOR-01, STOR-02, STOR-03, STOR-04, STOR-05, COLL-02, COLL-03, COLL-04, COLL-05
 **Success Criteria** (what must be TRUE):
-  1. Sellers deduplicated against existing database (normalized comparison)
-  2. Each seller stored with collection metadata (discovered_at, from_product)
-  3. Admin can export sellers as JSON
-  4. Admin can export sellers as CSV
+  1. Sellers deduplicated against existing database (normalized comparison) - ALREADY COMPLETE
+  2. Each seller stored with collection metadata (discovered_at, from_product) - ALREADY COMPLETE
+  3. Admin can export sellers as JSON with full metadata
+  4. Admin can export sellers as CSV with full metadata
   5. Admin can copy seller list to clipboard
   6. Progress indicator shows current product / total products during collection
   7. Admin can stop/cancel running collection
   8. Collection history shows past runs with timestamps
   9. Admin can configure scheduled monthly collection
-**Plans:** TBD
+**Plans:** 4 plans
 
 Plans:
-- [ ] 09-01: TBD
+- [ ] 09-01-PLAN.md — Enhanced export API (full metadata JSON/CSV, run_id filtering)
+- [ ] 09-02-PLAN.md — Collection history API (history endpoint with stats)
+- [ ] 09-03-PLAN.md — Export & History UI (collection history table, enhanced exports, minimizable progress, cancel)
+- [ ] 09-04-PLAN.md — Scheduled collections (APScheduler, schedule CRUD, schedule config UI)
 
 ## Progress
 
@@ -103,7 +106,7 @@ Plans:
 | 6. Collection Infrastructure | v2 | 4/4 | Complete | 2026-01-20 |
 | 7. Amazon Best Sellers | v2 | 5/5 | Complete | 2026-01-20 |
 | 8. eBay Seller Search | v2 | 2/2 | Complete | 2026-01-21 |
-| 9. Storage, Export, and Collection UI | v2 | 0/TBD | Not started | - |
+| 9. Storage, Export, and Collection UI | v2 | 0/4 | In Progress | - |
 
 ## Requirement Coverage
 
