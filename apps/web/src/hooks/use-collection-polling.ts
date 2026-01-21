@@ -14,9 +14,6 @@ interface EnhancedProgress {
   products_searched: number;
   sellers_found: number;
   sellers_new: number;
-  actual_cost_cents: number;
-  budget_cap_cents: number;
-  cost_status: "safe" | "warning" | "exceeded";
   worker_status: Array<{
     worker_id: number;
     department: string;

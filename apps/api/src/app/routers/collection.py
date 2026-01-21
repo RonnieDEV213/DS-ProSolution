@@ -183,7 +183,7 @@ async def get_collection_history(
     Get collection run history with full statistics.
 
     Returns completed, failed, and cancelled runs sorted by completion time.
-    Includes duration calculation, seller counts, and cost tracking.
+    Includes duration calculation and seller counts.
 
     Requires admin.automation permission.
     """
@@ -204,7 +204,6 @@ async def get_collection_history(
                 products_searched=r["products_searched"],
                 sellers_found=r["sellers_found"],
                 sellers_new=r["sellers_new"],
-                cost_cents=r["cost_cents"],
                 failed_items=r["failed_items"],
                 created_by=r["created_by"],
             )

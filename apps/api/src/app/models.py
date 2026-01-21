@@ -1122,7 +1122,6 @@ class CollectionHistoryEntry(BaseModel):
     products_searched: int
     sellers_found: int
     sellers_new: int
-    cost_cents: int
     failed_items: int
     created_by: str
 

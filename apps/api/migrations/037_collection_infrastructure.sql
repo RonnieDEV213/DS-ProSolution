@@ -5,15 +5,12 @@
 -- ============================================================
 -- 1. collection_settings (Global admin settings per org)
 -- ============================================================
--- Stores per-org budget and concurrency configuration.
+-- Stores per-org concurrency configuration.
 -- One settings row per org (org_id UNIQUE).
--- budget_cap_cents is per individual run (not cumulative).
 
 CREATE TABLE collection_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL UNIQUE REFERENCES orgs(id) ON DELETE CASCADE,
-  budget_cap_cents INT NOT NULL DEFAULT 2500,  -- Default $25 per run
-  soft_warning_percent INT NOT NULL DEFAULT 80,
   max_concurrent_runs INT NOT NULL DEFAULT 3,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ
@@ -36,11 +33,6 @@ CREATE TABLE collection_runs (
   name TEXT NOT NULL,  -- Custom name or auto-generated "Collection 2026-01-20 14:30"
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'running', 'paused', 'completed', 'failed', 'cancelled')),
-
-  -- Cost tracking
-  estimated_cost_cents INT NOT NULL,
-  actual_cost_cents INT NOT NULL DEFAULT 0,
-  budget_cap_cents INT NOT NULL,  -- Snapshot at run start
 
   -- Progress tracking
   total_items INT NOT NULL DEFAULT 0,
@@ -95,9 +87,6 @@ CREATE TABLE collection_items (
   -- Error tracking
   error_code TEXT,
   error_message TEXT,
-
-  -- Cost tracking
-  cost_cents INT NOT NULL DEFAULT 0,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

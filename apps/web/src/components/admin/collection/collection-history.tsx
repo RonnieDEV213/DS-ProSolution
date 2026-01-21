@@ -30,7 +30,6 @@ interface HistoryEntry {
   products_searched: number;
   sellers_found: number;
   sellers_new: number;
-  cost_cents: number;
   failed_items: number;
 }
 
@@ -45,10 +44,6 @@ function formatDuration(seconds: number | null): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}m ${secs}s`;
-}
-
-function formatCost(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 function formatDate(isoString: string | null): string {
@@ -146,7 +141,6 @@ export function CollectionHistory({ refreshTrigger, onRerun }: CollectionHistory
               <TableHead className="text-gray-400 text-right">Products</TableHead>
               <TableHead className="text-gray-400 text-right">Sellers</TableHead>
               <TableHead className="text-gray-400 text-right">New</TableHead>
-              <TableHead className="text-gray-400 text-right">Cost</TableHead>
               <TableHead className="text-gray-400">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -178,9 +172,6 @@ export function CollectionHistory({ refreshTrigger, onRerun }: CollectionHistory
                 </TableCell>
                 <TableCell className="text-green-400 text-right font-medium">
                   +{entry.sellers_new}
-                </TableCell>
-                <TableCell className="text-gray-300 text-right">
-                  {formatCost(entry.cost_cents)}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">

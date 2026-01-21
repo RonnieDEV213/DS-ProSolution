@@ -9,7 +9,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Minimize2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface WorkerStatus {
   worker_id: number;
@@ -31,9 +30,6 @@ interface ProgressDetailModalProps {
     products_searched: number;
     sellers_found: number;
     sellers_new: number;
-    actual_cost_cents: number;
-    budget_cap_cents: number;
-    cost_status: "safe" | "warning" | "exceeded";
     worker_status: WorkerStatus[];
   } | null;
   isMinimized: boolean;
@@ -48,10 +44,6 @@ const statusColors = {
   complete: "bg-green-500/20 text-green-400",
 };
 
-function formatCost(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 export function ProgressDetailModal({
   open,
   onOpenChange,
@@ -61,12 +53,6 @@ export function ProgressDetailModal({
   onCancel,
 }: ProgressDetailModalProps) {
   if (!progress) return null;
-
-  const costColorClass = {
-    safe: "text-green-400",
-    warning: "text-yellow-400",
-    exceeded: "text-red-400",
-  }[progress.cost_status];
 
   // Minimized floating indicator
   if (isMinimized) {
@@ -117,17 +103,7 @@ export function ProgressDetailModal({
 
         <div className="space-y-6">
           {/* Summary stats */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-gray-800 rounded p-3">
-              <div className="text-gray-500 text-xs uppercase">Cost</div>
-              <div className={cn("text-xl font-bold", costColorClass)}>
-                {formatCost(progress.actual_cost_cents)}
-              </div>
-              <div className="text-gray-500 text-sm">
-                of {formatCost(progress.budget_cap_cents)}
-              </div>
-            </div>
-
+          <div className="grid grid-cols-2 gap-4">
             <div className="bg-gray-800 rounded p-3">
               <div className="text-gray-500 text-xs uppercase">Progress</div>
               <div className="text-xl font-bold text-white">

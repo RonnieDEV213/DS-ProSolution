@@ -17,13 +17,6 @@ from app.services.scrapers import OxylabsAmazonScraper, OxylabsEbayScraper
 
 logger = logging.getLogger(__name__)
 
-# Cost estimation constants (in cents)
-# Based on Oxylabs pricing: ~3 cents per API request
-COST_PER_AMAZON_PAGE_CENTS = 3  # 1 page per category
-COST_PER_EBAY_PAGE_CENTS = 3  # 3 pages per product
-PRODUCTS_PER_CATEGORY_ESTIMATE = 50  # Estimated products per category
-EBAY_PAGES_PER_PRODUCT = 3  # 3 pages searched per product
-
 
 class CollectionService:
     """Orchestrates collection runs with checkpointing."""
@@ -105,25 +98,12 @@ class CollectionService:
         if not name:
             name = f"Collection {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
 
-        # Estimate cost based on categories
-        # Per category: 1 Amazon page + (50 products * 3 eBay pages)
-        num_categories = len(category_ids)
-        amazon_cost = num_categories * COST_PER_AMAZON_PAGE_CENTS
-        ebay_cost = (
-            num_categories
-            * PRODUCTS_PER_CATEGORY_ESTIMATE
-            * EBAY_PAGES_PER_PRODUCT
-            * COST_PER_EBAY_PAGE_CENTS
-        )
-        estimated_cost_cents = amazon_cost + ebay_cost
-
         # Create run
         now = datetime.now(timezone.utc).isoformat()
         run_data = {
             "org_id": org_id,
             "name": name,
             "status": "pending",
-            "estimated_cost_cents": estimated_cost_cents,
             "total_items": 0,
             "processed_items": 0,
             "failed_items": 0,
@@ -189,7 +169,7 @@ class CollectionService:
                 "started_at, completed_at, "
                 "products_total, products_searched, "
                 "sellers_found, sellers_new, "
-                "actual_cost_cents, failed_items, created_by",
+                "failed_items, created_by",
                 count="exact"
             )
             .eq("org_id", org_id)
@@ -220,7 +200,6 @@ class CollectionService:
                 "products_searched": r.get("products_searched") or 0,
                 "sellers_found": r.get("sellers_found") or 0,
                 "sellers_new": r.get("sellers_new") or 0,
-                "cost_cents": r.get("actual_cost_cents") or 0,
                 "failed_items": r.get("failed_items") or 0,
                 "created_by": r["created_by"],
             })
