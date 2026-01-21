@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-9 (complete)
+- **v2 SellerCollection** - Phases 6-10 (in progress)
 
 ## Phases
 
@@ -15,6 +15,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 7: Amazon Best Sellers** - API integration and category selection UI
 - [x] **Phase 8: eBay Seller Search** - API integration with dropshipper filters
 - [x] **Phase 9: Storage, Export, and Collection UI** - Deduplication, export, progress tracking
+- [ ] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
 
 ## Phase Details
 
@@ -100,6 +101,26 @@ Plans:
 - [x] 09-04-PLAN.md — Scheduled collections backend (APScheduler, migration, CRUD endpoints, lifecycle)
 - [x] 09-05-PLAN.md — Schedule configuration UI (schedule-config component, automation page integration)
 
+### Phase 10: Collection UI Cleanup
+
+**Goal:** Streamline the collection UI by removing clutter, improving layout, and surfacing only the most useful data
+**Depends on:** Phase 9
+**Requirements:** UX improvement (no new requirements - refinement phase)
+**Success Criteria** (what must be TRUE):
+  1. Progress bar shows two-phase display (Amazon collecting, eBay searching)
+  2. History panel shows unified timeline of collection runs and manual edits
+  3. Run config modal has two-panel layout with integrated scheduling
+  4. Sellers grid supports bulk selection (click, drag, Ctrl+A) and hover cards
+  5. Deprecated components removed from page (recent-logs-sidebar, collection-history, schedule-config)
+**Plans:** 5 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Setup & Progress Bar (install shadcn components, two-phase progress display)
+- [ ] 10-02-PLAN.md — History Panel (merge recent activity + collection history into unified timeline)
+- [ ] 10-03-PLAN.md — Sellers Grid Enhancement (bulk selection, drag select, hover cards)
+- [ ] 10-04-PLAN.md — Run Config Modal (two-panel layout with integrated scheduling)
+- [ ] 10-05-PLAN.md — Page Integration (wire new components, remove deprecated, final cleanup)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -108,6 +129,7 @@ Plans:
 | 7. Amazon Best Sellers | v2 | 5/5 | Complete | 2026-01-20 |
 | 8. eBay Seller Search | v2 | 2/2 | Complete | 2026-01-21 |
 | 9. Storage, Export, and Collection UI | v2 | 5/5 | Complete | 2026-01-21 |
+| 10. Collection UI Cleanup | v2 | 0/5 | Planned | - |
 
 ## Requirement Coverage
 
