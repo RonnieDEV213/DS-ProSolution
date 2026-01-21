@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** v2 Milestone complete - ready for audit
+**Current focus:** Phase 10 - Collection UI Cleanup
 
 ## Current Position
 
-Phase: 9 of 9 (Storage, Export, and Collection UI)
-Plan: 5 of 5 complete
-Status: Phase complete
-Last activity: 2026-01-21 - Completed 09-05-PLAN.md (Scheduler Configuration UI)
+Phase: 10 of 10 (Collection UI Cleanup)
+Plan: 2 of 5 (Unified History Panel)
+Status: In progress
+Last activity: 2026-01-21 - Completed 10-02-PLAN.md (Unified History Panel)
 
-Progress: [██████████] 100% (15/15 v2 plans)
+Progress: [█████████░] 17/20 v2 plans
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [██████████] 100% (15/15 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 15
+- Total plans completed: 17
 - Average duration: ~4 min
-- Total execution time: ~62 min
+- Total execution time: ~70 min
 
 ## Accumulated Context
 
@@ -85,6 +85,9 @@ Recent for v2:
 - Scheduled runs skip if collection already running
 - Cron preset dropdown with common schedules (1st of month, 15th, weekly, daily)
 - Custom cron input revealed when 'Custom' preset selected
+- Client-side merge of audit-log and history data for unified timeline (vs new backend endpoint)
+- Discriminated union pattern for mixed activity feeds (CollectionRunEntry vs ManualEditEntry)
+- Border accent colors for visual category distinction (blue for runs, gray for edits)
 
 ### Pending Todos
 
@@ -104,6 +107,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 09-05-PLAN.md (Scheduler Configuration UI)
+Stopped at: Completed 10-02-PLAN.md (Unified History Panel)
 Resume file: None
-Next action: Phase 9 complete - ready for UAT and v2 milestone documentation
+Next action: Execute 10-03-PLAN.md (Progress Bar Rework)
+
+## Roadmap Evolution
+
+- Phase 10 added: Collection UI Cleanup - streamline UI, remove clutter, improve data surfacing
