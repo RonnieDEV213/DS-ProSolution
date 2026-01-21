@@ -7,9 +7,13 @@ Provides endpoints for:
 - Export in multiple formats
 """
 
+import csv
+import io
 import logging
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
 from app.auth import require_permission_key
 from app.database import get_supabase
@@ -273,27 +277,86 @@ async def calculate_diff(
 @router.get("/export")
 async def export_sellers(
     format: str = "json",
+    run_id: str | None = None,
     user: dict = Depends(require_permission_key("admin.automation")),
     service: CollectionService = Depends(get_collection_service),
 ):
     """
-    Export all sellers in specified format (json, csv, text).
+    Export sellers in specified format (json, csv, text).
+
+    Optional run_id filter to export only sellers from a specific collection run.
 
     Requires admin.automation permission.
     """
     org_id = user["membership"]["org_id"]
-    sellers, _ = await service.get_sellers(org_id, limit=100000)
-    names = [s["display_name"] for s in sellers]
+
+    # Get sellers (optionally filtered by run)
+    if run_id:
+        sellers = await service.get_sellers_by_run(org_id, run_id)
+    else:
+        sellers, _ = await service.get_sellers(org_id, limit=100000)
+
+    # Generate descriptive filename
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    suffix = f"_run-{run_id[:8]}" if run_id else "_full"
 
     if format == "csv":
-        content = "seller_name\n" + "\n".join(names)
-        return PlainTextResponse(
-            content,
+        # Full metadata CSV with proper headers
+        stream = io.StringIO()
+        fieldnames = [
+            "display_name",
+            "platform",
+            "feedback_score",
+            "times_seen",
+            "discovered_at",
+            "first_seen_run_id",
+        ]
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for s in sellers:
+            writer.writerow(
+                {
+                    "display_name": s["display_name"],
+                    "platform": s["platform"],
+                    "feedback_score": s.get("feedback_score", ""),
+                    "times_seen": s["times_seen"],
+                    "discovered_at": s["created_at"],
+                    "first_seen_run_id": s.get("first_seen_run_id", ""),
+                }
+            )
+
+        filename = f"sellers_{date_str}{suffix}.csv"
+        stream.seek(0)
+        return StreamingResponse(
+            iter([stream.getvalue()]),
             media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=sellers.csv"},
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
+
     elif format == "text":
-        content = "\n".join(names)
+        # Plain text (names only, for clipboard pasting)
+        content = "\n".join(s["display_name"] for s in sellers)
         return PlainTextResponse(content, media_type="text/plain")
-    else:  # json
-        return {"sellers": names, "count": len(names)}
+
+    else:  # json (default)
+        filename = f"sellers_{date_str}{suffix}.json"
+        return JSONResponse(
+            content={
+                "exported_at": datetime.now(timezone.utc).isoformat(),
+                "run_id": run_id,
+                "count": len(sellers),
+                "sellers": [
+                    {
+                        "display_name": s["display_name"],
+                        "platform": s["platform"],
+                        "feedback_score": s.get("feedback_score"),
+                        "times_seen": s["times_seen"],
+                        "discovered_at": s["created_at"],
+                        "first_seen_run_id": s.get("first_seen_run_id"),
+                    }
+                    for s in sellers
+                ],
+            },
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )

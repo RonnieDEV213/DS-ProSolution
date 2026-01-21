@@ -910,6 +910,26 @@ class SellerListResponse(BaseModel):
     total: int
 
 
+class SellerExportItem(BaseModel):
+    """Single seller in export format."""
+
+    display_name: str
+    platform: str
+    feedback_score: Optional[int] = None
+    times_seen: int
+    discovered_at: datetime
+    first_seen_run_id: Optional[str] = None
+
+
+class SellerExportResponse(BaseModel):
+    """JSON export format."""
+
+    exported_at: datetime
+    run_id: Optional[str] = None
+    count: int
+    sellers: list[SellerExportItem]
+
+
 # ============================================================
 # Seller Audit Log Models
 # ============================================================
