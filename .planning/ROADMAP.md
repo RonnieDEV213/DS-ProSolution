@@ -91,13 +91,14 @@ Plans:
   7. Admin can stop/cancel running collection
   8. Collection history shows past runs with timestamps
   9. Admin can configure scheduled monthly collection
-**Plans:** 4 plans
+**Plans:** 5 plans
 
 Plans:
 - [ ] 09-01-PLAN.md — Enhanced export API (full metadata JSON/CSV, run_id filtering)
 - [ ] 09-02-PLAN.md — Collection history API (history endpoint with stats)
-- [ ] 09-03-PLAN.md — Export & History UI (collection history table, enhanced exports, minimizable progress, cancel)
-- [ ] 09-04-PLAN.md — Scheduled collections (APScheduler, schedule CRUD, schedule config UI)
+- [ ] 09-03-PLAN.md — Export & History UI (collection history table, enhanced exports, minimizable progress, cancel, re-run)
+- [ ] 09-04-PLAN.md — Scheduled collections backend (APScheduler, migration, CRUD endpoints, lifecycle)
+- [ ] 09-05-PLAN.md — Schedule configuration UI (schedule-config component, automation page integration)
 
 ## Progress
 
@@ -106,7 +107,7 @@ Plans:
 | 6. Collection Infrastructure | v2 | 4/4 | Complete | 2026-01-20 |
 | 7. Amazon Best Sellers | v2 | 5/5 | Complete | 2026-01-20 |
 | 8. eBay Seller Search | v2 | 2/2 | Complete | 2026-01-21 |
-| 9. Storage, Export, and Collection UI | v2 | 0/4 | In Progress | - |
+| 9. Storage, Export, and Collection UI | v2 | 0/5 | In Progress | - |
 
 ## Requirement Coverage
 
