@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { PairingRequestsTable } from "@/components/admin/automation/pairing-requests-table";
 import { AgentsTable } from "@/components/admin/automation/agents-table";
@@ -12,7 +13,10 @@ import { DiffModal } from "@/components/admin/collection/diff-modal";
 import { ProgressBar } from "@/components/admin/collection/progress-bar";
 import { ProgressDetailModal } from "@/components/admin/collection/progress-detail-modal";
 import { RunConfigModal } from "@/components/admin/collection/run-config-modal";
+import { CollectionHistory } from "@/components/admin/collection/collection-history";
 import { useCollectionPolling } from "@/hooks/use-collection-polling";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 type Tab = "pairing" | "agents" | "jobs" | "collections";
 
@@ -35,12 +39,34 @@ export default function AutomationPage() {
   const [diffTargetId, setDiffTargetId] = useState<string | null>(null);
   const [progressDetailOpen, setProgressDetailOpen] = useState(false);
   const [runConfigOpen, setRunConfigOpen] = useState(false);
+  const [progressMinimized, setProgressMinimized] = useState(false);
+  const [preselectedCategories, setPreselectedCategories] = useState<string[]>([]);
 
   // Collection polling
   const { activeRun, progress, newSellerIds, clearNewSellerIds, refresh } =
     useCollectionPolling(2000);
 
+  const supabase = createClient();
+
   const handleRefresh = () => setRefreshTrigger((n) => n + 1);
+
+  const handleCancelRun = async () => {
+    if (!activeRun) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      await fetch(`${API_BASE}/collection/runs/${activeRun.id}/cancel`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      refresh();
+      handleRefresh();
+    } catch (e) {
+      console.error("Failed to cancel run:", e);
+    }
+  };
 
   const handleLogClick = (logId: string) => {
     setSelectedLogId(logId);
@@ -115,18 +141,21 @@ export default function AutomationPage() {
           <JobsTable refreshTrigger={refreshTrigger} />
         )}
         {activeTab === "collections" && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Progress bar (shown during active runs) */}
             {progress && (
               <ProgressBar
                 progress={progress}
-                onDetailsClick={() => setProgressDetailOpen(true)}
+                onDetailsClick={() => {
+                  setProgressMinimized(false);
+                  setProgressDetailOpen(true);
+                }}
                 onRunStateChange={refresh}
               />
             )}
 
             {/* Main content: Grid (left) + Sidebar (right) */}
-            <div className="flex gap-4 h-[calc(100vh-300px)] min-h-[500px]">
+            <div className="flex gap-4 h-[calc(100vh-400px)] min-h-[400px]">
               {/* Sellers Grid - dominant left section */}
               <div className="flex-1 min-w-0">
                 <SellersGrid
@@ -148,6 +177,15 @@ export default function AutomationPage() {
               </div>
             </div>
 
+            {/* Collection History */}
+            <CollectionHistory
+              refreshTrigger={refreshTrigger}
+              onRerun={(categoryIds) => {
+                setPreselectedCategories(categoryIds);
+                setRunConfigOpen(true);
+              }}
+            />
+
             {/* Modals */}
             <LogDetailModal
               open={logDetailOpen}
@@ -164,15 +202,22 @@ export default function AutomationPage() {
             />
 
             <ProgressDetailModal
-              open={progressDetailOpen}
+              open={progressDetailOpen && !progressMinimized}
               onOpenChange={setProgressDetailOpen}
               progress={progress}
+              isMinimized={progressMinimized}
+              onMinimizeChange={setProgressMinimized}
+              onCancel={handleCancelRun}
             />
 
             <RunConfigModal
               open={runConfigOpen}
-              onOpenChange={setRunConfigOpen}
+              onOpenChange={(open) => {
+                setRunConfigOpen(open);
+                if (!open) setPreselectedCategories([]);
+              }}
               onRunStarted={handleRunStarted}
+              initialCategories={preselectedCategories}
             />
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import {
@@ -23,18 +23,27 @@ interface RunConfigModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRunStarted: () => void;
+  initialCategories?: string[];
 }
 
 export function RunConfigModal({
   open,
   onOpenChange,
   onRunStarted,
+  initialCategories = [],
 }: RunConfigModalProps) {
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initialCategories);
   const [concurrency, setConcurrency] = useState(3);
   const [loading, setLoading] = useState(false);
 
   const supabase = createClient();
+
+  // Sync selectedCategoryIds when initialCategories changes (e.g., from re-run)
+  useEffect(() => {
+    if (initialCategories.length > 0) {
+      setSelectedCategoryIds(initialCategories);
+    }
+  }, [initialCategories]);
 
   // Start collection run
   const startRun = async () => {
