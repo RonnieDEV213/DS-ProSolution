@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 9 of 9 (Storage, Export, and Collection UI)
-Plan: 2 of 5 complete
+Plan: 3 of 5 complete
 Status: In progress
-Last activity: 2026-01-21 - Completed 09-02-PLAN.md (Collection Run History)
+Last activity: 2026-01-21 - Completed 09-03-PLAN.md (Collection UI Components)
 
-Progress: [████████░░] 86% (12/14 v2 plans)
+Progress: [█████████░] 93% (13/14 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [████████░░] 86% (12/14 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 12
+- Total plans completed: 13
 - Average duration: ~4 min
-- Total execution time: ~48 min
+- Total execution time: ~53 min
 
 ## Accumulated Context
 
@@ -75,6 +75,9 @@ Recent for v2:
 - Export filenames format: sellers_{date}_{full|run-xxx}.{ext}
 - Compute duration_seconds in service layer from timestamps for history endpoint
 - History endpoint filters only terminal statuses (completed/failed/cancelled)
+- Floating indicator shows percentage and click to expand modal
+- Re-run passes category_ids to pre-select in RunConfigModal
+- Cancel button in both progress bar inline and modal footer
 
 ### Pending Todos
 
@@ -92,6 +95,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 09-02-PLAN.md (Collection Run History)
+Stopped at: Completed 09-03-PLAN.md (Collection UI Components)
 Resume file: None
-Next action: Execute 09-03-PLAN.md
+Next action: Execute 09-04-PLAN.md (Run Templates)
