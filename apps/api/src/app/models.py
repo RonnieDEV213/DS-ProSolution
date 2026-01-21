@@ -1081,3 +1081,34 @@ class AmazonCategoriesResponse(BaseModel):
     """Response containing all Amazon departments and categories."""
 
     departments: list[AmazonDepartment]
+
+
+# ============================================================
+# Collection History Models
+# ============================================================
+
+
+class CollectionHistoryEntry(BaseModel):
+    """Single entry in collection history with full statistics."""
+
+    id: str
+    name: str
+    status: CollectionRunStatus
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
+    categories_count: int
+    products_total: int
+    products_searched: int
+    sellers_found: int
+    sellers_new: int
+    cost_cents: int
+    failed_items: int
+    created_by: str
+
+
+class CollectionHistoryResponse(BaseModel):
+    """Paginated collection history response."""
+
+    runs: list[CollectionHistoryEntry]
+    total: int
