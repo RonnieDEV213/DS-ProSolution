@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 10 of 10 (Collection UI Cleanup)
-Plan: 2 of 5 complete (Setup & Progress Bar, Unified History Panel)
+Plan: 4 of 5 complete (Setup & Progress Bar, Unified History Panel, Sellers Grid Enhancement, Run Config Modal)
 Status: In progress
-Last activity: 2026-01-21 - Completed 10-01-PLAN.md (Setup & Progress Bar)
+Last activity: 2026-01-21 - Completed 10-04-PLAN.md (Run Config Modal Consolidation)
 
-Progress: [█████████░] 18/20 v2 plans
+Progress: [██████████] 20/20 v2 plans
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [█████████░] 18/20 v2 plans
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 18
+- Total plans completed: 19
 - Average duration: ~4 min
-- Total execution time: ~76 min
+- Total execution time: ~79 min
 
 ## Accumulated Context
 
@@ -91,6 +91,9 @@ Recent for v2:
 - Two-phase progress display: Amazon (orange) then eBay (blue) with phase-appropriate metrics
 - Phase defaults to "amazon" for backwards compatibility with existing backend
 - Worker status removed from progress modal (per CONTEXT.md - simplify, remove clutter)
+- 200ms click timeout to distinguish single-click (selection) from double-click (edit mode)
+- Selection refs map pattern for drag-to-select element registration
+- Conditional hover card metadata rendering (handles undefined gracefully)
 
 ### Pending Todos
 
@@ -110,9 +113,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 10-01-PLAN.md (Setup & Progress Bar)
+Stopped at: Completed 10-03-PLAN.md (Sellers Grid Enhancement)
 Resume file: None
-Next action: Execute 10-03-PLAN.md (Sellers Grid Enhancement)
+Next action: Execute 10-04-PLAN.md (Run Config Modal Consolidation)
 
 ## Roadmap Evolution
 
