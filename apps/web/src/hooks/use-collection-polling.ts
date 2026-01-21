@@ -6,14 +6,25 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 interface EnhancedProgress {
   run_id: string;
   status: "running" | "paused" | "pending";
+  phase: "amazon" | "ebay";  // Current phase of collection
+  // Amazon phase fields
   departments_total: number;
   departments_completed: number;
   categories_total: number;
   categories_completed: number;
+  products_found: number;  // Live count during Amazon phase
+  // eBay phase fields
   products_total: number;
   products_searched: number;
   sellers_found: number;
   sellers_new: number;
+  started_at?: string;  // For duration display
+  // Checkpoint for throttle status
+  checkpoint?: {
+    status?: "rate_limited" | "paused_failures" | string;
+    waiting_seconds?: number;
+    current_category?: string;
+  };
   worker_status: Array<{
     worker_id: number;
     department: string;
@@ -77,10 +88,15 @@ export function useCollectionPolling(pollingInterval = 2000) {
 
       if (response.ok) {
         const data = await response.json();
+        // Provide defaults for new fields for backwards compatibility
         setProgress({
           ...data,
           run_id: run.id,
           status: run.status,
+          // Default phase to "amazon" if backend hasn't been updated
+          phase: data.phase || "amazon",
+          // Default products_found to 0 if not provided
+          products_found: data.products_found ?? 0,
         });
       }
     } catch (e) {

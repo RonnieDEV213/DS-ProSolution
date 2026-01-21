@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Loader2, Pause, Play, Square } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ChevronDown, ChevronUp, Loader2, Pause, Play, Square, ShoppingCart, Search } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -11,15 +13,20 @@ interface ProgressBarProps {
   progress: {
     run_id: string;
     status: "running" | "paused" | "pending";
+    phase: "amazon" | "ebay";  // Current phase
+    // Amazon phase fields
     departments_total: number;
     departments_completed: number;
     categories_total: number;
     categories_completed: number;
+    products_found: number;  // Live count during Amazon phase
+    // eBay phase fields
     products_total: number;
     products_searched: number;
     sellers_found: number;
     sellers_new: number;
-    // Checkpoint field for throttle status
+    started_at?: string;  // For duration display
+    // Checkpoint for throttle status
     checkpoint?: {
       status?: "rate_limited" | "paused_failures" | string;
       waiting_seconds?: number;
@@ -30,12 +37,45 @@ interface ProgressBarProps {
   onRunStateChange: () => void;
 }
 
+function formatDuration(startedAt: string): string {
+  const start = new Date(startedAt);
+  const now = new Date();
+  const diffMs = now.getTime() - start.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(diffSeconds / 60);
+  const seconds = diffSeconds % 60;
+
+  if (minutes === 0) {
+    return `${seconds}s`;
+  }
+  return `${minutes}m ${seconds}s`;
+}
+
 export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: ProgressBarProps) {
   const [expanded, setExpanded] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [duration, setDuration] = useState<string>("");
   const supabase = createClient();
 
+  // Update duration timer every second
+  useEffect(() => {
+    if (!progress?.started_at) {
+      setDuration("");
+      return;
+    }
+
+    setDuration(formatDuration(progress.started_at));
+    const interval = setInterval(() => {
+      setDuration(formatDuration(progress.started_at!));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [progress?.started_at]);
+
   if (!progress) return null;
+
+  // Default phase to "amazon" for backwards compatibility
+  const phase = progress.phase || "amazon";
 
   const handlePauseResume = async () => {
     setActionLoading(true);
@@ -74,17 +114,32 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
     }
   };
 
-  const totalProgress = progress.products_total > 0
-    ? (progress.products_searched / progress.products_total) * 100
-    : 0;
+  // Calculate progress percentage based on phase
+  const getProgressPercent = () => {
+    if (phase === "amazon") {
+      // Amazon phase: progress based on categories
+      return progress.categories_total > 0
+        ? (progress.categories_completed / progress.categories_total) * 100
+        : 0;
+    } else {
+      // eBay phase: progress based on products searched
+      return progress.products_total > 0
+        ? (progress.products_searched / progress.products_total) * 100
+        : 0;
+    }
+  };
+
+  const progressPercent = getProgressPercent();
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
       {/* Progress bar */}
       <div className="h-2 bg-gray-800">
         <div
-          className="h-full bg-blue-500 transition-all duration-300"
-          style={{ width: `${totalProgress}%` }}
+          className={`h-full transition-all duration-300 ${
+            phase === "amazon" ? "bg-orange-500" : "bg-blue-500"
+          }`}
+          style={{ width: `${progressPercent}%` }}
         />
       </div>
 
@@ -98,45 +153,100 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
 
       {/* Quick info */}
       <div className="px-4 py-2 flex items-center justify-between text-sm">
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Departments */}
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Depts:</span>
-            <span className="text-gray-300">
-              {progress.departments_completed}/{progress.departments_total}
-            </span>
-          </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={phase}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="flex items-center gap-4 flex-wrap"
+          >
+            {/* Phase badge */}
+            <Badge
+              className={`text-xs ${
+                phase === "amazon"
+                  ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                  : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+              }`}
+            >
+              {phase === "amazon" ? (
+                <>
+                  <ShoppingCart className="h-3 w-3 mr-1" />
+                  Collecting Best Sellers
+                </>
+              ) : (
+                <>
+                  <Search className="h-3 w-3 mr-1" />
+                  Searching Sellers
+                </>
+              )}
+            </Badge>
 
-          <span className="text-gray-700">|</span>
+            <span className="text-gray-700">|</span>
 
-          {/* Categories */}
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Cats:</span>
-            <span className="text-gray-300">
-              {progress.categories_completed}/{progress.categories_total}
-            </span>
-          </div>
+            {/* Departments */}
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500">Depts:</span>
+              <span className="text-gray-300">
+                {progress.departments_completed}/{progress.departments_total}
+              </span>
+            </div>
 
-          <span className="text-gray-700">|</span>
+            <span className="text-gray-700">|</span>
 
-          {/* Products */}
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Products:</span>
-            <span className="text-gray-300">
-              {progress.products_searched}/{progress.products_total}
-            </span>
-          </div>
+            {/* Categories */}
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500">Cats:</span>
+              <span className="text-gray-300">
+                {progress.categories_completed}/{progress.categories_total}
+              </span>
+            </div>
 
-          <span className="text-gray-700">|</span>
+            <span className="text-gray-700">|</span>
 
-          {/* New Sellers */}
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">+New Sellers:</span>
-            <span className="text-green-400 font-medium">
-              {progress.sellers_new}
-            </span>
-          </div>
-        </div>
+            {phase === "amazon" ? (
+              /* Amazon phase: Show products found (live count, no denominator) */
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">Products Found:</span>
+                <span className="text-orange-400 font-medium">
+                  {progress.products_found || 0}
+                </span>
+              </div>
+            ) : (
+              /* eBay phase: Show products searched / total + new sellers */
+              <>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Products:</span>
+                  <span className="text-gray-300">
+                    {progress.products_searched}/{progress.products_total}
+                  </span>
+                </div>
+
+                <span className="text-gray-700">|</span>
+
+                {/* New Sellers */}
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">+New:</span>
+                  <span className="text-green-400 font-medium">
+                    {progress.sellers_new}
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Duration (eBay phase only, if started_at provided) */}
+            {phase === "ebay" && duration && (
+              <>
+                <span className="text-gray-700">|</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Duration:</span>
+                  <span className="text-gray-400">{duration}</span>
+                </div>
+              </>
+            )}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Controls */}
         <div className="flex items-center gap-2">
