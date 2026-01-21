@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 9 of 9 (Storage, Export, and Collection UI)
-Plan: 3 of 5 complete
+Plan: 4 of 5 complete
 Status: In progress
-Last activity: 2026-01-21 - Completed 09-03-PLAN.md (Collection UI Components)
+Last activity: 2026-01-21 - Completed 09-04-PLAN.md (Scheduler Infrastructure)
 
-Progress: [█████████░] 93% (13/14 v2 plans)
+Progress: [█████████░] 100% (14/14 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [█████████░] 93% (13/14 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 13
+- Total plans completed: 14
 - Average duration: ~4 min
-- Total execution time: ~53 min
+- Total execution time: ~58 min
 
 ## Accumulated Context
 
@@ -78,6 +78,11 @@ Recent for v2:
 - Floating indicator shows percentage and click to expand modal
 - Re-run passes category_ids to pre-select in RunConfigModal
 - Cancel button in both progress bar inline and modal footer
+- APScheduler AsyncIOScheduler for non-blocking cron tasks
+- One schedule per org constraint for simplicity
+- Croniter for cron expression validation
+- 1 hour misfire grace time for missed scheduled runs
+- Scheduled runs skip if collection already running
 
 ### Pending Todos
 
@@ -87,6 +92,7 @@ Recent for v2:
 - Run migration 039_run_templates.sql in Supabase SQL editor
 - Run migration 040_enhanced_progress.sql in Supabase SQL editor
 - Run migration 041_amazon_category_presets.sql in Supabase SQL editor
+- Run migration 042_collection_schedules.sql in Supabase SQL editor
 
 ### Blockers/Concerns
 
@@ -95,6 +101,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 09-03-PLAN.md (Collection UI Components)
+Stopped at: Completed 09-04-PLAN.md (Scheduler Infrastructure)
 Resume file: None
-Next action: Execute 09-04-PLAN.md (Run Templates)
+Next action: Execute 09-05-PLAN.md (Scheduler Configuration UI)
