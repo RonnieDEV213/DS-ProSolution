@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 9 of 9 (Storage, Export, and Collection UI)
-Plan: 4 of 5 complete
-Status: In progress
-Last activity: 2026-01-21 - Completed 09-04-PLAN.md (Scheduler Infrastructure)
+Plan: 5 of 5 complete
+Status: Phase complete
+Last activity: 2026-01-21 - Completed 09-05-PLAN.md (Scheduler Configuration UI)
 
-Progress: [█████████░] 100% (14/14 v2 plans)
+Progress: [██████████] 100% (15/15 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [█████████░] 100% (14/14 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: ~4 min
-- Total execution time: ~58 min
+- Total execution time: ~62 min
 
 ## Accumulated Context
 
@@ -83,6 +83,8 @@ Recent for v2:
 - Croniter for cron expression validation
 - 1 hour misfire grace time for missed scheduled runs
 - Scheduled runs skip if collection already running
+- Cron preset dropdown with common schedules (1st of month, 15th, weekly, daily)
+- Custom cron input revealed when 'Custom' preset selected
 
 ### Pending Todos
 
@@ -92,7 +94,7 @@ Recent for v2:
 - Run migration 039_run_templates.sql in Supabase SQL editor
 - Run migration 040_enhanced_progress.sql in Supabase SQL editor
 - Run migration 041_amazon_category_presets.sql in Supabase SQL editor
-- Run migration 042_collection_schedules.sql in Supabase SQL editor
+- Run migration 043_collection_schedules.sql in Supabase SQL editor
 
 ### Blockers/Concerns
 
@@ -101,6 +103,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 09-04-PLAN.md (Scheduler Infrastructure)
+Stopped at: Completed 09-05-PLAN.md (Scheduler Configuration UI)
 Resume file: None
-Next action: Execute 09-05-PLAN.md (Scheduler Configuration UI)
+Next action: Phase 9 complete - ready for UAT and v2 milestone documentation
