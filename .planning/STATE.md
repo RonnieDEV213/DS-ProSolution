@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 9 of 9 (Storage, Export, and Collection UI)
-Plan: 1 of 1 complete
-Status: Phase complete
-Last activity: 2026-01-21 - Completed 09-01-PLAN.md (Export Enhancement)
+Plan: 2 of 5 complete
+Status: In progress
+Last activity: 2026-01-21 - Completed 09-02-PLAN.md (Collection Run History)
 
-Progress: [██████████] 100% (11/11 v2 plans)
+Progress: [████████░░] 86% (12/14 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [██████████] 100% (11/11 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: ~4 min
-- Total execution time: ~45 min
+- Total execution time: ~48 min
 
 ## Accumulated Context
 
@@ -73,6 +73,8 @@ Recent for v2:
 - Export discovered_at maps to created_at timestamp in seller record
 - CSV export uses DictWriter for proper field ordering and escaping
 - Export filenames format: sellers_{date}_{full|run-xxx}.{ext}
+- Compute duration_seconds in service layer from timestamps for history endpoint
+- History endpoint filters only terminal statuses (completed/failed/cancelled)
 
 ### Pending Todos
 
@@ -90,6 +92,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed Phase 9 - Storage, Export, and Collection UI (Plan 01)
+Stopped at: Completed 09-02-PLAN.md (Collection Run History)
 Resume file: None
-Next action: v2 Milestone complete - all phases executed
+Next action: Execute 09-03-PLAN.md
