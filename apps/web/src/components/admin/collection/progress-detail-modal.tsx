@@ -7,6 +7,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface WorkerStatus {
@@ -34,6 +36,9 @@ interface ProgressDetailModalProps {
     cost_status: "safe" | "warning" | "exceeded";
     worker_status: WorkerStatus[];
   } | null;
+  isMinimized: boolean;
+  onMinimizeChange: (minimized: boolean) => void;
+  onCancel: () => void;
 }
 
 const statusColors = {
@@ -51,6 +56,9 @@ export function ProgressDetailModal({
   open,
   onOpenChange,
   progress,
+  isMinimized,
+  onMinimizeChange,
+  onCancel,
 }: ProgressDetailModalProps) {
   if (!progress) return null;
 
@@ -60,11 +68,51 @@ export function ProgressDetailModal({
     exceeded: "text-red-400",
   }[progress.cost_status];
 
+  // Minimized floating indicator
+  if (isMinimized) {
+    return (
+      <div
+        onClick={() => onMinimizeChange(false)}
+        className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 rounded-lg p-3 cursor-pointer shadow-lg z-50 min-w-[200px] hover:bg-gray-750"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-white">Collection Running</span>
+          <Badge className="bg-blue-500/20 text-blue-400 text-xs">
+            {progress.products_total > 0
+              ? Math.round((progress.products_searched / progress.products_total) * 100)
+              : 0}%
+          </Badge>
+        </div>
+        <div className="h-1.5 bg-gray-700 rounded overflow-hidden">
+          <div
+            className="h-full bg-blue-500 transition-all"
+            style={{
+              width: `${(progress.products_searched / Math.max(1, progress.products_total)) * 100}%`,
+            }}
+          />
+        </div>
+        <div className="text-xs text-gray-400 mt-1">
+          {progress.products_searched}/{progress.products_total} products
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-white">Collection Progress</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-white">Collection Progress</DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onMinimizeChange(true)}
+              className="text-gray-400 hover:text-white"
+            >
+              <Minimize2 className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -181,6 +229,17 @@ export function ProgressDetailModal({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Cancel button */}
+          <div className="flex justify-end pt-4 border-t border-gray-800">
+            <Button
+              variant="destructive"
+              onClick={onCancel}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Cancel Collection
+            </Button>
           </div>
         </div>
       </DialogContent>
