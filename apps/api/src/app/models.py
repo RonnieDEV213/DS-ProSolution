@@ -1131,3 +1131,30 @@ class CollectionHistoryResponse(BaseModel):
 
     runs: list[CollectionHistoryEntry]
     total: int
+
+
+# ============================================================
+# Collection Schedule Models
+# ============================================================
+
+
+class CollectionScheduleResponse(BaseModel):
+    """Collection schedule configuration."""
+
+    id: Optional[str] = None
+    preset_id: Optional[str] = None
+    preset_name: Optional[str] = None
+    cron_expression: str
+    enabled: bool
+    notify_email: bool
+    last_run_at: Optional[datetime] = None
+    next_run_at: Optional[datetime] = None
+
+
+class CollectionScheduleUpdate(BaseModel):
+    """Update collection schedule."""
+
+    preset_id: Optional[str] = None
+    cron_expression: Optional[str] = None
+    enabled: Optional[bool] = None
+    notify_email: Optional[bool] = None

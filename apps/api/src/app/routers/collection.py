@@ -4,9 +4,12 @@ Admin endpoints for:
 - Settings configuration
 - Run CRUD (create, list, pause, cancel)
 - Progress tracking (placeholder for WebSocket in later phase)
+- Schedule configuration (cron-based automated runs)
 """
 
 import logging
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.auth import require_permission_key
@@ -17,6 +20,8 @@ from app.models import (
     CollectionRunCreate,
     CollectionRunListResponse,
     CollectionRunResponse,
+    CollectionScheduleResponse,
+    CollectionScheduleUpdate,
     CollectionSettingsResponse,
     CollectionSettingsUpdate,
     EnhancedProgress,
@@ -27,6 +32,12 @@ from app.models import (
     WorkerStatus,
 )
 from app.services.collection import CollectionService
+from app.services.scheduler import (
+    add_schedule,
+    get_next_run_time,
+    remove_schedule,
+    validate_cron,
+)
 
 router = APIRouter(prefix="/collection", tags=["collection"])
 logger = logging.getLogger(__name__)
@@ -585,3 +596,161 @@ async def delete_template(
         await service.delete_template(org_id, template_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ============================================================
+# Schedule Endpoints
+# ============================================================
+
+
+@router.get("/schedule", response_model=CollectionScheduleResponse)
+async def get_schedule(
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Get collection schedule for the organization.
+
+    Returns current schedule configuration or defaults if none exists.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    supabase = get_supabase()
+
+    # Get schedule with preset name join
+    result = (
+        supabase.table("collection_schedules")
+        .select("*, amazon_category_presets(name)")
+        .eq("org_id", org_id)
+        .execute()
+    )
+
+    if not result.data:
+        # Return defaults (no schedule configured)
+        return CollectionScheduleResponse(
+            cron_expression="0 0 1 * *",  # 1st of month at midnight
+            enabled=False,
+            notify_email=False,
+        )
+
+    schedule = result.data[0]
+    preset_data = schedule.get("amazon_category_presets")
+
+    # Get next run time from scheduler
+    next_run = get_next_run_time(schedule["id"]) if schedule.get("enabled") else None
+
+    return CollectionScheduleResponse(
+        id=schedule["id"],
+        preset_id=schedule.get("preset_id"),
+        preset_name=preset_data["name"] if preset_data else None,
+        cron_expression=schedule["cron_expression"],
+        enabled=schedule["enabled"],
+        notify_email=schedule["notify_email"],
+        last_run_at=schedule.get("last_run_at"),
+        next_run_at=next_run.isoformat() if next_run else None,
+    )
+
+
+@router.patch("/schedule", response_model=CollectionScheduleResponse)
+async def update_schedule(
+    body: CollectionScheduleUpdate,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Update collection schedule.
+
+    Creates schedule if none exists. Validates cron expression.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    supabase = get_supabase()
+
+    # Validate cron if provided
+    if body.cron_expression and not validate_cron(body.cron_expression):
+        raise HTTPException(status_code=400, detail="Invalid cron expression")
+
+    # Check if schedule exists
+    existing = (
+        supabase.table("collection_schedules")
+        .select("id")
+        .eq("org_id", org_id)
+        .execute()
+    )
+
+    update_data = body.model_dump(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    if existing.data:
+        # Update existing
+        schedule_id = existing.data[0]["id"]
+        result = (
+            supabase.table("collection_schedules")
+            .update(update_data)
+            .eq("id", schedule_id)
+            .execute()
+        )
+        schedule = result.data[0]
+
+        # Update scheduler
+        if schedule["enabled"] and schedule.get("preset_id"):
+            add_schedule(
+                schedule_id,
+                org_id,
+                schedule["preset_id"],
+                schedule["cron_expression"],
+            )
+        else:
+            remove_schedule(schedule_id)
+    else:
+        # Create new
+        insert_data = {
+            "org_id": org_id,
+            "cron_expression": body.cron_expression or "0 0 1 * *",
+            "preset_id": body.preset_id,
+            "enabled": body.enabled or False,
+            "notify_email": body.notify_email or False,
+        }
+        result = (
+            supabase.table("collection_schedules")
+            .insert(insert_data)
+            .execute()
+        )
+        schedule = result.data[0]
+
+        # Add to scheduler if enabled
+        if schedule["enabled"] and schedule.get("preset_id"):
+            add_schedule(
+                schedule["id"],
+                org_id,
+                schedule["preset_id"],
+                schedule["cron_expression"],
+            )
+
+    # Get preset name
+    preset_name = None
+    if schedule.get("preset_id"):
+        preset_result = (
+            supabase.table("amazon_category_presets")
+            .select("name")
+            .eq("id", schedule["preset_id"])
+            .execute()
+        )
+        if preset_result.data:
+            preset_name = preset_result.data[0]["name"]
+
+    # Get next run time
+    next_run = get_next_run_time(schedule["id"]) if schedule.get("enabled") else None
+
+    return CollectionScheduleResponse(
+        id=schedule["id"],
+        preset_id=schedule.get("preset_id"),
+        preset_name=preset_name,
+        cron_expression=schedule["cron_expression"],
+        enabled=schedule["enabled"],
+        notify_email=schedule["notify_email"],
+        last_run_at=schedule.get("last_run_at"),
+        next_run_at=next_run.isoformat() if next_run else None,
+    )
