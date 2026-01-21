@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 10 of 10 (Collection UI Cleanup)
-Plan: 2 of 5 (Unified History Panel)
+Plan: 2 of 5 complete (Setup & Progress Bar, Unified History Panel)
 Status: In progress
-Last activity: 2026-01-21 - Completed 10-02-PLAN.md (Unified History Panel)
+Last activity: 2026-01-21 - Completed 10-01-PLAN.md (Setup & Progress Bar)
 
-Progress: [█████████░] 17/20 v2 plans
+Progress: [█████████░] 18/20 v2 plans
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [█████████░] 17/20 v2 plans
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 17
+- Total plans completed: 18
 - Average duration: ~4 min
-- Total execution time: ~70 min
+- Total execution time: ~76 min
 
 ## Accumulated Context
 
@@ -88,6 +88,9 @@ Recent for v2:
 - Client-side merge of audit-log and history data for unified timeline (vs new backend endpoint)
 - Discriminated union pattern for mixed activity feeds (CollectionRunEntry vs ManualEditEntry)
 - Border accent colors for visual category distinction (blue for runs, gray for edits)
+- Two-phase progress display: Amazon (orange) then eBay (blue) with phase-appropriate metrics
+- Phase defaults to "amazon" for backwards compatibility with existing backend
+- Worker status removed from progress modal (per CONTEXT.md - simplify, remove clutter)
 
 ### Pending Todos
 
@@ -107,9 +110,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 10-02-PLAN.md (Unified History Panel)
+Stopped at: Completed 10-01-PLAN.md (Setup & Progress Bar)
 Resume file: None
-Next action: Execute 10-03-PLAN.md (Progress Bar Rework)
+Next action: Execute 10-03-PLAN.md (Sellers Grid Enhancement)
 
 ## Roadmap Evolution
 
