@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 8 of 9 (eBay Seller Search)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: In progress
-Last activity: 2026-01-21 - Completed 08-01-PLAN.md (eBay Scraper Service)
+Last activity: 2026-01-21 - Completed 08-02-PLAN.md (eBay Search Endpoint)
 
-Progress: [████████░░] 75% (9/12 v2 plans)
+Progress: [████████░░] 83% (10/12 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [████████░░] 75% (9/12 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: ~4 min
-- Total execution time: ~36 min
+- Total execution time: ~41 min
 
 ## Accumulated Context
 
@@ -67,6 +67,9 @@ Recent for v2:
 - eBay scraper uses URL-embedded filters (not post-fetch filtering) for efficiency
 - EbayScraperService interface mirrors AmazonScraperService pattern
 - Seller info parsing with three-tier regex fallback (full, partial, minimal formats)
+- Chained Amazon->eBay pipeline: eBay search only runs if Amazon phase completes successfully
+- 3 pages per product for thorough eBay seller coverage (up to 180 sellers per product)
+- 200ms inter-page delay for conservative rate limit handling
 
 ### Pending Todos
 
@@ -83,7 +86,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-21T00:05:00Z
-Stopped at: Completed 08-01-PLAN.md (eBay Scraper Service)
+Last session: 2026-01-21T00:15:00Z
+Stopped at: Completed 08-02-PLAN.md (eBay Search Endpoint)
 Resume file: None
-Next action: Execute 08-02-PLAN.md (eBay Search Endpoint)
+Next action: Execute 08-03-PLAN.md (eBay Collection UI)
