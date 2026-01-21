@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** Phase 8 - eBay Seller Search (Complete)
+**Current focus:** Phase 9 - Storage, Export, and Collection UI
 
 ## Current Position
 
-Phase: 8 of 9 (eBay Seller Search)
-Plan: 2 of 2 complete
+Phase: 9 of 9 (Storage, Export, and Collection UI)
+Plan: 1 of 1 complete
 Status: Phase complete
-Last activity: 2026-01-21 - Completed 08-02-PLAN.md (Collection Integration)
+Last activity: 2026-01-21 - Completed 09-01-PLAN.md (Export Enhancement)
 
-Progress: [████████░░] 83% (10/12 v2 plans)
+Progress: [██████████] 100% (11/11 v2 plans)
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [████████░░] 83% (10/12 v2 plans)
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: ~4 min
-- Total execution time: ~41 min
+- Total execution time: ~45 min
 
 ## Accumulated Context
 
@@ -70,6 +70,9 @@ Recent for v2:
 - Chained Amazon->eBay pipeline: eBay search only runs if Amazon phase completes successfully
 - 3 pages per product for thorough eBay seller coverage (up to 180 sellers per product)
 - 200ms inter-page delay for conservative rate limit handling
+- Export discovered_at maps to created_at timestamp in seller record
+- CSV export uses DictWriter for proper field ordering and escaping
+- Export filenames format: sellers_{date}_{full|run-xxx}.{ext}
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed Phase 8 - eBay Seller Search
+Stopped at: Completed Phase 9 - Storage, Export, and Collection UI (Plan 01)
 Resume file: None
-Next action: Phase 9 - Storage, Export, and Collection UI
+Next action: v2 Milestone complete - all phases executed
