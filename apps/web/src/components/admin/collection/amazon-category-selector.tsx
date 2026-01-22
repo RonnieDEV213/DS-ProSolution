@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
-import { CategoryPresetDropdown } from "./category-preset-dropdown";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -24,13 +23,6 @@ interface Department {
   categories: Category[];
 }
 
-interface Preset {
-  id: string;
-  name: string;
-  category_ids: string[];
-  is_builtin: boolean;
-}
-
 interface AmazonCategorySelectorProps {
   selectedCategoryIds: string[];
   onSelectionChange: (categoryIds: string[]) => void;
@@ -41,35 +33,24 @@ export function AmazonCategorySelector({
   onSelectionChange,
 }: AmazonCategorySelectorProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [presets, setPresets] = useState<Preset[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
 
   const supabase = createClient();
 
-  // Fetch departments and presets
+  // Fetch departments
   const fetchData = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       const headers = { Authorization: `Bearer ${session.access_token}` };
-
-      // Fetch in parallel
-      const [categoriesRes, presetsRes] = await Promise.all([
-        fetch(`${API_BASE}/amazon/categories`, { headers }),
-        fetch(`${API_BASE}/amazon/presets`, { headers }),
-      ]);
+      const categoriesRes = await fetch(`${API_BASE}/amazon/categories`, { headers });
 
       if (categoriesRes.ok) {
         const data = await categoriesRes.json();
         setDepartments(data.departments || []);
-      }
-
-      if (presetsRes.ok) {
-        const data = await presetsRes.json();
-        setPresets(data.presets || []);
       }
     } catch (err) {
       console.error("Failed to fetch categories:", err);
@@ -165,15 +146,8 @@ export function AmazonCategorySelector({
 
   return (
     <div className="space-y-4">
-      {/* Header with preset dropdown and selection count */}
-      <div className="flex items-center justify-between">
-        <CategoryPresetDropdown
-          presets={presets}
-          selectedCategoryIds={selectedCategoryIds}
-          allCategoryIds={allCategoryIds}
-          onPresetSelect={onSelectionChange}
-          onPresetsChange={fetchData}
-        />
+      {/* Selection count */}
+      <div className="flex items-center justify-end">
         <Badge variant="secondary" className="bg-gray-700 text-gray-200">
           {selectedCategoryIds.length} selected
         </Badge>
@@ -191,7 +165,7 @@ export function AmazonCategorySelector({
       </div>
 
       {/* Department list */}
-      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+      <div className="space-y-2">
         {filteredDepartments.map((dept) => {
           const deptCategoryIds = dept.categories.map((c) => c.id);
           const selectedInDept = deptCategoryIds.filter((id) =>
