@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 11 of 11 (Collection Bug Fixes & Polish)
-Plan: 2 of 5 (Phase 11 plans: 01, 03, 04 pending; 02, 05 complete)
+Plan: 3 of 5 (Phase 11 plans: 03, 04 pending; 01, 02, 05 complete)
 Status: In progress
-Last activity: 2026-01-22 - Completed 11-05-PLAN.md (Concurrency Slider UI)
+Last activity: 2026-01-22 - Completed 11-01-PLAN.md (Progress & History Fixes)
 
-Progress: [██████████░░░░░░░░░░░░░░░] 23/26 plans complete (21 v2 + 2 Phase 11)
+Progress: [████████████░░░░░░░░░░░░░] 24/26 plans complete (21 v2 + 3 Phase 11)
 
 ## Shipped Milestones
 
@@ -103,6 +103,8 @@ Recent for v2:
 - Category breakdown aggregates from collection_items JSONB data field
 - Category ID hyphens replaced with spaces for display readability
 - Concurrency slider max=5 with tick marks (not wired to backend - hardcoded MAX_CONCURRENT=15 is optimal)
+- 500ms polling interval for responsive progress updates (lightweight single-row read endpoint)
+- Audit log replay parses new_value/old_value JSON for bulk operations (handles both adds and removes)
 
 ### Pending Todos
 
@@ -122,9 +124,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 11-05-PLAN.md (Concurrency Slider UI)
+Stopped at: Completed 11-01-PLAN.md (Progress & History Fixes)
 Resume file: None
-Next action: Execute remaining Phase 11 plans (01, 03, 04)
+Next action: Execute remaining Phase 11 plans (03, 04)
 
 ## Roadmap Evolution
 
