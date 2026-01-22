@@ -471,6 +471,11 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     const y = e.clientY - rect.top;
     const scrollTop = gridRef.current?.element?.scrollTop || 0;
 
+    // Check if click is on a seller cell
+    const pos = getGridPositionFromPixels(x, y, scrollTop);
+    const index = pos.row * columnCount + pos.col;
+    const clickedOnSeller = index < filteredSellers.length;
+
     if (e.button === 2) {
       // Right-click: start flag painting rectangle
       isRightDraggingRef.current = true;
@@ -478,17 +483,23 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       rightDragCurrentRef.current = { x, y };
 
       // Determine mode from first seller under cursor
-      const pos = getGridPositionFromPixels(x, y, scrollTop);
-      const index = pos.row * columnCount + pos.col;
       let mode = true; // Default to flagging
-      if (index < filteredSellers.length) {
+      if (clickedOnSeller) {
         const firstSeller = filteredSellers[index];
         mode = !firstSeller.flagged; // Toggle: if flagged, unflag; if not, flag
       }
       rightDragModeRef.current = mode;
       setRightDragMode(mode);
     } else {
-      // Left-click: start selection rectangle
+      // Left-click
+      if (!clickedOnSeller) {
+        // Clicked empty space - deselect all
+        setSelectedIds(new Set());
+        setSelectionAnchor(null);
+        return; // Don't start drag selection
+      }
+
+      // Start selection rectangle
       isDraggingRef.current = true;
       dragStartRef.current = { x, y, scrollTop };
       dragCurrentRef.current = { x, y };
