@@ -267,10 +267,10 @@ export function RunConfigModal({
         </DialogHeader>
 
         {/* Two-panel layout */}
-        <div className="flex-1 overflow-hidden">
-          <div className="grid grid-cols-[1fr_320px] gap-4 h-full">
+        <div className="flex-1 overflow-hidden min-h-0">
+          <div className="grid grid-cols-[1fr_320px] gap-4 h-full min-h-0">
             {/* Left Panel: Category Selector */}
-            <div className="overflow-y-auto pr-2">
+            <div className="overflow-y-auto pr-2 min-h-0">
               <AmazonCategorySelector
                 selectedCategoryIds={selectedCategoryIds}
                 onSelectionChange={setSelectedCategoryIds}
@@ -278,7 +278,7 @@ export function RunConfigModal({
             </div>
 
             {/* Right Panel: Run Controls */}
-            <div className="border-l border-gray-800 pl-4 space-y-4 overflow-y-auto">
+            <div className="border-l border-gray-800 pl-4 space-y-4 overflow-y-auto min-h-0">
               {/* Presets dropdown */}
               <div className="space-y-2">
                 <Label className="text-gray-300">Quick Presets</Label>
@@ -295,17 +295,32 @@ export function RunConfigModal({
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label className="text-gray-300">Concurrency</Label>
-                  <span className="text-sm text-gray-500">{concurrency} workers</span>
+                  <span className="text-sm text-gray-400">{concurrency} workers</span>
                 </div>
-                <Slider
-                  value={[concurrency]}
-                  onValueChange={([v]) => setConcurrency(v)}
-                  min={1}
-                  max={10}
-                  step={1}
-                  className="w-full"
-                />
-                <p className="text-xs text-gray-500">(Coming soon)</p>
+                <div className="relative pt-1 pb-4">
+                  <Slider
+                    value={[concurrency]}
+                    onValueChange={([v]) => setConcurrency(v)}
+                    min={1}
+                    max={5}
+                    step={1}
+                    className="w-full"
+                  />
+                  {/* Tick marks and labels */}
+                  <div className="flex justify-between px-1 mt-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <div key={n} className="flex flex-col items-center">
+                        <div className="w-px h-1.5 bg-gray-600" />
+                        <span className={`text-xs mt-0.5 ${concurrency === n ? 'text-blue-400' : 'text-gray-500'}`}>
+                          {n}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Higher values = faster collection, more API load
+                </p>
               </div>
 
               {/* Schedule toggle */}
