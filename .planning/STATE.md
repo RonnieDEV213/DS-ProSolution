@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** v2 SellerCollection complete - ready for milestone audit
+**Current focus:** v2 SellerCollection Phase 11 - Bug fixes and polish
 
 ## Current Position
 
-Phase: 10 of 10 (Collection UI Cleanup)
-Plan: 5 of 5 complete (Setup & Progress Bar, Unified History Panel, Sellers Grid Enhancement, Run Config Modal, Automation Page Integration)
-Status: Phase 10 COMPLETE
-Last activity: 2026-01-21 - Completed 10-05-PLAN.md (Automation Page Integration)
+Phase: 11 of 11 (Collection Bug Fixes & Polish)
+Plan: 2 of 5 (Phase 11 plans: 01, 03, 04 pending; 02, 05 complete)
+Status: In progress
+Last activity: 2026-01-22 - Completed 11-02-PLAN.md (Category Breakdown)
 
-Progress: [██████████] 21/21 v2 plans - PHASE 10 COMPLETE
+Progress: [██████████░░░░░░░░░░░░░░░] 23/26 plans complete (21 v2 + 2 Phase 11)
 
 ## Shipped Milestones
 
@@ -100,6 +100,8 @@ Recent for v2:
 - Deprecate components with JSDoc rather than delete (per CLAUDE.md guardrails)
 - Modal routing: Collection runs open HierarchicalRunModal, manual edits open LogDetailModal
 - Re-run flow: HierarchicalRunModal onRerun populates RunConfigModal initialCategories
+- Category breakdown aggregates from collection_items JSONB data field
+- Category ID hyphens replaced with spaces for display readability
 
 ### Pending Todos
 
@@ -118,11 +120,12 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-21
-Stopped at: Completed 10-05-PLAN.md (Automation Page Integration)
+Last session: 2026-01-22
+Stopped at: Completed 11-02-PLAN.md (Category Breakdown)
 Resume file: None
-Next action: Run /gsd:audit-milestone to verify v2 requirements and cross-phase integration
+Next action: Execute remaining Phase 11 plans (01, 03, 04)
 
 ## Roadmap Evolution
 
 - Phase 10 added: Collection UI Cleanup - streamline UI, remove clutter, improve data surfacing
+- Phase 11 added: Collection Bug Fixes & Polish - fix progress bar, history section, concurrency settings
