@@ -1378,9 +1378,9 @@ class CollectionService:
         """
         Execute eBay seller search for Amazon products in a collection run.
 
-        For each Amazon product collected, search eBay with the product title
-        and dropshipper filters, extract sellers, dedupe against existing
-        database, and store new sellers.
+        Uses ParallelCollectionRunner with 5 workers for concurrent execution.
+        Emits activity events for SSE streaming.
+        Stores seller count snapshot on completion.
 
         Args:
             run_id: Collection run ID
@@ -1389,6 +1389,9 @@ class CollectionService:
         Returns:
             dict with status, sellers_found, sellers_new
         """
+        import json
+        import uuid
+
         # Get Amazon products from collection_items
         products_result = (
             self.supabase.table("collection_items")
@@ -1409,7 +1412,6 @@ class CollectionService:
             }
 
         # Load category data for progress tracking
-        import json
         categories_path = Path(__file__).parent.parent / "data" / "amazon_categories.json"
         with open(categories_path) as f:
             cat_data = json.load(f)
@@ -1430,9 +1432,6 @@ class CollectionService:
                 products_by_category[cat_id] = []
             products_by_category[cat_id].append(p["id"])
 
-        # Track searched products per category
-        searched_by_category: dict[str, set] = {cat_id: set() for cat_id in products_by_category}
-
         # Calculate totals
         categories_total = len(products_by_category)
         dept_ids = set(cat_to_dept.get(cat_id) for cat_id in products_by_category if cat_id in cat_to_dept)
@@ -1451,7 +1450,6 @@ class CollectionService:
             }
 
         # Constants
-        MAX_CONSECUTIVE_FAILURES = 5
         PAGES_PER_PRODUCT = 3
         REQUEST_DELAY_MS = 200
 
@@ -1467,7 +1465,6 @@ class CollectionService:
         if checkpoint.get("phase") == "ebay_search" and checkpoint.get("products_processed"):
             # Resuming - skip already searched products
             resume_from_idx = checkpoint["products_processed"]
-            # Get current seller counts from the run
             sellers_found = run_data.get("sellers_found", 0)
             sellers_new = run_data.get("sellers_new", 0)
             logger.info(f"Resuming eBay search from product {resume_from_idx + 1}/{total_products}")
@@ -1488,287 +1485,214 @@ class CollectionService:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", run_id).execute()
 
-        # Progress tracking
-        consecutive_failures = 0
-        products_processed = resume_from_idx
-
         logger.info(f"{'Resuming' if resume_from_idx > 0 else 'Starting'} eBay seller search for {total_products} products")
 
         print(f"\n{'#'*60}")
-        print(f"[COLLECTION] {'Resuming' if resume_from_idx > 0 else 'Starting'} eBay Seller Search Phase")
+        print(f"[COLLECTION] {'Resuming' if resume_from_idx > 0 else 'Starting'} eBay Seller Search Phase (PARALLEL)")
         print(f"[COLLECTION] Run ID: {run_id}")
         print(f"[COLLECTION] Products to Search: {total_products} ({resume_from_idx} already done)")
         print(f"[COLLECTION] Categories: {categories_total}")
         print(f"[COLLECTION] Departments: {departments_total}")
+        print(f"[COLLECTION] Workers: 5")
         print(f"{'#'*60}")
 
-        # Process each product
-        for product_idx, product in enumerate(products):
-            # Skip already-processed products when resuming
-            if product_idx < resume_from_idx:
-                continue
+        # Set up activity streaming
+        activity_manager = get_activity_stream()
 
-            # Check if run was cancelled/paused
-            run_check = await self.get_run(run_id, org_id)
-            if run_check and run_check["status"] in ("cancelled", "paused"):
-                print(f"\n[COLLECTION] ⚠ Run {run_check['status']} - stopping eBay search")
-                return {
-                    "status": run_check["status"],
-                    "sellers_found": sellers_found,
-                    "sellers_new": sellers_new,
-                }
+        def emit_activity(event):
+            """Push activity event to SSE stream."""
+            asyncio.create_task(activity_manager.push(run_id, event.to_dict()))
 
-            print(f"\n[COLLECTION] Progress: Product {products_processed + 1}/{total_products}")
+        # Create parallel runner
+        runner = ParallelCollectionRunner(
+            max_workers=5,
+            on_activity=emit_activity,
+        )
+
+        # Define the task processing function
+        async def process_product(task: dict, worker_id: int) -> dict:
+            """Process a single product - search eBay and extract sellers."""
+            product = task["product"]
             product_data = product.get("data", {})
             title = product_data.get("title")
             price = product_data.get("price")
+            cat_id = product_data.get("category_id", "unknown")
+            cat_name = cat_name_lookup.get(cat_id, cat_id.replace("-", " ").title())
 
-            # Skip if missing title or price
             if not title or not price:
-                logger.warning(f"Skipping product {product['external_id']}: missing title or price")
-                products_processed += 1
-                continue
+                return {"product_id": product["id"], "cat_id": cat_id, "sellers": [], "skipped": True}
 
-            # Parse price if string
+            # Parse price
             if isinstance(price, str):
                 try:
                     price = float(price.replace("$", "").replace(",", ""))
                 except ValueError:
-                    logger.warning(f"Skipping product {product['external_id']}: invalid price '{price}'")
-                    products_processed += 1
-                    continue
+                    return {"product_id": product["id"], "cat_id": cat_id, "sellers": [], "skipped": True}
 
-            # Search eBay for each page
+            short_title = title[:40] + "..." if len(title) > 40 else title
+
+            # Emit fetching activity
+            await runner.emit_activity(create_activity_event(
+                worker_id=worker_id,
+                phase="ebay",
+                action="fetching",
+                category=cat_name,
+                product_name=short_title,
+            ))
+            print(f"[W{worker_id}] Searching: {short_title}")
+
+            all_sellers = []
+
+            # Search 3 pages per product
             for page in range(1, PAGES_PER_PRODUCT + 1):
-                # Check if run was cancelled/paused before each API call
+                # Check cancellation
                 run_check = await self.get_run(run_id, org_id)
                 if run_check and run_check["status"] in ("cancelled", "paused"):
-                    print(f"\n[COLLECTION] ⚠ Run {run_check['status']} - stopping eBay search")
-                    return {
-                        "status": run_check["status"],
-                        "sellers_found": sellers_found,
-                        "sellers_new": sellers_new,
-                    }
+                    raise CollectionPausedException(f"Run {run_check['status']}")
 
                 result = await scraper.search_sellers(title, price, page)
 
-                # Check again after API call (user may have cancelled during the request)
-                run_check = await self.get_run(run_id, org_id)
-                if run_check and run_check["status"] in ("cancelled", "paused"):
-                    print(f"\n[COLLECTION] ⚠ Run {run_check['status']} - stopping eBay search")
-                    return {
-                        "status": run_check["status"],
-                        "sellers_found": sellers_found,
-                        "sellers_new": sellers_new,
-                    }
-
-                # Handle rate limiting
                 if result.error == "rate_limited":
-                    logger.info(f"Rate limited, waiting 5s")
-                    # Build current_activity for rate limit display
-                    cat_id = product_data.get("category_id", "unknown")
-                    cat_name = cat_name_lookup.get(cat_id, cat_id.replace("-", " ").title())
-                    short_title = title[:40] + "..." if len(title) > 40 else title
-                    current_activity = f"{cat_name} > {short_title}"
-                    # Update checkpoint with throttle status
-                    self.supabase.table("collection_runs").update({
-                        "checkpoint": {
-                            "status": "rate_limited",
-                            "waiting_seconds": 5,
-                            "current_product_id": product["id"],
-                            "current_activity": current_activity,
-                            "current_page": page,
-                        },
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    }).eq("id", run_id).execute()
-
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=worker_id,
+                        phase="ebay",
+                        action="rate_limited",
+                        product_name=short_title,
+                    ))
+                    print(f"[W{worker_id}] Rate limited, waiting 5s...")
                     await asyncio.sleep(5)
-
-                    # Check if cancelled during wait
-                    run_check = await self.get_run(run_id, org_id)
-                    if run_check and run_check["status"] in ("cancelled", "paused"):
-                        print(f"\n[COLLECTION] ⚠ Run {run_check['status']} - stopping eBay search")
-                        return {
-                            "status": run_check["status"],
-                            "sellers_found": sellers_found,
-                            "sellers_new": sellers_new,
-                        }
                     continue
 
-                # Handle other errors
                 if result.error:
-                    consecutive_failures += 1
-                    logger.warning(
-                        f"Error searching eBay for '{title[:50]}...': {result.error} "
-                        f"(consecutive: {consecutive_failures})"
-                    )
+                    break  # Skip remaining pages
 
-                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                        # Pause collection
-                        logger.error(f"Multiple consecutive failures, pausing run {run_id}")
-                        await self.pause_run(run_id, org_id)
+                all_sellers.extend(result.sellers)
 
-                        self.supabase.table("collection_runs").update({
-                            "checkpoint": {
-                                "status": "paused_failures",
-                                "consecutive_failures": consecutive_failures,
-                                "last_product_id": product["id"],
-                            },
-                            "products_searched": products_processed,
-                            "sellers_found": sellers_found,
-                            "sellers_new": sellers_new,
-                            "updated_at": datetime.now(timezone.utc).isoformat(),
-                        }).eq("id", run_id).execute()
-
-                        return {
-                            "status": "paused",
-                            "error": "Multiple consecutive failures",
-                            "sellers_found": sellers_found,
-                            "sellers_new": sellers_new,
-                        }
-                    break  # Skip remaining pages for this product
-
-                # Success - reset failures and process sellers
-                consecutive_failures = 0
-                sellers_found += len(result.sellers)
-
-                # Batch process sellers for efficiency
-                if result.sellers:
-                    # Prepare seller data
-                    seller_info = []
-                    for seller in result.sellers:
-                        normalized = self._normalize_seller_name(seller.username)
-                        seller_info.append({
-                            "username": seller.username,
-                            "normalized": normalized,
-                            "feedback_count": seller.feedback_count,
-                        })
-
-                    # Batch lookup existing sellers
-                    normalized_names = [s["normalized"] for s in seller_info]
-                    existing_results = batched_query(
-                        self.supabase,
-                        table="sellers",
-                        select="id, normalized_name",
-                        filter_column="normalized_name",
-                        filter_values=normalized_names,
-                        extra_filters={"org_id": org_id, "platform": "ebay"},
-                    )
-                    existing_map = {r["normalized_name"]: r["id"] for r in existing_results}
-
-                    # Separate new vs existing
-                    new_sellers = []
-                    existing_ids = []
-                    for info in seller_info:
-                        if info["normalized"] in existing_map:
-                            existing_ids.append(existing_map[info["normalized"]])
-                        else:
-                            new_sellers.append({
-                                "org_id": org_id,
-                                "display_name": info["username"],
-                                "normalized_name": info["normalized"],
-                                "platform": "ebay",
-                                "platform_id": info["username"],
-                                "feedback_score": info["feedback_count"],
-                                "first_seen_run_id": run_id,
-                                "last_seen_run_id": run_id,
-                                "times_seen": 1,
-                            })
-
-                    # Batch update existing sellers
-                    if existing_ids:
-                        batched_update(
-                            self.supabase,
-                            table="sellers",
-                            filter_column="id",
-                            filter_values=existing_ids,
-                            update_data={
-                                "last_seen_run_id": run_id,
-                                "updated_at": datetime.now(timezone.utc).isoformat(),
-                            },
-                        )
-
-                    # Batch insert new sellers
-                    if new_sellers:
-                        inserted, _ = batched_insert(
-                            self.supabase,
-                            table="sellers",
-                            rows=new_sellers,
-                        )
-                        sellers_new += inserted
-                        if inserted > 0:
-                            print(f"[EBAY] ★ {inserted} NEW SELLERS")
-                            for s in new_sellers[:3]:
-                                print(f"         {s['display_name']}")
-                            if len(new_sellers) > 3:
-                                print(f"         (+{len(new_sellers) - 3} more)")
-
-                # Stop pagination early if no more results
                 if not result.has_more:
                     break
 
-                # Delay between pages
                 await asyncio.sleep(REQUEST_DELAY_MS / 1000)
 
-            products_processed += 1
+            # Emit found activity
+            if all_sellers:
+                await runner.emit_activity(create_activity_event(
+                    worker_id=worker_id,
+                    phase="ebay",
+                    action="found",
+                    category=cat_name,
+                    product_name=short_title,
+                    new_sellers_count=len(all_sellers),
+                ))
+                print(f"[W{worker_id}] Found {len(all_sellers)} sellers for {short_title}")
 
-            # Track this product as searched in its category
-            cat_id = product.get("data", {}).get("category_id", "unknown")
-            if cat_id in searched_by_category:
-                searched_by_category[cat_id].add(product["id"])
+            return {
+                "product_id": product["id"],
+                "cat_id": cat_id,
+                "sellers": all_sellers,
+            }
 
-            # Calculate categories completed (all products in category searched)
-            categories_completed = 0
-            completed_cat_ids = set()
-            for cid, product_ids in products_by_category.items():
-                if len(searched_by_category.get(cid, set())) >= len(product_ids):
-                    categories_completed += 1
-                    completed_cat_ids.add(cid)
+        # Prepare tasks (skip already-processed when resuming)
+        tasks = []
+        for idx, p in enumerate(products):
+            if idx < resume_from_idx:
+                continue
+            tasks.append({"product": p})
 
-            # Calculate departments completed (all categories in dept are complete)
-            departments_completed = 0
-            dept_category_count: dict[str, int] = {}
-            dept_completed_count: dict[str, int] = {}
-            for cid in products_by_category:
-                dept_id = cat_to_dept.get(cid)
-                if dept_id:
-                    dept_category_count[dept_id] = dept_category_count.get(dept_id, 0) + 1
-                    if cid in completed_cat_ids:
-                        dept_completed_count[dept_id] = dept_completed_count.get(dept_id, 0) + 1
+        # Execute parallel
+        try:
+            results = await runner.run(tasks, process_product, phase="ebay")
+        except CollectionPausedException:
+            print(f"\n[COLLECTION] Run paused/cancelled - stopping eBay search")
+            return {"status": "paused", "sellers_found": sellers_found, "sellers_new": sellers_new}
 
-            for dept_id, total_cats in dept_category_count.items():
-                if dept_completed_count.get(dept_id, 0) >= total_cats:
-                    departments_completed += 1
+        # Collect all sellers from results and batch process
+        all_found_sellers = []
+        for result in results:
+            if result.get("skipped"):
+                continue
+            all_found_sellers.extend(result.get("sellers", []))
 
-            # Update progress checkpoint after each product
-            # Build current_activity string: "Category > Product Title"
-            cat_name = cat_name_lookup.get(cat_id, cat_id.replace("-", " ").title())
-            # Truncate title to 40 chars for display
-            short_title = title[:40] + "..." if len(title) > 40 else title
-            current_activity = f"{cat_name} > {short_title}"
+        sellers_found += len(all_found_sellers)
 
-            self.supabase.table("collection_runs").update({
-                "checkpoint": {
-                    "phase": "ebay_search",
-                    "current_product_id": product["id"],
-                    "current_activity": current_activity,
-                    "products_processed": products_processed,
-                    "products_total": total_products,
-                },
-                "processed_items": products_processed,
-                "products_searched": products_processed,
-                "categories_completed": categories_completed,
-                "departments_completed": departments_completed,
-                "sellers_found": sellers_found,
-                "sellers_new": sellers_new,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }).eq("id", run_id).execute()
+        # Batch process all sellers
+        if all_found_sellers:
+            # Prepare seller data
+            seller_info = []
+            for seller in all_found_sellers:
+                normalized = self._normalize_seller_name(seller.username)
+                seller_info.append({
+                    "username": seller.username,
+                    "normalized": normalized,
+                    "feedback_count": seller.feedback_count,
+                })
 
-            print(f"[EBAY] Progress: {products_processed}/{total_products} products, {categories_completed}/{categories_total} cats, {departments_completed}/{departments_total} depts")
+            # Batch lookup existing sellers
+            normalized_names = [s["normalized"] for s in seller_info]
+            existing_results = batched_query(
+                self.supabase,
+                table="sellers",
+                select="id, normalized_name",
+                filter_column="normalized_name",
+                filter_values=normalized_names,
+                extra_filters={"org_id": org_id, "platform": "ebay"},
+            )
+            existing_map = {r["normalized_name"]: r["id"] for r in existing_results}
 
+            # Separate new vs existing (dedupe by normalized name)
+            seen_normalized = set()
+            new_sellers = []
+            existing_ids = []
+            for info in seller_info:
+                if info["normalized"] in seen_normalized:
+                    continue  # Skip duplicates within batch
+                seen_normalized.add(info["normalized"])
+
+                if info["normalized"] in existing_map:
+                    existing_ids.append(existing_map[info["normalized"]])
+                else:
+                    new_sellers.append({
+                        "org_id": org_id,
+                        "display_name": info["username"],
+                        "normalized_name": info["normalized"],
+                        "platform": "ebay",
+                        "platform_id": info["username"],
+                        "feedback_score": info["feedback_count"],
+                        "first_seen_run_id": run_id,
+                        "last_seen_run_id": run_id,
+                        "times_seen": 1,
+                    })
+
+            # Batch update existing sellers
+            if existing_ids:
+                batched_update(
+                    self.supabase,
+                    table="sellers",
+                    filter_column="id",
+                    filter_values=existing_ids,
+                    update_data={
+                        "last_seen_run_id": run_id,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+
+            # Batch insert new sellers
+            if new_sellers:
+                inserted, _ = batched_insert(
+                    self.supabase,
+                    table="sellers",
+                    rows=new_sellers,
+                )
+                sellers_new += inserted
+                if inserted > 0:
+                    print(f"[EBAY] Total NEW SELLERS: {inserted}")
+                    for s in new_sellers[:5]:
+                        print(f"         {s['display_name']}")
+                    if len(new_sellers) > 5:
+                        print(f"         (+{len(new_sellers) - 5} more)")
 
         # Mark run as completed
         now = datetime.now(timezone.utc).isoformat()
+        products_processed = resume_from_idx + len(tasks)
         self.supabase.table("collection_runs").update({
             "status": "completed",
             "completed_at": now,
@@ -1777,6 +1701,22 @@ class CollectionService:
             "sellers_new": sellers_new,
             "updated_at": now,
         }).eq("id", run_id).execute()
+
+        # Store seller count snapshot
+        await self._store_run_snapshot(run_id, org_id)
+
+        # Emit complete activity
+        await activity_manager.push(run_id, {
+            "id": str(uuid.uuid4()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "worker_id": 0,
+            "phase": "ebay",
+            "action": "complete",
+            "new_sellers_count": sellers_new,
+        })
+
+        # Cleanup activity stream
+        await activity_manager.cleanup(run_id)
 
         logger.info(
             f"eBay seller search completed for run {run_id}: "
@@ -1789,7 +1729,7 @@ class CollectionService:
         print(f"[COLLECTION] Total Sellers Found: {sellers_found}")
         print(f"[COLLECTION] New Sellers Added: {sellers_new}")
         print(f"{'#'*60}")
-        print(f"\n[COLLECTION] ✓ COLLECTION RUN COMPLETED")
+        print(f"\n[COLLECTION] COLLECTION RUN COMPLETED")
 
         return {
             "status": "completed",
