@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 12 of 12 (Live Activity Feed & Concurrency)
-Plan: 1 of 3
-Status: In progress
-Last activity: 2026-01-22 - Completed 12-01-PLAN.md
+Plan: 3 of 3
+Status: Phase complete
+Last activity: 2026-01-22 - Completed 12-03-PLAN.md
 
-Progress: [██████████████████████████░░░] 27/29 plans complete
+Progress: [█████████████████████████████] 29/29 plans complete
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [███████████████████████
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 21
+- Total plans completed: 24
 - Average duration: ~4 min
-- Total execution time: ~92 min
+- Total execution time: ~99 min
 
 ## Accumulated Context
 
@@ -102,7 +102,6 @@ Recent for v2:
 - Re-run flow: HierarchicalRunModal onRerun populates RunConfigModal initialCategories
 - Category breakdown aggregates from collection_items JSONB data field
 - Category ID hyphens replaced with spaces for display readability
-- Concurrency slider max=5 with tick marks (not wired to backend - hardcoded MAX_CONCURRENT=15 is optimal)
 - 500ms polling interval for responsive progress updates (lightweight single-row read endpoint)
 - Audit log replay parses new_value/old_value JSON for bulk operations (handles both adds and removes)
 - Selection anchor pattern for Shift+click range selection (track last clicked index)
@@ -117,6 +116,9 @@ Recent for v2:
 - 15-second keepalive timeout for SSE connection health
 - Poison pill pattern for clean worker shutdown
 - Singleton pattern for ActivityStreamManager
+- Visual card design for activity feed (not terminal-style per CONTEXT.md)
+- Query param auth for SSE since EventSource doesn't support headers
+- Concurrency slider removed - system uses optimal concurrency automatically
 
 ### Pending Todos
 
@@ -137,12 +139,12 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 12-01-PLAN.md
+Stopped at: Completed 12-03-PLAN.md (Phase 12 complete)
 Resume file: None
-Next action: Run /gsd:execute-plan 12-02 to integrate ParallelCollectionRunner
+Next action: v2 SellerCollection milestone complete - all 12 phases executed
 
 ## Roadmap Evolution
 
 - Phase 10 added: Collection UI Cleanup - streamline UI, remove clutter, improve data surfacing
 - Phase 11 added: Collection Bug Fixes & Polish - fix progress bar, history section, concurrency settings
-- Phase 12 added: Live Activity Feed & Concurrency - terminal-style live feed in modal, fix history seller counts, implement parallel collection
+- Phase 12 added: Live Activity Feed & Concurrency - live feed in modal, fix history seller counts, implement parallel collection
