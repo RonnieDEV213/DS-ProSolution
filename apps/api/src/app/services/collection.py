@@ -1110,10 +1110,8 @@ class CollectionService:
         """
         Execute Amazon best sellers collection for selected categories.
 
-        Fetches products from each category via Oxylabs API,
-        handles rate limiting and errors:
-        - Retry failed category 3x, then skip
-        - Pause on multiple consecutive failures
+        Uses ParallelCollectionRunner with 5 workers for concurrent execution.
+        Emits activity events for SSE streaming.
 
         Args:
             run_id: Collection run ID
@@ -1124,6 +1122,7 @@ class CollectionService:
             dict with status, products_fetched, errors
         """
         import json
+        import uuid
 
         # Load category data to get node IDs
         categories_path = Path(__file__).parent.parent / "data" / "amazon_categories.json"
@@ -1178,162 +1177,152 @@ class CollectionService:
                 "products_fetched": 0,
             }
 
-        # Track progress
-        consecutive_failures = 0
-        MAX_CONSECUTIVE_FAILURES = 5
+        # Track errors
         errors: list[dict] = []
 
         # Log collection start
         print(f"\n{'#'*60}")
-        print(f"[COLLECTION] {'Resuming' if resume_from_idx > 0 else 'Starting'} Amazon Best Sellers Collection")
+        print(f"[COLLECTION] {'Resuming' if resume_from_idx > 0 else 'Starting'} Amazon Best Sellers Collection (PARALLEL)")
         print(f"[COLLECTION] Run ID: {run_id}")
         print(f"[COLLECTION] Departments: {departments_total}")
         print(f"[COLLECTION] Categories: {categories_total} ({resume_from_idx} already done)")
+        print(f"[COLLECTION] Workers: 5")
         print(f"{'#'*60}")
 
-        # Process each category
-        for idx, cat_id in enumerate(category_ids):
-            # Skip already-processed categories when resuming
-            if idx < resume_from_idx:
-                continue
+        # Set up activity streaming
+        activity_manager = get_activity_stream()
 
-            # Check if run was cancelled/paused
+        def emit_activity(event):
+            """Push activity event to SSE stream."""
+            asyncio.create_task(activity_manager.push(run_id, event.to_dict()))
+
+        # Create parallel runner
+        runner = ParallelCollectionRunner(
+            max_workers=5,
+            on_activity=emit_activity,
+        )
+
+        # Define the task processing function
+        async def process_category(task: dict, worker_id: int) -> dict:
+            """Process a single category - called by parallel worker."""
+            cat_id = task["cat_id"]
+            node_id = task["node_id"]
+            category_name = task["category_name"]
+
+            # Emit fetching activity
+            await runner.emit_activity(create_activity_event(
+                worker_id=worker_id,
+                phase="amazon",
+                action="fetching",
+                category=category_name,
+            ))
+            print(f"[W{worker_id}] Fetching: {category_name}")
+
+            # Check if run was cancelled
             run_check = await self.get_run(run_id, org_id)
             if run_check and run_check["status"] in ("cancelled", "paused"):
-                print(f"\n[COLLECTION] ⚠ Run {run_check['status']} - stopping Amazon collection")
+                raise CollectionPausedException(f"Run {run_check['status']}")
+
+            # Retry logic (3 attempts)
+            for attempt in range(3):
+                result = await scraper.fetch_bestsellers(node_id, category_name=category_name)
+
+                if result.error == "rate_limited":
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=worker_id,
+                        phase="amazon",
+                        action="rate_limited",
+                        category=category_name,
+                    ))
+                    print(f"[W{worker_id}] Rate limited, waiting 5s...")
+                    await asyncio.sleep(5)
+                    continue
+
+                if result.error:
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=worker_id,
+                        phase="amazon",
+                        action="error",
+                        category=category_name,
+                        error_message=result.error,
+                    ))
+                    print(f"[W{worker_id}] Error: {result.error}")
+                    raise Exception(result.error)
+
+                # Success - emit found event
+                await runner.emit_activity(create_activity_event(
+                    worker_id=worker_id,
+                    phase="amazon",
+                    action="found",
+                    category=category_name,
+                    new_sellers_count=len(result.products),  # Reusing field for product count
+                ))
+                print(f"[W{worker_id}] Found {len(result.products)} products in {category_name}")
+
                 return {
-                    "status": run_check["status"],
-                    "products_fetched": products_fetched,
-                    "errors": errors if errors else None,
+                    "cat_id": cat_id,
+                    "products": result.products,
+                    "category_name": category_name,
                 }
 
-            # Calculate current department progress
-            processed_cat_ids = category_ids[:idx]
-            completed_dept_ids = set(dept_lookup.get(cid) for cid in processed_cat_ids if cid in dept_lookup)
-            current_dept_count = len(completed_dept_ids)
+            # Max retries reached
+            return {"cat_id": cat_id, "products": [], "error": "max_retries"}
 
-            print(f"\n[COLLECTION] Progress: Dept {current_dept_count}/{departments_total}, Cat {idx + 1}/{categories_total}")
+        # Prepare tasks list (skip already-processed when resuming)
+        tasks = []
+        for idx, cat_id in enumerate(category_ids):
+            if idx < resume_from_idx:
+                continue
             node_id = node_lookup.get(cat_id)
             if not node_id:
                 logger.warning(f"Unknown category ID: {cat_id}")
                 errors.append({"category": cat_id, "error": "unknown_category"})
                 continue
+            tasks.append({
+                "cat_id": cat_id,
+                "node_id": node_id,
+                "category_name": name_lookup.get(cat_id, cat_id),
+            })
 
-            # Retry logic (3 attempts per category)
-            category_name = name_lookup.get(cat_id, cat_id)
-            for attempt in range(3):
-                result = await scraper.fetch_bestsellers(node_id, category_name=category_name)
+        # Execute parallel
+        try:
+            results = await runner.run(tasks, process_category, phase="amazon")
+        except CollectionPausedException:
+            print(f"\n[COLLECTION] Run paused/cancelled - stopping Amazon collection")
+            return {"status": "paused", "products_fetched": products_fetched}
 
-                # Handle rate limiting
-                if result.error == "rate_limited":
-                    logger.info(f"Rate limited, waiting 5s (attempt {attempt + 1}/3)")
-                    # Update run with throttle status
-                    self.supabase.table("collection_runs").update({
-                        "checkpoint": {
-                            "status": "rate_limited",
-                            "waiting_seconds": 5,
-                            "current_category": cat_id,
-                            "current_activity": category_name,
-                        },
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    }).eq("id", run_id).execute()
+        # Process results and save to database
+        for result in results:
+            if "error" in result:
+                errors.append({"category": result["cat_id"], "error": result["error"]})
+                continue
 
-                    await asyncio.sleep(5)
+            cat_id = result["cat_id"]
+            products_fetched += len(result["products"])
 
-                    # Check if cancelled during wait
-                    run_check = await self.get_run(run_id, org_id)
-                    if run_check and run_check["status"] in ("cancelled", "paused"):
-                        print(f"\n[COLLECTION] ⚠ Run {run_check['status']} - stopping Amazon collection")
-                        return {
-                            "status": run_check["status"],
-                            "products_fetched": products_fetched,
-                            "errors": errors if errors else None,
-                        }
-                    continue
-
-                # Handle other errors
-                if result.error:
-                    consecutive_failures += 1
-                    logger.warning(f"Error fetching {cat_id}: {result.error} (consecutive: {consecutive_failures})")
-
-                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                        # Pause collection and notify
-                        logger.error(f"Multiple consecutive failures, pausing run {run_id}")
-                        await self.pause_run(run_id, org_id)
-
-                        self.supabase.table("collection_runs").update({
-                            "checkpoint": {
-                                "status": "paused_failures",
-                                "consecutive_failures": consecutive_failures,
-                                "last_category": cat_id,
-                            },
-                            "updated_at": datetime.now(timezone.utc).isoformat(),
-                        }).eq("id", run_id).execute()
-
-                        return {
-                            "status": "paused",
-                            "error": "Multiple consecutive failures",
-                            "products_fetched": products_fetched,
-                            "errors": errors,
-                        }
-
-                    errors.append({"category": cat_id, "error": result.error})
-                    break  # Move to next category after max retries
-
-                # Success - process products
-                consecutive_failures = 0
-                batch_size = len(result.products)
-                products_fetched += batch_size
-
-                # IMMEDIATELY update product count so UI shows real-time progress
-                categories_completed = idx + 1
-                processed_cat_ids = category_ids[:idx + 1]
-                completed_dept_ids = set(dept_lookup.get(cid) for cid in processed_cat_ids if cid in dept_lookup)
-                departments_completed = len(completed_dept_ids)
-
-                self.supabase.table("collection_runs").update({
-                    "categories_completed": categories_completed,
-                    "departments_completed": departments_completed,
-                    "products_total": products_fetched,
-                    "checkpoint": {
-                        "phase": "amazon",
-                        "current_category": cat_id,
-                        "current_activity": category_name,
-                        "categories_completed": categories_completed,
-                        "departments_completed": departments_completed,
-                        "products_fetched": products_fetched,
+            # Save products as collection items (batch for efficiency)
+            items_to_insert = []
+            for product in result["products"]:
+                items_to_insert.append({
+                    "run_id": run_id,
+                    "item_type": "amazon_product",
+                    "external_id": product.asin,
+                    "data": {
+                        "title": product.title,
+                        "price": product.price,
+                        "currency": product.currency,
+                        "rating": product.rating,
+                        "url": product.url,
+                        "position": product.position,
+                        "category_id": cat_id,
                     },
-                    "processed_items": products_fetched,
-                    "failed_items": len(errors),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }).eq("id", run_id).execute()
+                    "status": "pending",
+                })
 
-                print(f"[AMAZON] Progress updated: +{batch_size} products (total: {products_fetched})")
-
-                # Save products as collection items
-                for product in result.products:
-                    item_data = {
-                        "run_id": run_id,
-                        "item_type": "amazon_product",
-                        "external_id": product.asin,
-                        "data": {
-                            "title": product.title,
-                            "price": product.price,
-                            "currency": product.currency,
-                            "rating": product.rating,
-                            "url": product.url,
-                            "position": product.position,
-                            "category_id": cat_id,
-                        },
-                        "status": "pending",  # Will be processed by eBay search in Phase 8
-                    }
-                    self.supabase.table("collection_items").insert(item_data).execute()
-
-                logger.info(f"Fetched {len(result.products)} products from {cat_id}")
-                break  # Success, move to next category
+            if items_to_insert:
+                batched_insert(self.supabase, table="collection_items", rows=items_to_insert)
 
         # Update progress - set to 100% complete for Amazon phase
-        # (don't mark run as completed yet, eBay phase still needs to run)
         now = datetime.now(timezone.utc).isoformat()
         self.supabase.table("collection_runs").update({
             "total_items": products_fetched,
@@ -1346,8 +1335,19 @@ class CollectionService:
                 "departments_completed": departments_total,
                 "categories_completed": categories_total,
             },
+            "processed_items": products_fetched,
+            "failed_items": len(errors),
             "updated_at": now,
         }).eq("id", run_id).execute()
+
+        # Emit phase complete activity
+        await activity_manager.push(run_id, {
+            "id": str(uuid.uuid4()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "worker_id": 0,  # 0 = system message
+            "phase": "amazon",
+            "action": "complete",
+        })
 
         logger.info(f"Amazon collection complete: {products_fetched} products fetched")
 
