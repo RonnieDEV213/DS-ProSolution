@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** v2 SellerCollection COMPLETE
+**Current focus:** v2 SellerCollection Phase 12 - Live Activity Feed & Concurrency
 
 ## Current Position
 
-Phase: 11 of 11 (Collection Bug Fixes & Polish)
-Plan: 5 of 5 complete
-Status: v2 MILESTONE COMPLETE
-Last activity: 2026-01-22 - Phase 11 executed, verified, v2 milestone shipped
+Phase: 12 of 12 (Live Activity Feed & Concurrency)
+Plan: 1 of 3
+Status: In progress
+Last activity: 2026-01-22 - Completed 12-01-PLAN.md
 
-Progress: [██████████████████████████] 26/26 plans complete (21 v2 + 5 Phase 11)
+Progress: [██████████████████████████░░░] 27/29 plans complete
 
 ## Shipped Milestones
 
@@ -112,6 +112,11 @@ Recent for v2:
 - Redo stack clears on new delete (standard undo/redo pattern)
 - Toast duration 5 seconds with undo action button
 - Keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z) respect input focus
+- 5 workers (MAX_WORKERS=5) for optimal Oxylabs Micro plan concurrency
+- 100-event activity buffer per run with oldest-drop overflow policy
+- 15-second keepalive timeout for SSE connection health
+- Poison pill pattern for clean worker shutdown
+- Singleton pattern for ActivityStreamManager
 
 ### Pending Todos
 
@@ -123,6 +128,7 @@ Recent for v2:
 - Run migration 041_amazon_category_presets.sql in Supabase SQL editor
 - Run migration 042_remove_cost_tracking.sql in Supabase SQL editor
 - Run migration 043_collection_schedules.sql in Supabase SQL editor
+- Run migration 045_seller_snapshots.sql in Supabase SQL editor
 
 ### Blockers/Concerns
 
@@ -131,11 +137,12 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: v2 milestone complete
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None
-Next action: Run /gsd:audit-milestone to verify all requirements and cross-phase integration
+Next action: Run /gsd:execute-plan 12-02 to integrate ParallelCollectionRunner
 
 ## Roadmap Evolution
 
 - Phase 10 added: Collection UI Cleanup - streamline UI, remove clutter, improve data surfacing
 - Phase 11 added: Collection Bug Fixes & Polish - fix progress bar, history section, concurrency settings
+- Phase 12 added: Live Activity Feed & Concurrency - terminal-style live feed in modal, fix history seller counts, implement parallel collection
