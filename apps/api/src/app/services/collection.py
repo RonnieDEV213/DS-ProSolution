@@ -1362,6 +1362,7 @@ class CollectionService:
             }
 
         # Load category data for progress tracking
+        import json
         categories_path = Path(__file__).parent.parent / "data" / "amazon_categories.json"
         with open(categories_path) as f:
             cat_data = json.load(f)
