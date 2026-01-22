@@ -1,5 +1,6 @@
 """JWT authentication for Supabase tokens."""
 
+import logging
 import os
 from typing import Any
 
@@ -7,8 +8,10 @@ from dotenv import load_dotenv
 import jwt
 
 load_dotenv()
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Header, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+logger = logging.getLogger(__name__)
 from jwt import PyJWKClient
 
 from app.database import get_supabase
@@ -319,3 +322,134 @@ def require_permission_key(permission_key: str):
         )
 
     return check_permission
+
+
+def get_token_from_request(
+    authorization: str | None = Header(None),
+    token: str | None = Query(None),
+) -> str | None:
+    """
+    Extract JWT token from either Authorization header or query parameter.
+
+    Priority:
+    1. Authorization header (Bearer token)
+    2. Token query parameter
+
+    This supports EventSource connections which cannot set headers.
+    """
+    if authorization and authorization.startswith("Bearer "):
+        return authorization[7:]  # Strip "Bearer " prefix
+    if token:
+        return token
+    return None
+
+
+async def require_permission_flexible(
+    permission_key: str,
+    authorization: str | None = Header(None),
+    token: str | None = Query(None),
+) -> dict:
+    """
+    Flexible auth dependency that accepts token from header OR query param.
+
+    Use this for SSE endpoints where EventSource cannot set headers.
+
+    Returns user dict on success, raises HTTPException on failure.
+    """
+    # Get token from either source
+    jwt_token = get_token_from_request(authorization, token)
+
+    if not jwt_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+        )
+
+    try:
+        # Decode header to check algorithm
+        unverified_header = jwt.get_unverified_header(jwt_token)
+        alg = unverified_header.get("alg", "HS256")
+
+        if alg == "HS256":
+            if not SUPABASE_JWT_SECRET:
+                raise HTTPException(status_code=500, detail="JWT secret not configured")
+            payload = jwt.decode(
+                jwt_token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+                issuer=f"{SUPABASE_URL}/auth/v1",
+            )
+        else:
+            jwks_client = get_jwks_client()
+            signing_key = jwks_client.get_signing_key_from_jwt(jwt_token)
+            payload = jwt.decode(
+                jwt_token,
+                signing_key.key,
+                algorithms=["RS256", "ES256"],
+                audience="authenticated",
+                issuer=f"{SUPABASE_URL}/auth/v1",
+            )
+
+        user_id = payload["sub"]
+
+        # Fetch membership to verify org access and role
+        supabase = get_supabase()
+        membership_result = (
+            supabase.table("memberships")
+            .select("id, role, status, org_id")
+            .eq("user_id", user_id)
+            .eq("org_id", DEFAULT_ORG_ID)
+            .execute()
+        )
+
+        if not membership_result.data:
+            raise HTTPException(status_code=403, detail="No active membership")
+
+        membership = membership_result.data[0]
+
+        # Check if suspended
+        if membership.get("status") == "suspended":
+            raise HTTPException(status_code=403, detail="Account suspended")
+
+        # Admin bypass
+        if membership["role"] == "admin":
+            return {"user_id": user_id, "membership": membership}
+
+        # For non-admins, check dept role permissions
+        dept_role_keys = _get_dept_role_permissions(supabase, membership["id"])
+        if permission_key not in dept_role_keys:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Missing permission: {permission_key}",
+            )
+
+        return {"user_id": user_id, "membership": membership}
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Auth error: {e}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+
+def require_permission_key_flexible(permission_key: str):
+    """
+    Factory function to create flexible permission dependency.
+
+    Usage:
+        @router.get("/sse-endpoint")
+        async def sse(user: dict = Depends(require_permission_key_flexible("admin.automation"))):
+            ...
+    """
+    async def dependency(
+        authorization: str | None = Header(None),
+        token: str | None = Query(None),
+    ) -> dict:
+        return await require_permission_flexible(permission_key, authorization, token)
+
+    return dependency
