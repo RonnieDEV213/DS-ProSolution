@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 12 of 12 (Live Activity Feed & Concurrency)
-Plan: 3 of 3
-Status: Phase complete
-Last activity: 2026-01-22 - Completed 12-03-PLAN.md
+Plan: 2 of 3
+Status: In progress
+Last activity: 2026-01-22 - Completed 12-02-PLAN.md
 
-Progress: [█████████████████████████████] 29/29 plans complete
+Progress: [████████████████████████████░] 28/29 plans complete
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [███████████████████████
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 24
+- Total plans completed: 22
 - Average duration: ~4 min
-- Total execution time: ~99 min
+- Total execution time: ~104 min
 
 ## Accumulated Context
 
@@ -116,9 +116,10 @@ Recent for v2:
 - 15-second keepalive timeout for SSE connection health
 - Poison pill pattern for clean worker shutdown
 - Singleton pattern for ActivityStreamManager
-- Visual card design for activity feed (not terminal-style per CONTEXT.md)
-- Query param auth for SSE since EventSource doesn't support headers
-- Concurrency slider removed - system uses optimal concurrency automatically
+- Batch insert products after parallel execution for efficiency
+- Dedupe sellers across all parallel results in single batch operation
+- Emit phase complete activity event with worker_id=0 for system messages
+- Store seller count snapshot after run completion
 
 ### Pending Todos
 
@@ -139,9 +140,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 12-03-PLAN.md (Phase 12 complete)
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None
-Next action: v2 SellerCollection milestone complete - all 12 phases executed
+Next action: Execute 12-03-PLAN.md (SSE endpoint and frontend activity feed)
 
 ## Roadmap Evolution
 
