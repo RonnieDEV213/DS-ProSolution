@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-11 (shipped 2026-01-22)
+- **v2 SellerCollection** - Phases 6-12 (in progress)
 
 ## Phases
 
@@ -17,6 +17,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 9: Storage, Export, and Collection UI** - Deduplication, export, progress tracking
 - [x] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
 - [x] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
+- [ ] **Phase 12: Live Activity Feed & Concurrency** - Live visual activity feed, parallel collection (5 workers), seller snapshot counts
 
 ## Phase Details
 
@@ -144,6 +145,26 @@ Plans:
 - [x] 11-04-PLAN.md — Undo/redo for deletions (toast with undo, Ctrl+Z, Ctrl+Shift+Z)
 - [x] 11-05-PLAN.md — Concurrency slider polish (tick marks 1-5, remove Coming soon)
 
+### Phase 12: Live Activity Feed & Concurrency
+
+**Goal:** Deliver real-time visual activity feed in detail modal, implement 5-worker parallel collection, and fix seller snapshot counts in history
+**Depends on:** Phase 11
+**Requirements:** UX enhancement + performance (no new requirements - feature completion phase)
+**Success Criteria** (what must be TRUE):
+  1. "Sellers at this point" works correctly for collection run entries in history
+  2. Progress detail modal shows live activity feed (visual cards, not terminal text)
+  3. Activity feed displays same info as backend terminal prints (category, product, seller found, etc.)
+  4. Activity text removed from main progress bar (moved to detail modal)
+  5. Collection runs with 5 parallel workers (optimal concurrency, no user slider)
+  6. Concurrency slider removed (system uses optimal concurrency automatically)
+**Plans:** 4 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Backend parallel infrastructure (migration, ParallelCollectionRunner, ActivityStreamManager, SSE endpoint)
+- [ ] 12-02-PLAN.md — Refactor collection execution (parallel Amazon, parallel eBay, activity events, seller snapshots)
+- [ ] 12-03-PLAN.md — Frontend activity feed UI (ActivityFeed component, modal integration, progress bar cleanup, history snapshots)
+- [ ] 12-04-PLAN.md — Backend auth and API updates (SSE query param auth, history/audit-log snapshot responses)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -154,6 +175,7 @@ Plans:
 | 9. Storage, Export, and Collection UI | v2 | 5/5 | Complete | 2026-01-21 |
 | 10. Collection UI Cleanup | v2 | 5/5 | Complete | 2026-01-21 |
 | 11. Collection Bug Fixes & Polish | v2 | 5/5 | Complete | 2026-01-22 |
+| 12. Live Activity Feed & Concurrency | v2 | 0/4 | In Progress | - |
 
 ## Requirement Coverage
 
