@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 12 of 12 (Live Activity Feed & Concurrency)
-Plan: 2 of 3
-Status: In progress
-Last activity: 2026-01-22 - Completed 12-02-PLAN.md
+Plan: 4 of 4
+Status: Phase complete
+Last activity: 2026-01-22 - Completed 12-04-PLAN.md
 
-Progress: [████████████████████████████░] 28/29 plans complete
+Progress: [██████████████████████████████] 30/30 plans complete
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [███████████████████████
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 22
+- Total plans completed: 24
 - Average duration: ~4 min
-- Total execution time: ~104 min
+- Total execution time: ~113 min
 
 ## Accumulated Context
 
@@ -120,6 +120,8 @@ Recent for v2:
 - Dedupe sellers across all parallel results in single batch operation
 - Emit phase complete activity event with worker_id=0 for system messages
 - Store seller count snapshot after run completion
+- Flexible auth centralized in auth.py (require_permission_key_flexible for SSE)
+- Factory pattern for flexible auth mirrors existing require_permission_key API
 
 ### Pending Todos
 
@@ -140,9 +142,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 12-02-PLAN.md
+Stopped at: Completed 12-04-PLAN.md
 Resume file: None
-Next action: Execute 12-03-PLAN.md (SSE endpoint and frontend activity feed)
+Next action: Phase 12 complete - v2 SellerCollection milestone ready for review
 
 ## Roadmap Evolution
 
