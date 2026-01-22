@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 Phase: 11 of 11 (Collection Bug Fixes & Polish)
 Plan: 2 of 5 (Phase 11 plans: 01, 03, 04 pending; 02, 05 complete)
 Status: In progress
-Last activity: 2026-01-22 - Completed 11-02-PLAN.md (Category Breakdown)
+Last activity: 2026-01-22 - Completed 11-05-PLAN.md (Concurrency Slider UI)
 
 Progress: [██████████░░░░░░░░░░░░░░░] 23/26 plans complete (21 v2 + 2 Phase 11)
 
@@ -102,6 +102,7 @@ Recent for v2:
 - Re-run flow: HierarchicalRunModal onRerun populates RunConfigModal initialCategories
 - Category breakdown aggregates from collection_items JSONB data field
 - Category ID hyphens replaced with spaces for display readability
+- Concurrency slider max=5 with tick marks (not wired to backend - hardcoded MAX_CONCURRENT=15 is optimal)
 
 ### Pending Todos
 
@@ -121,7 +122,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 11-02-PLAN.md (Category Breakdown)
+Stopped at: Completed 11-05-PLAN.md (Concurrency Slider UI)
 Resume file: None
 Next action: Execute remaining Phase 11 plans (01, 03, 04)
 
