@@ -191,7 +191,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   }, [selectedIds.size]);
 
   // Auto-scroll during drag selection
-  const SCROLL_INNER_THRESHOLD = 50; // pixels inside edge to start scrolling
+  const SCROLL_INNER_THRESHOLD = 125; // pixels inside edge to start scrolling
   const SCROLL_OUTER_MAX = 150; // max pixels outside to track for speed increase
   const SCROLL_MIN_SPEED = 4; // minimum scroll speed
   const SCROLL_MAX_SPEED = 25; // maximum scroll speed
@@ -214,13 +214,13 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     stopAutoScroll();
 
     // Calculate scroll zone boundaries
-    const topScrollStart = rect.top + SCROLL_INNER_THRESHOLD; // 50px inside top
-    const bottomScrollStart = rect.bottom - SCROLL_INNER_THRESHOLD; // 50px inside bottom
+    const topScrollStart = rect.top + SCROLL_INNER_THRESHOLD; // 125px inside top
+    const bottomScrollStart = rect.bottom - SCROLL_INNER_THRESHOLD; // 125px inside bottom
 
     let scrollSpeed = 0;
     let scrollDirection = 0;
 
-    // Check if in top scroll zone (50px inside to 150px outside)
+    // Check if in top scroll zone (125px inside to 150px outside)
     if (mouseY < topScrollStart) {
       scrollDirection = -1; // scroll up
       // Distance from where scrolling starts (0 at threshold, increases as mouse goes up/out)
@@ -230,7 +230,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       const speedFactor = Math.min(distance / maxDistance, 1);
       scrollSpeed = SCROLL_MIN_SPEED + (SCROLL_MAX_SPEED - SCROLL_MIN_SPEED) * speedFactor;
     }
-    // Check if in bottom scroll zone (50px inside to 150px outside)
+    // Check if in bottom scroll zone (125px inside to 150px outside)
     else if (mouseY > bottomScrollStart) {
       scrollDirection = 1; // scroll down
       const distance = mouseY - bottomScrollStart;
