@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-10 (shipped 2026-01-21)
+- **v2 SellerCollection** - Phases 6-11 (in progress)
 
 ## Phases
 
@@ -16,6 +16,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 8: eBay Seller Search** - API integration with dropshipper filters
 - [x] **Phase 9: Storage, Export, and Collection UI** - Deduplication, export, progress tracking
 - [x] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
+- [ ] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
 
 ## Phase Details
 
@@ -121,6 +122,28 @@ Plans:
 - [x] 10-04-PLAN.md — Run Config Modal (two-panel layout with integrated scheduling)
 - [x] 10-05-PLAN.md — Page Integration (wire new components, remove deprecated, final cleanup)
 
+### Phase 11: Collection Bug Fixes & Polish
+
+**Goal:** Fix critical bugs in progress tracking, history display, selection behavior, and deletion UX
+**Depends on:** Phase 10
+**Requirements:** Bug fixes and polish (no new requirements - stabilization phase)
+**Success Criteria** (what must be TRUE):
+  1. Progress bar updates in real-time without polling delay visible to user
+  2. Category/department completion only shown when all products in that category are fully searched
+  3. Progress bar persists across page refresh (state restored from backend)
+  4. History "sellers at this point" shows accurate count at that moment in time
+  5. Run detail modal shows actual run data (not placeholder)
+  6. Category breakdown shows real data per category
+  7. Concurrency settings evaluated and configured appropriately for scale
+**Plans:** 5 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Progress polling and audit log replay (reduce polling interval, fix bulk add replay)
+- [ ] 11-02-PLAN.md — Category breakdown endpoint and modal display (real data instead of placeholder)
+- [ ] 11-03-PLAN.md — Selection behavior (remove card X, Shift+click range, deselect on empty)
+- [ ] 11-04-PLAN.md — Undo/redo for deletions (toast with undo, Ctrl+Z, Ctrl+Shift+Z)
+- [ ] 11-05-PLAN.md — Concurrency slider polish (tick marks 1-5, remove Coming soon)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -130,6 +153,7 @@ Plans:
 | 8. eBay Seller Search | v2 | 2/2 | Complete | 2026-01-21 |
 | 9. Storage, Export, and Collection UI | v2 | 5/5 | Complete | 2026-01-21 |
 | 10. Collection UI Cleanup | v2 | 5/5 | Complete | 2026-01-21 |
+| 11. Collection Bug Fixes & Polish | v2 | 0/5 | In Progress | - |
 
 ## Requirement Coverage
 
