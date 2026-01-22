@@ -191,8 +191,10 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   }, [selectedIds.size]);
 
   // Auto-scroll during drag selection
-  const SCROLL_EDGE_THRESHOLD = 50; // pixels from edge to trigger scroll
-  const SCROLL_SPEED = 8; // pixels per frame
+  const SCROLL_INNER_THRESHOLD = 50; // pixels inside edge to start scrolling
+  const SCROLL_OUTER_MAX = 150; // max pixels outside to track for speed increase
+  const SCROLL_MIN_SPEED = 4; // minimum scroll speed
+  const SCROLL_MAX_SPEED = 25; // maximum scroll speed
 
   const stopAutoScroll = useCallback(() => {
     if (scrollIntervalRef.current) {
@@ -211,16 +213,36 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     // Clear existing scroll interval
     stopAutoScroll();
 
-    // Check if near top edge
-    if (mouseY < rect.top + SCROLL_EDGE_THRESHOLD && mouseY > rect.top - 50) {
-      scrollIntervalRef.current = setInterval(() => {
-        container.scrollTop -= SCROLL_SPEED;
-      }, 16);
+    // Calculate scroll zone boundaries
+    const topScrollStart = rect.top + SCROLL_INNER_THRESHOLD; // 50px inside top
+    const bottomScrollStart = rect.bottom - SCROLL_INNER_THRESHOLD; // 50px inside bottom
+
+    let scrollSpeed = 0;
+    let scrollDirection = 0;
+
+    // Check if in top scroll zone (50px inside to 150px outside)
+    if (mouseY < topScrollStart) {
+      scrollDirection = -1; // scroll up
+      // Distance from where scrolling starts (0 at threshold, increases as mouse goes up/out)
+      const distance = topScrollStart - mouseY;
+      // Calculate speed: starts at min, increases to max based on distance
+      const maxDistance = SCROLL_INNER_THRESHOLD + SCROLL_OUTER_MAX;
+      const speedFactor = Math.min(distance / maxDistance, 1);
+      scrollSpeed = SCROLL_MIN_SPEED + (SCROLL_MAX_SPEED - SCROLL_MIN_SPEED) * speedFactor;
     }
-    // Check if near bottom edge
-    else if (mouseY > rect.bottom - SCROLL_EDGE_THRESHOLD && mouseY < rect.bottom + 50) {
+    // Check if in bottom scroll zone (50px inside to 150px outside)
+    else if (mouseY > bottomScrollStart) {
+      scrollDirection = 1; // scroll down
+      const distance = mouseY - bottomScrollStart;
+      const maxDistance = SCROLL_INNER_THRESHOLD + SCROLL_OUTER_MAX;
+      const speedFactor = Math.min(distance / maxDistance, 1);
+      scrollSpeed = SCROLL_MIN_SPEED + (SCROLL_MAX_SPEED - SCROLL_MIN_SPEED) * speedFactor;
+    }
+
+    // Start scrolling if in a scroll zone
+    if (scrollDirection !== 0) {
       scrollIntervalRef.current = setInterval(() => {
-        container.scrollTop += SCROLL_SPEED;
+        container.scrollTop += scrollDirection * scrollSpeed;
       }, 16);
     }
   }, [stopAutoScroll]);
