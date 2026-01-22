@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 11 of 11 (Collection Bug Fixes & Polish)
-Plan: 3 of 5 (Phase 11 plans: 03, 04 pending; 01, 02, 05 complete)
+Plan: 3 of 5 (Phase 11 plans: 04 pending; 01, 02, 03, 05 complete)
 Status: In progress
-Last activity: 2026-01-22 - Completed 11-01-PLAN.md (Progress & History Fixes)
+Last activity: 2026-01-22 - Completed 11-03-PLAN.md (Selection UX Improvements)
 
-Progress: [████████████░░░░░░░░░░░░░] 24/26 plans complete (21 v2 + 3 Phase 11)
+Progress: [█████████████░░░░░░░░░░░░] 25/26 plans complete (21 v2 + 4 Phase 11)
 
 ## Shipped Milestones
 
@@ -105,6 +105,9 @@ Recent for v2:
 - Concurrency slider max=5 with tick marks (not wired to backend - hardcoded MAX_CONCURRENT=15 is optimal)
 - 500ms polling interval for responsive progress updates (lightweight single-row read endpoint)
 - Audit log replay parses new_value/old_value JSON for bulk operations (handles both adds and removes)
+- Selection anchor pattern for Shift+click range selection (track last clicked index)
+- Shift preview IDs state for visual feedback before Shift+click action
+- Empty space detection via index >= filteredSellers.length for deselect-on-click
 
 ### Pending Todos
 
@@ -124,9 +127,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 11-01-PLAN.md (Progress & History Fixes)
+Stopped at: Completed 11-03-PLAN.md (Selection UX Improvements)
 Resume file: None
-Next action: Execute remaining Phase 11 plans (03, 04)
+Next action: Execute remaining Phase 11 plan (04)
 
 ## Roadmap Evolution
 
