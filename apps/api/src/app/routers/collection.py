@@ -7,6 +7,7 @@ Admin endpoints for:
 - Schedule configuration (cron-based automated runs)
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -257,6 +258,61 @@ async def get_run(
     )
 
 
+@router.get("/runs/{run_id}/breakdown")
+async def get_run_breakdown(
+    run_id: str,
+    user: dict = Depends(require_permission_key("admin.automation")),
+):
+    """
+    Get per-category breakdown for a completed run.
+
+    Returns products and sellers counts grouped by category.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    supabase = get_supabase()
+
+    # Verify run exists and belongs to org
+    run_result = (
+        supabase.table("collection_runs")
+        .select("id, status")
+        .eq("id", run_id)
+        .eq("org_id", org_id)
+        .execute()
+    )
+    if not run_result.data:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Get all items for this run, extract category_id from data JSONB
+    items_result = (
+        supabase.table("collection_items")
+        .select("data")
+        .eq("run_id", run_id)
+        .execute()
+    )
+
+    # Aggregate by category
+    category_stats: dict[str, dict] = {}
+    for item in items_result.data or []:
+        data = item.get("data", {}) or {}
+        cat_id = data.get("category_id", "unknown")
+        if cat_id not in category_stats:
+            category_stats[cat_id] = {
+                "category_id": cat_id,
+                "products_count": 0,
+                "sellers_found": 0,
+            }
+        category_stats[cat_id]["products_count"] += 1
+        # If item has sellers_found in data, add it
+        category_stats[cat_id]["sellers_found"] += data.get("sellers_found", 0)
+
+    return {
+        "run_id": run_id,
+        "categories": list(category_stats.values()),
+    }
+
+
 @router.post("/runs/{run_id}/start")
 async def start_run(
     run_id: str,
@@ -322,10 +378,14 @@ async def execute_run(
                 category_ids=run["category_ids"],
             )
 
-            # If Amazon failed or was paused, don't continue to eBay
-            if amazon_result.get("status") in ("failed", "paused"):
+            # If Amazon failed or was paused/cancelled, don't continue to eBay
+            if amazon_result.get("status") in ("failed", "paused", "cancelled"):
                 logger.info(f"Collection {run_id} ended after Amazon phase: {amazon_result.get('status')}")
                 return
+
+            # Brief pause to let UI show Amazon phase at 100% before transitioning
+            print(f"\n[COLLECTION] Transitioning to eBay phase in 3 seconds...")
+            await asyncio.sleep(3)
 
             # Phase 2: eBay seller search
             await service.run_ebay_seller_search(run_id=run_id, org_id=org_id)
@@ -470,14 +530,18 @@ async def get_run_progress(
     try:
         progress = await service.get_enhanced_progress(org_id, run_id)
         return EnhancedProgress(
-            departments_total=progress["departments_total"],
-            departments_completed=progress["departments_completed"],
-            categories_total=progress["categories_total"],
-            categories_completed=progress["categories_completed"],
-            products_total=progress["products_total"],
-            products_searched=progress["products_searched"],
-            sellers_found=progress["sellers_found"],
-            sellers_new=progress["sellers_new"],
+            phase=progress.get("phase", "amazon"),
+            products_found=progress.get("products_found", 0),
+            started_at=progress.get("started_at"),
+            checkpoint=progress.get("checkpoint"),
+            departments_total=progress["departments_total"] or 0,
+            departments_completed=progress["departments_completed"] or 0,
+            categories_total=progress["categories_total"] or 0,
+            categories_completed=progress["categories_completed"] or 0,
+            products_total=progress["products_total"] or 0,
+            products_searched=progress["products_searched"] or 0,
+            sellers_found=progress["sellers_found"] or 0,
+            sellers_new=progress["sellers_new"] or 0,
             worker_status=[
                 WorkerStatus(**w) for w in (progress["worker_status"] or [])
             ],
