@@ -72,6 +72,7 @@ export default function AutomationPage() {
 
   const handleLogClick = (logId: string) => {
     setSelectedLogId(logId);
+    setSelectedRunId(null);
     setLogDetailOpen(true);
   };
 
@@ -175,8 +176,10 @@ export default function AutomationPage() {
                   hasActiveRun={!!activeRun}
                   onManualEditClick={handleLogClick}
                   onCollectionRunClick={(runId) => {
+                    // Open LogDetailModal with runId (not HierarchicalRunModal)
                     setSelectedRunId(runId);
-                    setHierarchicalRunOpen(true);
+                    setSelectedLogId(null);
+                    setLogDetailOpen(true);
                   }}
                 />
               </div>
@@ -185,9 +188,22 @@ export default function AutomationPage() {
             {/* Modals */}
             <LogDetailModal
               open={logDetailOpen}
-              onOpenChange={setLogDetailOpen}
+              onOpenChange={(open) => {
+                setLogDetailOpen(open);
+                if (!open) {
+                  setSelectedLogId(null);
+                  setSelectedRunId(null);
+                }
+              }}
               selectedLogId={selectedLogId}
+              selectedRunId={selectedRunId}
               onCompare={handleCompare}
+              onCollectionRunDetail={(runId) => {
+                // Open HierarchicalRunModal for full details
+                setLogDetailOpen(false);
+                setSelectedRunId(runId);
+                setHierarchicalRunOpen(true);
+              }}
             />
 
             <DiffModal
