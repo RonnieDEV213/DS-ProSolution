@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Download, FileText, Braces, Plus, ChevronDown, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -40,6 +41,15 @@ interface SellersGridProps {
   refreshTrigger: number;
   onSellerChange: () => void;
   newSellerIds?: Set<string>;
+}
+
+// Undo/redo types for delete operations
+interface DeletedSeller extends Seller {
+  originalIndex: number;
+}
+interface UndoEntry {
+  sellers: DeletedSeller[];
+  timestamp: number;
 }
 
 // Props passed to cell component via cellProps
@@ -220,6 +230,10 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
   // Shift+hover preview state
   const [shiftPreviewIds, setShiftPreviewIds] = useState<Set<string>>(new Set());
+
+  // Undo/redo stacks for delete operations
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+  const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
 
   // Drag selection state
   const isDraggingRef = useRef(false);
@@ -410,7 +424,100 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     }, 200);
   }, [editingId, filteredSellers, selectionAnchor, toggleSelection]);
 
-  // Bulk delete handler
+  // Undo last delete operation
+  const handleUndo = useCallback(async () => {
+    if (undoStack.length === 0) return;
+
+    const lastEntry = undoStack[undoStack.length - 1];
+
+    // Move to redo stack
+    setUndoStack(prev => prev.slice(0, -1));
+    setRedoStack(prev => [...prev, lastEntry]);
+
+    // Restore sellers to UI (optimistic)
+    setSellers(prev => {
+      const restored = [...prev];
+      // Sort by original index to insert in correct positions
+      const sorted = [...lastEntry.sellers].sort((a, b) => a.originalIndex - b.originalIndex);
+      for (const seller of sorted) {
+        // Insert at original position or at end if position is beyond current length
+        const idx = Math.min(seller.originalIndex, restored.length);
+        restored.splice(idx, 0, seller);
+      }
+      return restored;
+    });
+
+    // Re-add to backend
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const names = lastEntry.sellers.map(s => s.display_name);
+      if (names.length === 1) {
+        await fetch(`${API_BASE}/sellers`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ name: names[0] }),
+        });
+      } else {
+        await fetch(`${API_BASE}/sellers/bulk`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ names }),
+        });
+      }
+      toast.success(`Restored ${names.length} seller${names.length > 1 ? 's' : ''}`);
+      onSellerChange();
+      fetchSellers(); // Refresh to get new IDs
+    } catch (e) {
+      console.error("Undo failed:", e);
+      toast.error("Failed to restore sellers");
+    }
+  }, [undoStack, supabase.auth, onSellerChange, fetchSellers]);
+
+  // Redo last undone delete operation
+  const handleRedo = useCallback(async () => {
+    if (redoStack.length === 0) return;
+
+    const lastEntry = redoStack[redoStack.length - 1];
+
+    // Move to undo stack
+    setRedoStack(prev => prev.slice(0, -1));
+    setUndoStack(prev => [...prev, lastEntry]);
+
+    // Remove from UI
+    const idsToRemove = new Set(lastEntry.sellers.map(s => s.id));
+    setSellers(prev => prev.filter(s => !idsToRemove.has(s.id)));
+
+    // Delete from backend
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const ids = lastEntry.sellers.map(s => s.id);
+      await fetch(`${API_BASE}/sellers/bulk/delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ ids }),
+      });
+      toast.success(`Re-deleted ${ids.length} seller${ids.length > 1 ? 's' : ''}`);
+      onSellerChange();
+    } catch (e) {
+      console.error("Redo failed:", e);
+      toast.error("Failed to re-delete sellers");
+    }
+  }, [redoStack, supabase.auth, onSellerChange]);
+
+  // Bulk delete handler with undo support
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
 
@@ -419,27 +526,58 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
     const idsArray = Array.from(selectedIds);
 
-    // Use single delete for one seller, bulk endpoint for multiple
-    if (idsArray.length === 1) {
-      await fetch(`${API_BASE}/sellers/${idsArray[0]}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-    } else {
-      // Use bulk delete endpoint
-      await fetch(`${API_BASE}/sellers/bulk/delete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ ids: idsArray }),
-      });
-    }
+    // Capture deleted sellers with their original positions for undo
+    const deletedSellers: DeletedSeller[] = idsArray.map(id => {
+      const originalIndex = filteredSellers.findIndex(s => s.id === id);
+      const seller = sellers.find(s => s.id === id)!;
+      return { ...seller, originalIndex };
+    });
 
+    // Push to undo stack
+    setUndoStack(prev => [...prev, { sellers: deletedSellers, timestamp: Date.now() }]);
+    setRedoStack([]); // Clear redo stack on new action
+
+    // Optimistically remove from UI
+    setSellers(prev => prev.filter(s => !selectedIds.has(s.id)));
     setSelectedIds(new Set());
-    onSellerChange();
-    fetchSellers();
+
+    // Show toast with undo option
+    toast.success(
+      `Deleted ${deletedSellers.length} seller${deletedSellers.length > 1 ? 's' : ''}`,
+      {
+        duration: 5000,
+        action: {
+          label: 'Undo',
+          onClick: () => handleUndo(),
+        },
+      }
+    );
+
+    // Perform actual delete
+    try {
+      if (idsArray.length === 1) {
+        await fetch(`${API_BASE}/sellers/${idsArray[0]}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+      } else {
+        await fetch(`${API_BASE}/sellers/bulk/delete`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ ids: idsArray }),
+        });
+      }
+      onSellerChange();
+    } catch (e) {
+      console.error("Delete failed:", e);
+      // Restore on failure
+      setSellers(prev => [...prev, ...deletedSellers]);
+      setUndoStack(prev => prev.slice(0, -1));
+      toast.error("Failed to delete sellers");
+    }
   };
 
   // Auto-scroll during drag
