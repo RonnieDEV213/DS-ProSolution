@@ -51,12 +51,13 @@ interface CellProps {
   newSellerIds: Set<string>;
   rightDragPreviewIds: Set<string>;
   rightDragMode: boolean | null;
+  shiftPreviewIds: Set<string>;
   editingId: string | null;
   editValue: string;
   onSellerClick: (seller: Seller, event: React.MouseEvent) => void;
   onSaveEdit: () => void;
   onEditValueChange: (value: string) => void;
-  onHoverEnter: (seller: Seller, rect: DOMRect) => void;
+  onHoverEnter: (seller: Seller, rect: DOMRect, shiftKey: boolean) => void;
   onHoverLeave: () => void;
   isDragging: () => boolean;
 }
@@ -73,6 +74,7 @@ function SellerCell({
   newSellerIds,
   rightDragPreviewIds,
   rightDragMode,
+  shiftPreviewIds,
   editingId,
   editValue,
   onSellerClick,
@@ -95,6 +97,7 @@ function SellerCell({
   const isNew = newSellerIds.has(seller.id);
   const isEditing = editingId === seller.id;
   const isFlagged = seller.flagged === true;
+  const isInShiftPreview = shiftPreviewIds.has(seller.id);
 
   // Check if this seller is in the right-drag preview
   const isInRightDragPreview = rightDragPreviewIds.has(seller.id);
@@ -125,13 +128,14 @@ function SellerCell({
           "hover:bg-gray-700 transition-colors cursor-pointer select-none",
           showAsFlagged && "ring-1 ring-yellow-500 bg-yellow-900/20",
           isNew && !showAsFlagged && "ring-1 ring-green-500 bg-green-900/20",
+          isInShiftPreview && !isSelected && "ring-1 ring-blue-400/50 bg-blue-900/20",
           isSelected && "ring-2 ring-blue-500 bg-blue-900/30"
         )}
         onClick={(e) => onSellerClick(seller, e)}
         onMouseEnter={(e) => {
           if (!isDragging()) {
             const rect = e.currentTarget.getBoundingClientRect();
-            onHoverEnter(seller, rect);
+            onHoverEnter(seller, rect, e.shiftKey);
           }
         }}
         onMouseLeave={onHoverLeave}
@@ -211,7 +215,11 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionAnchor, setSelectionAnchor] = useState<number | null>(null);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Shift+hover preview state
+  const [shiftPreviewIds, setShiftPreviewIds] = useState<Set<string>>(new Set());
 
   // Drag selection state
   const isDraggingRef = useRef(false);
@@ -366,18 +374,41 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     if ((event.target as HTMLElement).closest('button')) return;
     if (editingId === seller.id) return;
 
+    const index = filteredSellers.findIndex(s => s.id === seller.id);
+
     if (clickTimeoutRef.current) {
       clearTimeout(clickTimeoutRef.current);
       clickTimeoutRef.current = null;
       setEditingId(seller.id);
       setEditValue(seller.display_name);
-    } else {
-      clickTimeoutRef.current = setTimeout(() => {
-        clickTimeoutRef.current = null;
-        toggleSelection(seller.id);
-      }, 200);
+      return;
     }
-  }, [editingId, toggleSelection]);
+
+    clickTimeoutRef.current = setTimeout(() => {
+      clickTimeoutRef.current = null;
+
+      if (event.shiftKey && selectionAnchor !== null) {
+        // Range select: from anchor to current
+        const start = Math.min(selectionAnchor, index);
+        const end = Math.max(selectionAnchor, index);
+        const rangeIds = new Set(
+          filteredSellers.slice(start, end + 1).map(s => s.id)
+        );
+        setSelectedIds(rangeIds);
+      } else if (event.ctrlKey || event.metaKey) {
+        // Toggle individual item, keep anchor
+        toggleSelection(seller.id);
+        setSelectionAnchor(index);
+      } else {
+        // Normal click: select single, set as anchor
+        setSelectedIds(new Set([seller.id]));
+        setSelectionAnchor(index);
+      }
+
+      // Clear shift preview
+      setShiftPreviewIds(new Set());
+    }, 200);
+  }, [editingId, filteredSellers, selectionAnchor, toggleSelection]);
 
   // Bulk delete handler
   const handleBulkDelete = async () => {
@@ -1020,18 +1051,37 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     newSellerIds,
     rightDragPreviewIds,
     rightDragMode,
+    shiftPreviewIds,
     editingId,
     editValue,
     onSellerClick: handleSellerClick,
     onSaveEdit: saveEdit,
     onEditValueChange: setEditValue,
-    onHoverEnter: (seller: Seller, rect: DOMRect) => {
+    onHoverEnter: (seller: Seller, rect: DOMRect, shiftKey: boolean) => {
       setHoveredSeller(seller);
       setHoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
+
+      // Calculate shift preview range
+      if (shiftKey && selectionAnchor !== null) {
+        const hoverIndex = filteredSellers.findIndex(s => s.id === seller.id);
+        if (hoverIndex !== -1) {
+          const start = Math.min(selectionAnchor, hoverIndex);
+          const end = Math.max(selectionAnchor, hoverIndex);
+          const previewIds = new Set(
+            filteredSellers.slice(start, end + 1).map(s => s.id)
+          );
+          setShiftPreviewIds(previewIds);
+        }
+      } else {
+        setShiftPreviewIds(new Set());
+      }
     },
-    onHoverLeave: () => setHoveredSeller(null),
+    onHoverLeave: () => {
+      setHoveredSeller(null);
+      setShiftPreviewIds(new Set());
+    },
     isDragging: () => isDraggingRef.current,
-  }), [filteredSellers, columnCount, cellWidth, selectedIds, newSellerIds, rightDragPreviewIds, rightDragMode, editingId, editValue, handleSellerClick, saveEdit]);
+  }), [filteredSellers, columnCount, cellWidth, selectedIds, newSellerIds, rightDragPreviewIds, rightDragMode, shiftPreviewIds, selectionAnchor, editingId, editValue, handleSellerClick, saveEdit]);
 
   if (loading) {
     return <div className="text-gray-400 p-4">Loading sellers...</div>;
