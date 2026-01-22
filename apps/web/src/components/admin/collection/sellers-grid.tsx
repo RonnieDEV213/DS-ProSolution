@@ -51,6 +51,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const selectableRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const isDraggingRef = useRef(false);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const gridContainerRef = useRef<HTMLDivElement | null>(null);
 
   const supabase = createClient();
 
@@ -187,8 +190,59 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [selectedIds.size]);
 
+  // Auto-scroll during drag selection
+  const SCROLL_EDGE_THRESHOLD = 50; // pixels from edge to trigger scroll
+  const SCROLL_SPEED = 8; // pixels per frame
+
+  const stopAutoScroll = useCallback(() => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  }, []);
+
+  const handleDragMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingRef.current || !gridContainerRef.current) return;
+
+    const container = gridContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    const mouseY = e.clientY;
+
+    // Clear existing scroll interval
+    stopAutoScroll();
+
+    // Check if near top edge
+    if (mouseY < rect.top + SCROLL_EDGE_THRESHOLD && mouseY > rect.top - 50) {
+      scrollIntervalRef.current = setInterval(() => {
+        container.scrollTop -= SCROLL_SPEED;
+      }, 16);
+    }
+    // Check if near bottom edge
+    else if (mouseY > rect.bottom - SCROLL_EDGE_THRESHOLD && mouseY < rect.bottom + 50) {
+      scrollIntervalRef.current = setInterval(() => {
+        container.scrollTop += SCROLL_SPEED;
+      }, 16);
+    }
+  }, [stopAutoScroll]);
+
+  // Set up drag mouse move listener
+  useEffect(() => {
+    document.addEventListener('mousemove', handleDragMouseMove);
+    return () => {
+      document.removeEventListener('mousemove', handleDragMouseMove);
+      stopAutoScroll();
+    };
+  }, [handleDragMouseMove, stopAutoScroll]);
+
   // Drag selection configuration
   const { DragSelection } = useSelectionContainer({
+    onSelectionStart: () => {
+      isDraggingRef.current = true;
+    },
+    onSelectionEnd: () => {
+      isDraggingRef.current = false;
+      stopAutoScroll();
+    },
     onSelectionChange: (box: Box) => {
       const selected = new Set<string>();
       selectableRefs.current.forEach((element, id) => {
@@ -438,6 +492,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
       {/* Grid container with drag selection */}
       <div
+        ref={gridContainerRef}
         id="sellers-grid-container"
         className="relative flex-1 min-h-0 overflow-y-auto bg-gray-900 border border-gray-800 rounded-lg"
       >
