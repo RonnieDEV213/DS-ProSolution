@@ -26,11 +26,12 @@ interface ProgressBarProps {
     sellers_found: number;
     sellers_new: number;
     started_at?: string;  // For duration display
-    // Checkpoint for throttle status
+    // Checkpoint for throttle status and current activity
     checkpoint?: {
       status?: "rate_limited" | "paused_failures" | string;
       waiting_seconds?: number;
       current_category?: string;
+      current_activity?: string;  // Human-readable: "Category > Product Title"
     };
   } | null;
   onDetailsClick: () => void;
@@ -152,101 +153,120 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
       )}
 
       {/* Quick info */}
-      <div className="px-4 py-2 flex items-center justify-between text-sm">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={phase}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="flex items-center gap-4 flex-wrap"
-          >
-            {/* Phase badge */}
-            <Badge
-              className={`text-xs ${
-                phase === "amazon"
-                  ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
-                  : "bg-blue-500/20 text-blue-400 border-blue-500/30"
-              }`}
+      <div className="px-4 py-2 flex items-center justify-between text-sm gap-4">
+        {/* Left side: Phase badge + current activity */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={phase}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="flex-shrink-0"
             >
-              {phase === "amazon" ? (
-                <>
-                  <ShoppingCart className="h-3 w-3 mr-1" />
-                  Collecting Best Sellers
-                </>
-              ) : (
-                <>
-                  <Search className="h-3 w-3 mr-1" />
-                  Searching Sellers
-                </>
-              )}
-            </Badge>
+              {/* Phase badge */}
+              <Badge
+                className={`text-xs ${
+                  phase === "amazon"
+                    ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                    : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                }`}
+              >
+                {phase === "amazon" ? (
+                  <>
+                    <ShoppingCart className="h-3 w-3 mr-1" />
+                    Finding Products
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-3 w-3 mr-1" />
+                    Searching Sellers
+                  </>
+                )}
+              </Badge>
+            </motion.div>
+          </AnimatePresence>
 
-            <span className="text-gray-700">|</span>
+          {/* Current activity text with animation */}
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={progress.checkpoint?.current_activity || "idle"}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.15 }}
+              className="text-gray-400 truncate min-w-0"
+              title={progress.checkpoint?.current_activity}
+            >
+              {progress.checkpoint?.current_activity || "Starting..."}
+            </motion.span>
+          </AnimatePresence>
+        </div>
 
-            {/* Departments */}
+        {/* Right side: Stats */}
+        <div className="flex items-center gap-3 flex-shrink-0 text-xs">
+          {/* Departments */}
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500">Depts:</span>
+            <span className="text-gray-300">
+              {progress.departments_completed}/{progress.departments_total}
+            </span>
+          </div>
+
+          <span className="text-gray-700">|</span>
+
+          {/* Categories */}
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500">Cats:</span>
+            <span className="text-gray-300">
+              {progress.categories_completed}/{progress.categories_total}
+            </span>
+          </div>
+
+          <span className="text-gray-700">|</span>
+
+          {phase === "amazon" ? (
+            /* Amazon phase: Show products found (live count, no denominator) */
             <div className="flex items-center gap-1">
-              <span className="text-gray-500">Depts:</span>
-              <span className="text-gray-300">
-                {progress.departments_completed}/{progress.departments_total}
+              <span className="text-gray-500">Products:</span>
+              <span className="text-orange-400 font-medium">
+                {progress.products_found || 0}
               </span>
             </div>
-
-            <span className="text-gray-700">|</span>
-
-            {/* Categories */}
-            <div className="flex items-center gap-1">
-              <span className="text-gray-500">Cats:</span>
-              <span className="text-gray-300">
-                {progress.categories_completed}/{progress.categories_total}
-              </span>
-            </div>
-
-            <span className="text-gray-700">|</span>
-
-            {phase === "amazon" ? (
-              /* Amazon phase: Show products found (live count, no denominator) */
+          ) : (
+            /* eBay phase: Show products searched / total + new sellers */
+            <>
               <div className="flex items-center gap-1">
-                <span className="text-gray-500">Products Found:</span>
-                <span className="text-orange-400 font-medium">
-                  {progress.products_found || 0}
+                <span className="text-gray-500">Products:</span>
+                <span className="text-gray-300">
+                  {progress.products_searched}/{progress.products_total}
                 </span>
               </div>
-            ) : (
-              /* eBay phase: Show products searched / total + new sellers */
-              <>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Products:</span>
-                  <span className="text-gray-300">
-                    {progress.products_searched}/{progress.products_total}
-                  </span>
-                </div>
 
-                <span className="text-gray-700">|</span>
+              <span className="text-gray-700">|</span>
 
-                {/* New Sellers */}
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">+New:</span>
-                  <span className="text-green-400 font-medium">
-                    {progress.sellers_new}
-                  </span>
-                </div>
-              </>
-            )}
+              {/* New Sellers */}
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">+New:</span>
+                <span className="text-green-400 font-medium">
+                  {progress.sellers_new}
+                </span>
+              </div>
+            </>
+          )}
 
-            {/* Duration (eBay phase only, if started_at provided) */}
-            {phase === "ebay" && duration && (
-              <>
-                <span className="text-gray-700">|</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Duration:</span>
-                  <span className="text-gray-400">{duration}</span>
-                </div>
-              </>
-            )}
-          </motion.div>
-        </AnimatePresence>
+          {/* Duration */}
+          {duration && (
+            <>
+              <span className="text-gray-700">|</span>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">Time:</span>
+                <span className="text-gray-400">{duration}</span>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Controls */}
         <div className="flex items-center gap-2">

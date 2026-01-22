@@ -1171,6 +1171,7 @@ class CollectionService:
                             "status": "rate_limited",
                             "waiting_seconds": 5,
                             "current_category": cat_id,
+                            "current_activity": category_name,
                         },
                         "updated_at": datetime.now(timezone.utc).isoformat(),
                     }).eq("id", run_id).execute()
@@ -1235,6 +1236,7 @@ class CollectionService:
                     "checkpoint": {
                         "phase": "amazon",
                         "current_category": cat_id,
+                        "current_activity": category_name,
                         "categories_completed": categories_completed,
                         "departments_completed": departments_completed,
                         "products_fetched": products_fetched,
@@ -1348,11 +1350,13 @@ class CollectionService:
         with open(categories_path) as f:
             cat_data = json.load(f)
 
-        # Build category -> department mapping
+        # Build category -> department mapping and category name lookup
         cat_to_dept = {}
+        cat_name_lookup = {}
         for dept in cat_data["departments"]:
             for cat in dept.get("categories", []):
                 cat_to_dept[cat["id"]] = dept["id"]
+                cat_name_lookup[cat["id"]] = cat.get("name", cat["id"])
 
         # Group products by category and count totals
         products_by_category: dict[str, list] = {}
@@ -1478,12 +1482,18 @@ class CollectionService:
                 # Handle rate limiting
                 if result.error == "rate_limited":
                     logger.info(f"Rate limited, waiting 5s")
+                    # Build current_activity for rate limit display
+                    cat_id = product_data.get("category_id", "unknown")
+                    cat_name = cat_name_lookup.get(cat_id, cat_id.replace("-", " ").title())
+                    short_title = title[:40] + "..." if len(title) > 40 else title
+                    current_activity = f"{cat_name} > {short_title}"
                     # Update checkpoint with throttle status
                     self.supabase.table("collection_runs").update({
                         "checkpoint": {
                             "status": "rate_limited",
                             "waiting_seconds": 5,
                             "current_product_id": product["id"],
+                            "current_activity": current_activity,
                             "current_page": page,
                         },
                         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -1648,10 +1658,17 @@ class CollectionService:
                     departments_completed += 1
 
             # Update progress checkpoint after each product
+            # Build current_activity string: "Category > Product Title"
+            cat_name = cat_name_lookup.get(cat_id, cat_id.replace("-", " ").title())
+            # Truncate title to 40 chars for display
+            short_title = title[:40] + "..." if len(title) > 40 else title
+            current_activity = f"{cat_name} > {short_title}"
+
             self.supabase.table("collection_runs").update({
                 "checkpoint": {
                     "phase": "ebay_search",
                     "current_product_id": product["id"],
+                    "current_activity": current_activity,
                     "products_processed": products_processed,
                     "products_total": total_products,
                 },

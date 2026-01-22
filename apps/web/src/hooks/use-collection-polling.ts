@@ -19,11 +19,12 @@ interface EnhancedProgress {
   sellers_found: number;
   sellers_new: number;
   started_at?: string;  // For duration display
-  // Checkpoint for throttle status
+  // Checkpoint for throttle status and current activity
   checkpoint?: {
     status?: "rate_limited" | "paused_failures" | string;
     waiting_seconds?: number;
     current_category?: string;
+    current_activity?: string;  // Human-readable: "Category > Product Title"
   };
   worker_status: Array<{
     worker_id: number;
