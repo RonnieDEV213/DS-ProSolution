@@ -1,3 +1,8 @@
+/**
+ * @deprecated This component has been replaced by HistoryPanel in Phase 10.
+ * Functionality merged into unified history timeline.
+ * See: history-panel.tsx, hierarchical-run-modal.tsx
+ */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";

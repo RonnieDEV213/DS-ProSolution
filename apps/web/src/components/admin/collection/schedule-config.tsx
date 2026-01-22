@@ -1,3 +1,8 @@
+/**
+ * @deprecated This component has been merged into RunConfigModal in Phase 10.
+ * Schedule configuration is now part of the run config two-panel layout.
+ * See: run-config-modal.tsx
+ */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";

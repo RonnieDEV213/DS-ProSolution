@@ -1,3 +1,8 @@
+/**
+ * @deprecated This component has been replaced by HistoryPanel in Phase 10.
+ * Kept for reference but no longer used in automation page.
+ * See: history-panel.tsx
+ */
 "use client";
 
 import { useState, useEffect } from "react";
