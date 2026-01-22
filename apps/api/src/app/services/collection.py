@@ -1099,14 +1099,27 @@ class CollectionService:
         departments_total = len(selected_dept_ids)
         categories_total = len(category_ids)
 
-        # Update run with totals
-        self.supabase.table("collection_runs").update({
-            "departments_total": departments_total,
-            "categories_total": categories_total,
-            "departments_completed": 0,
-            "categories_completed": 0,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", run_id).execute()
+        # Check for existing checkpoint (resuming)
+        run_data = await self.get_run(run_id, org_id)
+        checkpoint = run_data.get("checkpoint") or {}
+        resume_from_idx = 0
+        products_fetched = 0
+
+        if checkpoint.get("phase") == "amazon" and checkpoint.get("categories_completed"):
+            # Resuming - skip already completed categories
+            resume_from_idx = checkpoint["categories_completed"]
+            products_fetched = checkpoint.get("products_fetched", 0)
+            logger.info(f"Resuming Amazon collection from category {resume_from_idx + 1}/{categories_total}")
+            print(f"\n[COLLECTION] Resuming from category {resume_from_idx + 1}/{categories_total}")
+        else:
+            # Fresh start - reset counters
+            self.supabase.table("collection_runs").update({
+                "departments_total": departments_total,
+                "categories_total": categories_total,
+                "departments_completed": 0,
+                "categories_completed": 0,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", run_id).execute()
 
         # Initialize scraper
         try:
@@ -1120,21 +1133,24 @@ class CollectionService:
             }
 
         # Track progress
-        products_fetched = 0
         consecutive_failures = 0
         MAX_CONSECUTIVE_FAILURES = 5
         errors: list[dict] = []
 
         # Log collection start
         print(f"\n{'#'*60}")
-        print(f"[COLLECTION] Starting Amazon Best Sellers Collection")
+        print(f"[COLLECTION] {'Resuming' if resume_from_idx > 0 else 'Starting'} Amazon Best Sellers Collection")
         print(f"[COLLECTION] Run ID: {run_id}")
         print(f"[COLLECTION] Departments: {departments_total}")
-        print(f"[COLLECTION] Categories: {categories_total}")
+        print(f"[COLLECTION] Categories: {categories_total} ({resume_from_idx} already done)")
         print(f"{'#'*60}")
 
         # Process each category
         for idx, cat_id in enumerate(category_ids):
+            # Skip already-processed categories when resuming
+            if idx < resume_from_idx:
+                continue
+
             # Check if run was cancelled/paused
             run_check = await self.get_run(run_id, org_id)
             if run_check and run_check["status"] in ("cancelled", "paused"):
@@ -1391,40 +1407,59 @@ class CollectionService:
         PAGES_PER_PRODUCT = 3
         REQUEST_DELAY_MS = 200
 
-        # Progress tracking
-        consecutive_failures = 0
+        # Check for existing checkpoint (resuming)
+        run_data = await self.get_run(run_id, org_id)
+        checkpoint = run_data.get("checkpoint") or {}
+        resume_from_idx = 0
         sellers_found = 0
         sellers_new = 0
-        products_processed = 0
+
         total_products = len(products)
 
-        logger.info(f"Starting eBay seller search for {total_products} products")
+        if checkpoint.get("phase") == "ebay_search" and checkpoint.get("products_processed"):
+            # Resuming - skip already searched products
+            resume_from_idx = checkpoint["products_processed"]
+            # Get current seller counts from the run
+            sellers_found = run_data.get("sellers_found", 0)
+            sellers_new = run_data.get("sellers_new", 0)
+            logger.info(f"Resuming eBay search from product {resume_from_idx + 1}/{total_products}")
+            print(f"\n[COLLECTION] Resuming from product {resume_from_idx + 1}/{total_products}")
+        else:
+            # Fresh start - reset progress for eBay phase
+            self.supabase.table("collection_runs").update({
+                "departments_total": departments_total,
+                "departments_completed": 0,
+                "categories_total": categories_total,
+                "categories_completed": 0,
+                "products_searched": 0,
+                "checkpoint": {
+                    "phase": "ebay_search",
+                    "products_processed": 0,
+                    "products_total": total_products,
+                },
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", run_id).execute()
+
+        # Progress tracking
+        consecutive_failures = 0
+        products_processed = resume_from_idx
+
+        logger.info(f"{'Resuming' if resume_from_idx > 0 else 'Starting'} eBay seller search for {total_products} products")
 
         print(f"\n{'#'*60}")
-        print(f"[COLLECTION] Starting eBay Seller Search Phase")
+        print(f"[COLLECTION] {'Resuming' if resume_from_idx > 0 else 'Starting'} eBay Seller Search Phase")
         print(f"[COLLECTION] Run ID: {run_id}")
-        print(f"[COLLECTION] Products to Search: {total_products}")
+        print(f"[COLLECTION] Products to Search: {total_products} ({resume_from_idx} already done)")
         print(f"[COLLECTION] Categories: {categories_total}")
         print(f"[COLLECTION] Departments: {departments_total}")
         print(f"{'#'*60}")
 
-        # Reset progress for eBay phase (categories/departments start at 0)
-        self.supabase.table("collection_runs").update({
-            "departments_total": departments_total,
-            "departments_completed": 0,
-            "categories_total": categories_total,
-            "categories_completed": 0,
-            "products_searched": 0,
-            "checkpoint": {
-                "phase": "ebay_search",
-                "products_processed": 0,
-                "products_total": total_products,
-            },
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", run_id).execute()
-
         # Process each product
-        for product in products:
+        for product_idx, product in enumerate(products):
+            # Skip already-processed products when resuming
+            if product_idx < resume_from_idx:
+                continue
+
             # Check if run was cancelled/paused
             run_check = await self.get_run(run_id, org_id)
             if run_check and run_check["status"] in ("cancelled", "paused"):

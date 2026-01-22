@@ -463,15 +463,20 @@ async def pause_run(
 @router.post("/runs/{run_id}/resume")
 async def resume_run(
     run_id: str,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(require_permission_key("admin.automation")),
     service: CollectionService = Depends(get_collection_service),
 ):
     """
     Resume a paused collection.
 
+    This restarts the background task from where it left off using checkpoint data.
+
     Requires admin.automation permission.
     """
     org_id = user["membership"]["org_id"]
+
+    # First update the status
     result = await service.resume_run(run_id, org_id)
 
     if "error" in result:
@@ -480,7 +485,54 @@ async def resume_run(
         else:
             raise HTTPException(status_code=400, detail=result["message"])
 
-    return result
+    # Get run data to check checkpoint and determine where to resume
+    run = await service.get_run(run_id, org_id)
+    checkpoint = run.get("checkpoint") or {}
+    phase = checkpoint.get("phase", "amazon")
+
+    # Restart background task from checkpoint
+    async def resume_collection():
+        try:
+            logger.info(f"Resuming collection pipeline for run {run_id} from phase: {phase}")
+
+            if phase in ("amazon", None):
+                # Resume or restart Amazon collection
+                amazon_result = await service.run_amazon_collection(
+                    run_id=run_id,
+                    org_id=org_id,
+                    category_ids=run["category_ids"],
+                )
+
+                # If Amazon failed or was paused/cancelled, don't continue to eBay
+                if amazon_result.get("status") in ("failed", "paused", "cancelled"):
+                    logger.info(f"Collection {run_id} ended after Amazon phase: {amazon_result.get('status')}")
+                    return
+
+                # Brief pause before transitioning
+                print(f"\n[COLLECTION] Transitioning to eBay phase in 3 seconds...")
+                await asyncio.sleep(3)
+
+                # Phase 2: eBay seller search
+                await service.run_ebay_seller_search(run_id=run_id, org_id=org_id)
+
+            elif phase == "amazon_complete":
+                # Amazon done, start eBay
+                print(f"\n[COLLECTION] Resuming from eBay phase...")
+                await service.run_ebay_seller_search(run_id=run_id, org_id=org_id)
+
+            elif phase == "ebay_search":
+                # Resume eBay search
+                print(f"\n[COLLECTION] Resuming eBay search from checkpoint...")
+                await service.run_ebay_seller_search(run_id=run_id, org_id=org_id)
+
+            logger.info(f"Collection {run_id} completed after resume")
+
+        except Exception as e:
+            logger.exception(f"Resumed collection pipeline failed for {run_id}: {e}")
+
+    background_tasks.add_task(resume_collection)
+
+    return {"ok": True, "status": "running", "message": f"Collection resumed from {phase} phase"}
 
 
 @router.post("/runs/{run_id}/cancel")
