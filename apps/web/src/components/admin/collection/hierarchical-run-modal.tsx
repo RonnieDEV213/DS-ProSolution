@@ -80,6 +80,12 @@ function formatDuration(seconds: number | null): string {
   return `${hours}h ${remainingMins}m`;
 }
 
+interface CategoryBreakdown {
+  category_id: string;
+  products_count: number;
+  sellers_found: number;
+}
+
 export function HierarchicalRunModal({
   open,
   onOpenChange,
@@ -88,33 +94,41 @@ export function HierarchicalRunModal({
 }: HierarchicalRunModalProps) {
   const [runDetails, setRunDetails] = useState<RunDetails | null>(null);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [breakdown, setBreakdown] = useState<CategoryBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
   const [sellersLoading, setSellersLoading] = useState(true);
+  const [breakdownLoading, setBreakdownLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
     if (!open || !runId) {
       setRunDetails(null);
       setSellers([]);
+      setBreakdown([]);
       setLoading(true);
       setSellersLoading(true);
+      setBreakdownLoading(true);
       return;
     }
 
     const fetchData = async () => {
       setLoading(true);
       setSellersLoading(true);
+      setBreakdownLoading(true);
 
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        // Fetch run details and sellers in parallel
-        const [runResponse, sellersResponse] = await Promise.all([
+        // Fetch run details, sellers, and breakdown in parallel
+        const [runResponse, sellersResponse, breakdownResponse] = await Promise.all([
           fetch(`${API_BASE}/collection/runs/history?limit=50`, {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
           fetch(`${API_BASE}/sellers/export?run_id=${runId}&format=json`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
+          fetch(`${API_BASE}/collection/runs/${runId}/breakdown`, {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
         ]);
@@ -135,10 +149,18 @@ export function HierarchicalRunModal({
           setSellers(sellersData.sellers || []);
         }
         setSellersLoading(false);
+
+        // Process breakdown
+        if (breakdownResponse.ok) {
+          const breakdownData = await breakdownResponse.json();
+          setBreakdown(breakdownData.categories || []);
+        }
+        setBreakdownLoading(false);
       } catch (e) {
         console.error("Failed to fetch run details:", e);
         setLoading(false);
         setSellersLoading(false);
+        setBreakdownLoading(false);
       }
     };
 
@@ -281,11 +303,32 @@ export function HierarchicalRunModal({
                 )}
               </div>
 
-              {/* Future hierarchy placeholder */}
-              <div className="mt-3 p-3 bg-gray-800/30 rounded border border-gray-700/50 text-center flex-shrink-0">
-                <p className="text-xs text-gray-500">
-                  Detailed category breakdown coming soon
-                </p>
+              {/* Category breakdown */}
+              <div className="mt-3 flex-shrink-0">
+                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                  Category Breakdown ({breakdown.length})
+                </h4>
+                <div className="bg-gray-800/50 rounded border border-gray-700/50 max-h-48 overflow-y-auto">
+                  {breakdownLoading ? (
+                    <div className="p-3 text-gray-500 text-sm text-center">Loading...</div>
+                  ) : breakdown.length === 0 ? (
+                    <div className="p-3 text-gray-500 text-sm text-center">No category data</div>
+                  ) : (
+                    <div className="divide-y divide-gray-700/50">
+                      {breakdown.map((cat) => (
+                        <div key={cat.category_id} className="px-3 py-2 flex items-center justify-between">
+                          <span className="text-sm text-gray-300 truncate flex-1">
+                            {cat.category_id.replace(/-/g, " ")}
+                          </span>
+                          <div className="flex items-center gap-4 text-xs text-gray-400">
+                            <span>{cat.products_count} products</span>
+                            <span className="text-green-400">+{cat.sellers_found} sellers</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
