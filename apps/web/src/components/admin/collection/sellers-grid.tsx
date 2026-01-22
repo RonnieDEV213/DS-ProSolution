@@ -940,6 +940,31 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [filteredSellers, selectedIds]);
 
+  // Ctrl+Z for undo, Ctrl+Shift+Z for redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if typing in input
+      const activeEl = document.activeElement;
+      const isInputFocused = activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA';
+      if (isInputFocused) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) {
+          // Ctrl+Shift+Z = Redo
+          e.preventDefault();
+          handleRedo();
+        } else {
+          // Ctrl+Z = Undo
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
   // Clear selection when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
