@@ -129,10 +129,10 @@ export function HierarchicalRunModal({
         }
         setLoading(false);
 
-        // Process sellers
+        // Process sellers - API returns { sellers: [...] }
         if (sellersResponse.ok) {
           const sellersData = await sellersResponse.json();
-          setSellers(sellersData || []);
+          setSellers(sellersData.sellers || []);
         }
         setSellersLoading(false);
       } catch (e) {
