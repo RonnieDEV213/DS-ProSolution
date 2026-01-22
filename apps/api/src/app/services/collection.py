@@ -925,17 +925,18 @@ class CollectionService:
                 logger.info(f"Fetched {len(result.products)} products from {cat_id}")
                 break  # Success, move to next category
 
-        # Mark run as completed
+        # Update progress - don't mark as completed yet, eBay phase still needs to run
         now = datetime.now(timezone.utc).isoformat()
         self.supabase.table("collection_runs").update({
-            "status": "completed",
-            "completed_at": now,
             "total_items": products_fetched,
-            "processed_items": products_fetched,
+            "checkpoint": {
+                "phase": "amazon_complete",
+                "products_fetched": products_fetched,
+            },
             "updated_at": now,
         }).eq("id", run_id).execute()
 
-        logger.info(f"Collection run {run_id} completed: {products_fetched} products")
+        logger.info(f"Amazon collection complete: {products_fetched} products fetched")
 
         return {
             "status": "completed",
@@ -1105,13 +1106,9 @@ class CollectionService:
                     )
 
                     if existing.data:
-                        # Update last_seen and times_seen for existing seller
+                        # Update last_seen for existing seller (skip times_seen increment for now)
                         self.supabase.table("sellers").update({
                             "last_seen_run_id": run_id,
-                            "times_seen": self.supabase.rpc(
-                                "increment_times_seen",
-                                {"seller_id": existing.data[0]["id"]}
-                            ).execute() if False else None,  # Skip RPC for now, simple update
                             "updated_at": datetime.now(timezone.utc).isoformat(),
                         }).eq("id", existing.data[0]["id"]).execute()
                         continue
@@ -1145,20 +1142,18 @@ class CollectionService:
             # Update progress checkpoint after each product
             self.supabase.table("collection_runs").update({
                 "checkpoint": {
+                    "phase": "ebay_search",
                     "current_product_id": product["id"],
                     "products_processed": products_processed,
                     "products_total": total_products,
                 },
+                "processed_items": products_processed,
                 "products_searched": products_processed,
                 "sellers_found": sellers_found,
                 "sellers_new": sellers_new,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", run_id).execute()
 
-            logger.info(
-                f"Processed product {products_processed}/{total_products}: "
-                f"found {sellers_found} sellers ({sellers_new} new)"
-            )
 
         # Mark run as completed
         now = datetime.now(timezone.utc).isoformat()

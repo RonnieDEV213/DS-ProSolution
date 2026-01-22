@@ -312,19 +312,27 @@ async def execute_run(
 
     # Start full collection pipeline in background
     async def run_collection():
-        # Phase 1: Amazon collection
-        amazon_result = await service.run_amazon_collection(
-            run_id=run_id,
-            org_id=org_id,
-            category_ids=run["category_ids"],
-        )
+        try:
+            logger.info(f"Starting collection pipeline for run {run_id}")
 
-        # If Amazon failed or was paused, don't continue to eBay
-        if amazon_result.get("status") in ("failed", "paused"):
-            return
+            # Phase 1: Amazon collection
+            amazon_result = await service.run_amazon_collection(
+                run_id=run_id,
+                org_id=org_id,
+                category_ids=run["category_ids"],
+            )
 
-        # Phase 2: eBay seller search
-        await service.run_ebay_seller_search(run_id=run_id, org_id=org_id)
+            # If Amazon failed or was paused, don't continue to eBay
+            if amazon_result.get("status") in ("failed", "paused"):
+                logger.info(f"Collection {run_id} ended after Amazon phase: {amazon_result.get('status')}")
+                return
+
+            # Phase 2: eBay seller search
+            await service.run_ebay_seller_search(run_id=run_id, org_id=org_id)
+            logger.info(f"Collection {run_id} completed")
+
+        except Exception as e:
+            logger.exception(f"Collection pipeline failed for {run_id}: {e}")
 
     background_tasks.add_task(run_collection)
 

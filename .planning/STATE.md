@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 10 of 10 (Collection UI Cleanup)
-Plan: 4 of 5 complete (Setup & Progress Bar, Unified History Panel, Sellers Grid Enhancement, Run Config Modal)
-Status: In progress
-Last activity: 2026-01-21 - Completed 10-04-PLAN.md (Run Config Modal Consolidation)
+Plan: 5 of 5 complete (Setup & Progress Bar, Unified History Panel, Sellers Grid Enhancement, Run Config Modal, Automation Page Integration)
+Status: Phase 10 COMPLETE
+Last activity: 2026-01-21 - Completed 10-05-PLAN.md (Automation Page Integration)
 
-Progress: [██████████] 20/20 v2 plans
+Progress: [██████████] 21/21 v2 plans - PHASE 10 COMPLETE
 
 ## Shipped Milestones
 
@@ -33,9 +33,9 @@ Progress: [██████████] 20/20 v2 plans
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 20
+- Total plans completed: 21
 - Average duration: ~4 min
-- Total execution time: ~87 min
+- Total execution time: ~92 min
 
 ## Accumulated Context
 
@@ -97,6 +97,9 @@ Recent for v2:
 - Two-panel modal layout with 1fr/320px grid for balanced category selector and controls
 - Recurring presets generate cron expressions from selected date (day of week or day of month)
 - Calendar highlights next 6 months of scheduled dates based on recurring pattern
+- Deprecate components with JSDoc rather than delete (per CLAUDE.md guardrails)
+- Modal routing: Collection runs open HierarchicalRunModal, manual edits open LogDetailModal
+- Re-run flow: HierarchicalRunModal onRerun populates RunConfigModal initialCategories
 
 ### Pending Todos
 
@@ -116,9 +119,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 10-04-PLAN.md (Run Config Modal Consolidation)
+Stopped at: Completed 10-05-PLAN.md (Automation Page Integration)
 Resume file: None
-Next action: Execute 10-05-PLAN.md (if exists, or Phase 10 complete)
+Next action: Phase 10 complete - v2 milestone ready for deployment
 
 ## Roadmap Evolution
 

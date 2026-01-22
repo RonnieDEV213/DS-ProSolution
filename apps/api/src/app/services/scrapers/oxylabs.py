@@ -79,10 +79,13 @@ class OxylabsAmazonScraper(AmazonScraperService):
             products = []
             for p in raw_products:
                 try:
+                    # Price might be in cents or have other format issues
+                    raw_price = p.get("price")
+
                     product = AmazonProduct(
                         asin=p.get("asin", ""),
                         title=p.get("title", ""),
-                        price=p.get("price"),
+                        price=raw_price,
                         currency=p.get("currency", "USD"),
                         rating=p.get("rating"),
                         url=p.get("url", ""),
