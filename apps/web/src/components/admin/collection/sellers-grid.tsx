@@ -66,13 +66,20 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   // Selection helpers
   const allSelected = sellers.length > 0 && sellers.every(s => selectedIds.has(s.id));
   const someSelected = selectedIds.size > 0 && !allSelected;
+  const hasSelection = selectedIds.size > 0;
 
   const toggleSelectAll = () => {
-    if (allSelected) {
+    // If ANY sellers are selected (partial or all), unselect all
+    // Only select all when nothing is selected
+    if (hasSelection) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(sellers.map(s => s.id)));
     }
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
   };
 
   const toggleSelection = (id: string) => {
@@ -127,16 +134,24 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     fetchSellers();
   };
 
-  // Ctrl+A keyboard shortcut for select all
+  // Ctrl+A keyboard shortcut for select all / deselect all toggle
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        // Only prevent default and select all if grid is focused or no input is focused
+        // Only handle if no input is focused
         const activeEl = document.activeElement;
         const isInputFocused = activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA';
         if (!isInputFocused && sellers.length > 0) {
           e.preventDefault();
-          setSelectedIds(new Set(sellers.map(s => s.id)));
+          // Toggle: if all selected, deselect all; otherwise select all
+          setSelectedIds(prev => {
+            const allCurrentlySelected = sellers.every(s => prev.has(s.id));
+            if (allCurrentlySelected) {
+              return new Set();
+            } else {
+              return new Set(sellers.map(s => s.id));
+            }
+          });
         }
       }
     };
@@ -152,6 +167,25 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       return filtered.size === prev.size ? prev : filtered;
     });
   }, [sellers]);
+
+  // Clear selection when clicking outside the grid
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const gridContainer = document.getElementById('sellers-grid-container');
+      const target = e.target as HTMLElement;
+
+      // Check if click is outside grid and not on header controls (checkbox, delete button, etc.)
+      const isInsideGrid = gridContainer?.contains(target);
+      const isHeaderControl = target.closest('[data-selection-control]');
+
+      if (!isInsideGrid && !isHeaderControl && selectedIds.size > 0) {
+        setSelectedIds(new Set());
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [selectedIds.size]);
 
   // Drag selection configuration
   const { DragSelection } = useSelectionContainer({
@@ -353,7 +387,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
           {addError && <span className="text-red-400 text-sm">{addError}</span>}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-selection-control>
           {/* Select all checkbox */}
           <Checkbox
             checked={allSelected ? true : someSelected ? "indeterminate" : false}
