@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.auth import require_permission_key
+from app.auth import require_permission_key, require_permission_key_flexible
 from app.services.activity_stream import get_activity_stream
 from app.database import get_supabase
 from app.models import (
@@ -221,6 +221,7 @@ async def get_collection_history(
                 sellers_new=r["sellers_new"],
                 failed_items=r["failed_items"],
                 created_by=r["created_by"],
+                seller_count_snapshot=r.get("seller_count_snapshot"),
             )
             for r in runs
         ],
@@ -611,6 +612,10 @@ async def verify_token_for_sse(token: str | None) -> dict:
 
     EventSource doesn't support Authorization headers, so we accept
     the token as a query parameter instead.
+
+    .. deprecated::
+        Use :func:`app.auth.require_permission_key_flexible` instead.
+        This function is kept for backwards compatibility.
     """
     import jwt as pyjwt
     import os
@@ -682,7 +687,7 @@ async def verify_token_for_sse(token: str | None) -> dict:
 @router.get("/runs/{run_id}/activity")
 async def stream_activity(
     run_id: str,
-    token: str | None = None,
+    user: dict = Depends(require_permission_key_flexible("admin.automation")),
     service: CollectionService = Depends(get_collection_service),
 ):
     """
@@ -695,11 +700,10 @@ async def stream_activity(
     - rate_limited: Waiting due to rate limit
     - complete: Phase or run complete
 
-    Accepts token via query param since EventSource doesn't support headers.
-    Requires admin role.
+    Accepts token via query param or Authorization header.
+    Uses flexible auth for EventSource compatibility.
+    Requires admin.automation permission.
     """
-    # Verify token from query param (EventSource doesn't support headers)
-    user = await verify_token_for_sse(token)
     org_id = user["membership"]["org_id"]
 
     # Verify run exists and belongs to org
