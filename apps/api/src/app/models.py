@@ -889,6 +889,26 @@ class SellerUpdate(BaseModel):
     name: str
 
 
+class BulkSellerCreate(BaseModel):
+    """Request body for bulk creating sellers."""
+
+    names: list[str]
+
+
+class BulkSellerDelete(BaseModel):
+    """Request body for bulk deleting sellers."""
+
+    ids: list[str]
+
+
+class BulkOperationResponse(BaseModel):
+    """Response for bulk operations."""
+
+    success_count: int
+    failed_count: int
+    errors: list[str]
+
+
 class SellerResponse(BaseModel):
     """Seller data in API responses."""
 
@@ -900,6 +920,7 @@ class SellerResponse(BaseModel):
     times_seen: int
     first_seen_run_id: Optional[str] = None
     last_seen_run_id: Optional[str] = None
+    flagged: bool = False
     created_at: datetime
 
 
@@ -1039,6 +1060,11 @@ class WorkerStatus(BaseModel):
 class EnhancedProgress(BaseModel):
     """Detailed progress for a collection run."""
 
+    # Phase tracking
+    phase: Literal["amazon", "ebay"] = "amazon"
+    products_found: int = 0  # Live count during Amazon phase
+    started_at: Optional[str] = None
+    checkpoint: Optional[dict] = None
     # Hierarchical counts
     departments_total: int
     departments_completed: int
@@ -1158,3 +1184,23 @@ class CollectionScheduleUpdate(BaseModel):
     cron_expression: Optional[str] = None
     enabled: Optional[bool] = None
     notify_email: Optional[bool] = None
+
+
+# ============================================================
+# Activity Stream Models
+# ============================================================
+
+
+class ActivityEntry(BaseModel):
+    """Activity event for SSE streaming."""
+
+    id: str
+    timestamp: str
+    worker_id: int
+    phase: str  # "amazon" or "ebay"
+    action: str  # "fetching", "found", "error", "rate_limited", "complete"
+    category: Optional[str] = None
+    product_name: Optional[str] = None
+    seller_found: Optional[str] = None
+    new_sellers_count: Optional[int] = None
+    error_message: Optional[str] = None

@@ -8,12 +8,15 @@ Admin endpoints for:
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.auth import require_permission_key
+from app.services.activity_stream import get_activity_stream
 from app.database import get_supabase
 from app.models import (
     CollectionHistoryEntry,
@@ -600,6 +603,62 @@ async def get_run_progress(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/runs/{run_id}/activity")
+async def stream_activity(
+    run_id: str,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Stream real-time activity events for a collection run via SSE.
+
+    Events include:
+    - fetching: Worker starting to fetch a category/product
+    - found: Sellers found for a product
+    - error: Error occurred
+    - rate_limited: Waiting due to rate limit
+    - complete: Phase or run complete
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+
+    # Verify run exists and belongs to org
+    run = await service.get_run(run_id, org_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    stream_manager = get_activity_stream()
+    queue = await stream_manager.get_or_create(run_id)
+
+    async def event_generator():
+        """Generate SSE events from activity queue."""
+        while True:
+            try:
+                # Wait for event with timeout for keepalive
+                event = await asyncio.wait_for(queue.get(), timeout=15.0)
+                yield f"data: {json.dumps(event)}\n\n"
+            except asyncio.TimeoutError:
+                # Send keepalive comment
+                yield ": keepalive\n\n"
+            except asyncio.CancelledError:
+                # Client disconnected
+                break
+            except Exception as e:
+                logger.error(f"Activity stream error: {e}")
+                break
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
 
 
 # ============================================================
