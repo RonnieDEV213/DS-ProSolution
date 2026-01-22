@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** Phase 10 - Collection UI Cleanup
+**Current focus:** v2 SellerCollection complete - ready for milestone audit
 
 ## Current Position
 
@@ -121,7 +121,7 @@ None.
 Last session: 2026-01-21
 Stopped at: Completed 10-05-PLAN.md (Automation Page Integration)
 Resume file: None
-Next action: Phase 10 complete - v2 milestone ready for deployment
+Next action: Run /gsd:audit-milestone to verify v2 requirements and cross-phase integration
 
 ## Roadmap Evolution
 

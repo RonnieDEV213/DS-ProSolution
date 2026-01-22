@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-10 (in progress)
+- **v2 SellerCollection** - Phases 6-10 (shipped 2026-01-21)
 
 ## Phases
 
@@ -15,7 +15,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 7: Amazon Best Sellers** - API integration and category selection UI
 - [x] **Phase 8: eBay Seller Search** - API integration with dropshipper filters
 - [x] **Phase 9: Storage, Export, and Collection UI** - Deduplication, export, progress tracking
-- [ ] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
+- [x] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
 
 ## Phase Details
 
@@ -115,11 +115,11 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — Setup & Progress Bar (install shadcn components, two-phase progress display)
-- [ ] 10-02-PLAN.md — History Panel (merge recent activity + collection history into unified timeline)
-- [ ] 10-03-PLAN.md — Sellers Grid Enhancement (bulk selection, drag select, hover cards)
-- [ ] 10-04-PLAN.md — Run Config Modal (two-panel layout with integrated scheduling)
-- [ ] 10-05-PLAN.md — Page Integration (wire new components, remove deprecated, final cleanup)
+- [x] 10-01-PLAN.md — Setup & Progress Bar (install shadcn components, two-phase progress display)
+- [x] 10-02-PLAN.md — History Panel (merge recent activity + collection history into unified timeline)
+- [x] 10-03-PLAN.md — Sellers Grid Enhancement (bulk selection, drag select, hover cards)
+- [x] 10-04-PLAN.md — Run Config Modal (two-panel layout with integrated scheduling)
+- [x] 10-05-PLAN.md — Page Integration (wire new components, remove deprecated, final cleanup)
 
 ## Progress
 
@@ -129,7 +129,7 @@ Plans:
 | 7. Amazon Best Sellers | v2 | 5/5 | Complete | 2026-01-20 |
 | 8. eBay Seller Search | v2 | 2/2 | Complete | 2026-01-21 |
 | 9. Storage, Export, and Collection UI | v2 | 5/5 | Complete | 2026-01-21 |
-| 10. Collection UI Cleanup | v2 | 0/5 | Planned | - |
+| 10. Collection UI Cleanup | v2 | 5/5 | Complete | 2026-01-21 |
 
 ## Requirement Coverage
 
