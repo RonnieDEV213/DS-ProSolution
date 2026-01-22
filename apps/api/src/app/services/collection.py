@@ -592,13 +592,11 @@ class CollectionService:
 
         name = result.data[0]["display_name"]
 
-        # Delete first
-        self.supabase.table("sellers").delete().eq("id", seller_id).execute()
+        # Get current seller count and pre-compute post-delete snapshot
+        current_count = await self._get_seller_count_snapshot(org_id)
+        seller_count = current_count - 1 if current_count > 0 else 0
 
-        # Get current seller count for snapshot (after delete)
-        seller_count = await self._get_seller_count_snapshot(org_id)
-
-        # Log the removal after deleting (snapshot reflects final state)
+        # Log BEFORE delete (FK constraint requires seller to exist)
         await self._log_seller_change(
             org_id=org_id,
             user_id=user_id,
@@ -612,6 +610,9 @@ class CollectionService:
             criteria=criteria,
             seller_count_snapshot=seller_count,
         )
+
+        # Delete after logging
+        self.supabase.table("sellers").delete().eq("id", seller_id).execute()
 
     async def bulk_add_sellers(
         self,
