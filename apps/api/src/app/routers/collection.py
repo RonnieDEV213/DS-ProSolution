@@ -605,10 +605,84 @@ async def get_run_progress(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+async def verify_token_for_sse(token: str | None) -> dict:
+    """
+    Verify JWT token from query param for SSE endpoints.
+
+    EventSource doesn't support Authorization headers, so we accept
+    the token as a query parameter instead.
+    """
+    import jwt as pyjwt
+    import os
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+
+    try:
+        unverified_header = pyjwt.get_unverified_header(token)
+        alg = unverified_header.get("alg", "HS256")
+
+        if alg == "HS256":
+            if not supabase_jwt_secret:
+                raise HTTPException(status_code=500, detail="JWT secret not configured")
+            payload = pyjwt.decode(
+                token,
+                supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+                issuer=f"{supabase_url}/auth/v1",
+            )
+        else:
+            from jwt import PyJWKClient
+            jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
+            jwks_client = PyJWKClient(jwks_url)
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            payload = pyjwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256", "ES256"],
+                audience="authenticated",
+                issuer=f"{supabase_url}/auth/v1",
+            )
+
+        user_id = payload["sub"]
+
+        # Fetch membership to get org_id
+        supabase = get_supabase()
+        default_org_id = "a0000000-0000-0000-0000-000000000001"
+
+        membership_result = (
+            supabase.table("memberships")
+            .select("id, role, org_id")
+            .eq("user_id", user_id)
+            .eq("org_id", default_org_id)
+            .execute()
+        )
+
+        if not membership_result.data:
+            raise HTTPException(status_code=403, detail="No membership found")
+
+        membership = membership_result.data[0]
+
+        # Only allow admins for automation endpoints
+        if membership["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin required")
+
+        return {"user_id": user_id, "membership": membership}
+
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except pyjwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+
+
 @router.get("/runs/{run_id}/activity")
 async def stream_activity(
     run_id: str,
-    user: dict = Depends(require_permission_key("admin.automation")),
+    token: str | None = None,
     service: CollectionService = Depends(get_collection_service),
 ):
     """
@@ -621,8 +695,11 @@ async def stream_activity(
     - rate_limited: Waiting due to rate limit
     - complete: Phase or run complete
 
-    Requires admin.automation permission.
+    Accepts token via query param since EventSource doesn't support headers.
+    Requires admin role.
     """
+    # Verify token from query param (EventSource doesn't support headers)
+    user = await verify_token_for_sse(token)
     org_id = user["membership"]["org_id"]
 
     # Verify run exists and belongs to org

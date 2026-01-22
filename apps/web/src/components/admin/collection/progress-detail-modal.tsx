@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -11,11 +12,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Minimize2, ShoppingCart, Search, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { ActivityFeed, ActivityEntry } from "./activity-feed";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 interface ProgressDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   progress: {
+    run_id?: string;
     phase: "amazon" | "ebay";
     departments_total: number;
     departments_completed: number;
@@ -56,6 +61,8 @@ export function ProgressDetailModal({
   onCancel,
 }: ProgressDetailModalProps) {
   const [duration, setDuration] = useState<string>("");
+  const [activities, setActivities] = useState<ActivityEntry[]>([]);
+  const supabase = createClient();
 
   // Update duration timer every second
   useEffect(() => {
@@ -71,6 +78,52 @@ export function ProgressDetailModal({
 
     return () => clearInterval(interval);
   }, [progress?.started_at]);
+
+  // SSE activity stream subscription
+  useEffect(() => {
+    if (!open || !progress?.run_id) {
+      setActivities([]);
+      return;
+    }
+
+    let eventSource: EventSource | null = null;
+
+    const connectSSE = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        // SSE with token query param (EventSource doesn't support headers)
+        const url = `${API_BASE}/collection/runs/${progress.run_id}/activity?token=${session.access_token}`;
+
+        eventSource = new EventSource(url);
+
+        eventSource.onmessage = (event) => {
+          try {
+            const activity = JSON.parse(event.data) as ActivityEntry;
+            setActivities((prev) => [activity, ...prev].slice(0, 100));
+          } catch (e) {
+            console.error("Failed to parse activity:", e);
+          }
+        };
+
+        eventSource.onerror = () => {
+          // Reconnect is automatic, but log for debugging
+          console.log("SSE connection error, auto-reconnecting...");
+        };
+      } catch (e) {
+        console.error("Failed to connect SSE:", e);
+      }
+    };
+
+    connectSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [open, progress?.run_id, supabase.auth]);
 
   if (!progress) return null;
 
@@ -258,6 +311,12 @@ export function ProgressDetailModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Activity Feed - Live updates */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-gray-300">Live Activity</div>
+            <ActivityFeed activities={activities} maxEntries={50} />
           </div>
 
           {/* Cancel button */}
