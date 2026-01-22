@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-11 (in progress)
+- **v2 SellerCollection** - Phases 6-11 (shipped 2026-01-22)
 
 ## Phases
 
@@ -16,7 +16,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 8: eBay Seller Search** - API integration with dropshipper filters
 - [x] **Phase 9: Storage, Export, and Collection UI** - Deduplication, export, progress tracking
 - [x] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
-- [ ] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
+- [x] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
 
 ## Phase Details
 
@@ -138,11 +138,11 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 11-01-PLAN.md — Progress polling and audit log replay (reduce polling interval, fix bulk add replay)
-- [ ] 11-02-PLAN.md — Category breakdown endpoint and modal display (real data instead of placeholder)
-- [ ] 11-03-PLAN.md — Selection behavior (remove card X, Shift+click range, deselect on empty)
-- [ ] 11-04-PLAN.md — Undo/redo for deletions (toast with undo, Ctrl+Z, Ctrl+Shift+Z)
-- [ ] 11-05-PLAN.md — Concurrency slider polish (tick marks 1-5, remove Coming soon)
+- [x] 11-01-PLAN.md — Progress polling and audit log replay (reduce polling interval, fix bulk add replay)
+- [x] 11-02-PLAN.md — Category breakdown endpoint and modal display (real data instead of placeholder)
+- [x] 11-03-PLAN.md — Selection behavior (remove card X, Shift+click range, deselect on empty)
+- [x] 11-04-PLAN.md — Undo/redo for deletions (toast with undo, Ctrl+Z, Ctrl+Shift+Z)
+- [x] 11-05-PLAN.md — Concurrency slider polish (tick marks 1-5, remove Coming soon)
 
 ## Progress
 
@@ -153,7 +153,7 @@ Plans:
 | 8. eBay Seller Search | v2 | 2/2 | Complete | 2026-01-21 |
 | 9. Storage, Export, and Collection UI | v2 | 5/5 | Complete | 2026-01-21 |
 | 10. Collection UI Cleanup | v2 | 5/5 | Complete | 2026-01-21 |
-| 11. Collection Bug Fixes & Polish | v2 | 0/5 | In Progress | - |
+| 11. Collection Bug Fixes & Polish | v2 | 5/5 | Complete | 2026-01-22 |
 
 ## Requirement Coverage
 
