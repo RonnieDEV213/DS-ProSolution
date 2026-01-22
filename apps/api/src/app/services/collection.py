@@ -24,6 +24,12 @@ from app.services.db_utils import (
     INSERT_BATCH_SIZE,
     MAX_CONCURRENT,
 )
+from app.services.parallel_runner import (
+    ParallelCollectionRunner,
+    create_activity_event,
+    CollectionPausedException,
+)
+from app.services.activity_stream import get_activity_stream
 
 logger = logging.getLogger(__name__)
 
@@ -346,6 +352,24 @@ class CollectionService:
         normalized = re.sub(r'\s+', ' ', name.lower().strip())
         return normalized
 
+    async def _get_seller_count_snapshot(self, org_id: str) -> int:
+        """Get current seller count for snapshot storage."""
+        result = (
+            self.supabase.table("sellers")
+            .select("id", count="exact")
+            .eq("org_id", org_id)
+            .execute()
+        )
+        return result.count or 0
+
+    async def _store_run_snapshot(self, run_id: str, org_id: str):
+        """Store seller count snapshot on run completion."""
+        count = await self._get_seller_count_snapshot(org_id)
+        self.supabase.table("collection_runs").update({
+            "seller_count_snapshot": count,
+        }).eq("id", run_id).execute()
+        logger.info(f"Stored seller snapshot {count} for run {run_id}")
+
     async def get_sellers(
         self,
         org_id: str,
@@ -454,6 +478,9 @@ class CollectionService:
 
         seller = result.data[0]
 
+        # Get current seller count for snapshot
+        seller_count = await self._get_seller_count_snapshot(org_id)
+
         # Log the addition
         await self._log_seller_change(
             org_id=org_id,
@@ -465,6 +492,7 @@ class CollectionService:
             new_value={"display_name": name},
             source=source,
             run_id=run_id,
+            seller_count_snapshot=seller_count,
         )
 
         return seller
@@ -522,6 +550,9 @@ class CollectionService:
 
         seller = update_result.data[0]
 
+        # Get current seller count for snapshot
+        seller_count = await self._get_seller_count_snapshot(org_id)
+
         # Log the edit
         await self._log_seller_change(
             org_id=org_id,
@@ -533,6 +564,7 @@ class CollectionService:
             new_value={"display_name": new_name},
             source="manual",
             run_id=None,
+            seller_count_snapshot=seller_count,
         )
 
         return seller
@@ -559,7 +591,13 @@ class CollectionService:
 
         name = result.data[0]["display_name"]
 
-        # Log the removal BEFORE deleting (to satisfy foreign key constraint)
+        # Delete first
+        self.supabase.table("sellers").delete().eq("id", seller_id).execute()
+
+        # Get current seller count for snapshot (after delete)
+        seller_count = await self._get_seller_count_snapshot(org_id)
+
+        # Log the removal after deleting (snapshot reflects final state)
         await self._log_seller_change(
             org_id=org_id,
             user_id=user_id,
@@ -571,10 +609,8 @@ class CollectionService:
             source=source,
             run_id=None,
             criteria=criteria,
+            seller_count_snapshot=seller_count,
         )
-
-        # Delete after logging
-        self.supabase.table("sellers").delete().eq("id", seller_id).execute()
 
     async def bulk_add_sellers(
         self,
@@ -652,6 +688,9 @@ class CollectionService:
 
         # Log as single audit entry if any were added
         if success_count > 0:
+            # Get current seller count for snapshot (after bulk add)
+            seller_count = await self._get_seller_count_snapshot(org_id)
+
             summary = f"{added_names[0]}" if success_count == 1 else f"{added_names[0]} (+{success_count - 1} more)"
             log_data = {
                 "org_id": org_id,
@@ -665,6 +704,7 @@ class CollectionService:
                 "source_criteria": None,
                 "user_id": user_id,
                 "affected_count": success_count,
+                "seller_count_snapshot": seller_count,
             }
             self.supabase.table("seller_audit_log").insert(log_data).execute()
 
@@ -725,6 +765,9 @@ class CollectionService:
 
         # Log as single audit entry if any were removed
         if success_count > 0:
+            # Get current seller count for snapshot (after bulk delete)
+            seller_count = await self._get_seller_count_snapshot(org_id)
+
             summary = f"{removed_names[0]}" if success_count == 1 else f"{removed_names[0]} (+{success_count - 1} more)"
             log_data = {
                 "org_id": org_id,
@@ -738,6 +781,7 @@ class CollectionService:
                 "source_criteria": None,
                 "user_id": user_id,
                 "affected_count": success_count,
+                "seller_count_snapshot": seller_count,
             }
             self.supabase.table("seller_audit_log").insert(log_data).execute()
 
@@ -784,6 +828,7 @@ class CollectionService:
         run_id: str | None,
         criteria: dict | None = None,
         affected_count: int = 1,
+        seller_count_snapshot: int | None = None,
     ) -> None:
         """Log a seller change to the audit log."""
         import json
@@ -800,6 +845,7 @@ class CollectionService:
             "source_criteria": json.dumps(criteria) if criteria else None,
             "user_id": user_id,
             "affected_count": affected_count,
+            "seller_count_snapshot": seller_count_snapshot,
         }
         self.supabase.table("seller_audit_log").insert(log_data).execute()
 
