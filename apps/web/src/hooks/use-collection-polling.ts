@@ -39,7 +39,7 @@ interface CollectionRun {
   status: "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
 }
 
-export function useCollectionPolling(pollingInterval = 2000) {
+export function useCollectionPolling(pollingInterval = 500) {
   const [activeRun, setActiveRun] = useState<CollectionRun | null>(null);
   const [progress, setProgress] = useState<EnhancedProgress | null>(null);
   const [newSellerIds, setNewSellerIds] = useState<Set<string>>(new Set());
