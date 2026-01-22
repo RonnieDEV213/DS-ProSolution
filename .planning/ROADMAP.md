@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-12 (in progress)
+- **v2 SellerCollection** - Phases 6-12 (complete)
 
 ## Phases
 
@@ -17,7 +17,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 9: Storage, Export, and Collection UI** - Deduplication, export, progress tracking
 - [x] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
 - [x] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
-- [ ] **Phase 12: Live Activity Feed & Concurrency** - Live visual activity feed, parallel collection (5 workers), seller snapshot counts
+- [x] **Phase 12: Live Activity Feed & Concurrency** - Live visual activity feed, parallel collection (5 workers), seller snapshot counts
 
 ## Phase Details
 
@@ -160,10 +160,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Backend parallel infrastructure (migration, ParallelCollectionRunner, ActivityStreamManager, SSE endpoint)
-- [ ] 12-02-PLAN.md — Refactor collection execution (parallel Amazon, parallel eBay, activity events, seller snapshots)
-- [ ] 12-03-PLAN.md — Frontend activity feed UI (ActivityFeed component, modal integration, progress bar cleanup, history snapshots)
-- [ ] 12-04-PLAN.md — Backend auth and API updates (SSE query param auth, history/audit-log snapshot responses)
+- [x] 12-01-PLAN.md — Backend parallel infrastructure (migration, ParallelCollectionRunner, ActivityStreamManager, SSE endpoint)
+- [x] 12-02-PLAN.md — Refactor collection execution (parallel Amazon, parallel eBay, activity events, seller snapshots)
+- [x] 12-03-PLAN.md — Frontend activity feed UI (ActivityFeed component, modal integration, progress bar cleanup, history snapshots)
+- [x] 12-04-PLAN.md — Backend auth and API updates (SSE query param auth, history/audit-log snapshot responses)
 
 ## Progress
 
@@ -175,7 +175,7 @@ Plans:
 | 9. Storage, Export, and Collection UI | v2 | 5/5 | Complete | 2026-01-21 |
 | 10. Collection UI Cleanup | v2 | 5/5 | Complete | 2026-01-21 |
 | 11. Collection Bug Fixes & Polish | v2 | 5/5 | Complete | 2026-01-22 |
-| 12. Live Activity Feed & Concurrency | v2 | 0/4 | In Progress | - |
+| 12. Live Activity Feed & Concurrency | v2 | 4/4 | Complete | 2026-01-22 |
 
 ## Requirement Coverage
 
