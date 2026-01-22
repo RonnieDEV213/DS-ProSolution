@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -59,7 +58,6 @@ export function RunConfigModal({
   initialCategories = [],
 }: RunConfigModalProps) {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initialCategories);
-  const [concurrency, setConcurrency] = useState(3);
   const [loading, setLoading] = useState(false);
 
   // Schedule state
@@ -289,38 +287,6 @@ export function RunConfigModal({
                   onPresetSelect={(categoryIds) => setSelectedCategoryIds(categoryIds)}
                   onPresetsChange={fetchPresets}
                 />
-              </div>
-
-              {/* Concurrency slider */}
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label className="text-gray-300">Concurrency</Label>
-                  <span className="text-sm text-gray-400">{concurrency} workers</span>
-                </div>
-                <div className="relative pt-1 pb-4">
-                  <Slider
-                    value={[concurrency]}
-                    onValueChange={([v]) => setConcurrency(v)}
-                    min={1}
-                    max={5}
-                    step={1}
-                    className="w-full"
-                  />
-                  {/* Tick marks and labels */}
-                  <div className="flex justify-between px-1 mt-1">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <div key={n} className="flex flex-col items-center">
-                        <div className="w-px h-1.5 bg-gray-600" />
-                        <span className={`text-xs mt-0.5 ${concurrency === n ? 'text-blue-400' : 'text-gray-500'}`}>
-                          {n}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Higher values = faster collection, more API load
-                </p>
               </div>
 
               {/* Schedule toggle */}

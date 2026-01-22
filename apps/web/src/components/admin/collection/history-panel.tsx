@@ -21,6 +21,7 @@ interface CollectionRunEntry {
   sellers_new: number;
   categories_count: number;
   category_ids: string[];
+  seller_count_snapshot?: number;
 }
 
 interface ManualEditEntry {
@@ -30,6 +31,7 @@ interface ManualEditEntry {
   seller_name: string;
   affected_count: number;
   created_at: string;
+  seller_count_snapshot?: number;
 }
 
 type HistoryEntry = CollectionRunEntry | ManualEditEntry;
@@ -97,6 +99,7 @@ export function HistoryPanel({
             sellers_new: run.sellers_new || 0,
             categories_count: run.categories_count || 0,
             category_ids: run.category_ids || [],
+            seller_count_snapshot: run.seller_count_snapshot,
           });
         }
       }
@@ -113,6 +116,7 @@ export function HistoryPanel({
             seller_name: log.seller_name,
             affected_count: log.affected_count || 1,
             created_at: log.created_at,
+            seller_count_snapshot: log.seller_count_snapshot,
           });
         }
       }
@@ -173,6 +177,11 @@ export function HistoryPanel({
           <span className="text-gray-500 text-xs">
             {entry.categories_count} categories
           </span>
+          {entry.seller_count_snapshot !== undefined && (
+            <span className="text-gray-500 text-xs">
+              ({entry.seller_count_snapshot} total)
+            </span>
+          )}
         </div>
         <span className="text-gray-500 text-xs">
           {formatDistanceToNow(new Date(getEntryTime(entry)), { addSuffix: true })}
@@ -198,8 +207,11 @@ export function HistoryPanel({
           </span>
         </div>
       </div>
-      <div className="text-gray-500 text-xs mt-1">
-        {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
+      <div className="flex items-center justify-between text-gray-500 text-xs mt-1">
+        <span>{formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}</span>
+        {entry.seller_count_snapshot !== undefined && (
+          <span>{entry.seller_count_snapshot} sellers total</span>
+        )}
       </div>
     </button>
   );

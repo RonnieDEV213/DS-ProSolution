@@ -20,6 +20,9 @@ from app.database import get_supabase
 from app.models import (
     AuditLogEntry,
     AuditLogResponse,
+    BulkOperationResponse,
+    BulkSellerCreate,
+    BulkSellerDelete,
     DiffRequest,
     SellerCreate,
     SellerDiff,
@@ -70,6 +73,7 @@ async def list_sellers(
                 times_seen=s["times_seen"],
                 first_seen_run_id=s.get("first_seen_run_id"),
                 last_seen_run_id=s.get("last_seen_run_id"),
+                flagged=s.get("flagged", False),
                 created_at=s["created_at"],
             )
             for s in sellers
@@ -107,6 +111,87 @@ async def add_seller(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================
+# Bulk Operations (must be before /{seller_id} routes)
+# ============================================================
+
+
+@router.post("/bulk", response_model=BulkOperationResponse)
+async def bulk_add_sellers(
+    data: BulkSellerCreate,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Bulk add sellers.
+
+    Accepts a list of seller names and adds them all.
+    Logs as a single audit entry.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    user_id = user["user_id"]
+
+    success_count, failed_count, errors = await service.bulk_add_sellers(
+        org_id, user_id, data.names, source="manual"
+    )
+
+    return BulkOperationResponse(
+        success_count=success_count,
+        failed_count=failed_count,
+        errors=errors[:10],  # Limit errors returned
+    )
+
+
+@router.post("/bulk/delete", response_model=BulkOperationResponse)
+async def bulk_delete_sellers(
+    data: BulkSellerDelete,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Bulk delete sellers.
+
+    Accepts a list of seller IDs and removes them all.
+    Logs as a single audit entry.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    user_id = user["user_id"]
+
+    success_count, failed_count, errors = await service.bulk_remove_sellers(
+        org_id, user_id, data.ids, source="manual"
+    )
+
+    return BulkOperationResponse(
+        success_count=success_count,
+        failed_count=failed_count,
+        errors=errors[:10],  # Limit errors returned
+    )
+
+
+@router.post("/{seller_id}/flag")
+async def toggle_seller_flag(
+    seller_id: str,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Toggle the flagged status of a seller.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+
+    try:
+        flagged = await service.toggle_seller_flag(org_id, seller_id)
+        return {"id": seller_id, "flagged": flagged}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.patch("/{seller_id}", response_model=SellerResponse)
@@ -192,6 +277,7 @@ async def get_audit_log(
                 user_id=e.get("user_id"),
                 created_at=e["created_at"],
                 affected_count=e["affected_count"],
+                seller_count_snapshot=e.get("seller_count_snapshot"),
             )
             for e in entries
         ],

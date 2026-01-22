@@ -185,7 +185,7 @@ class CollectionService:
                 "started_at, completed_at, "
                 "products_total, products_searched, "
                 "sellers_found, sellers_new, "
-                "failed_items, created_by",
+                "failed_items, created_by, seller_count_snapshot",
                 count="exact"
             )
             .eq("org_id", org_id)
@@ -218,6 +218,7 @@ class CollectionService:
                 "sellers_new": r.get("sellers_new") or 0,
                 "failed_items": r.get("failed_items") or 0,
                 "created_by": r["created_by"],
+                "seller_count_snapshot": r.get("seller_count_snapshot"),
             })
 
         return runs, result.count or 0
@@ -858,7 +859,7 @@ class CollectionService:
         """Get audit log entries, newest first."""
         result = (
             self.supabase.table("seller_audit_log")
-            .select("id, action, seller_name, source, source_run_id, user_id, created_at, affected_count", count="exact")
+            .select("id, action, seller_name, source, source_run_id, user_id, created_at, affected_count, seller_count_snapshot", count="exact")
             .eq("org_id", org_id)
             .order("created_at", desc=True)
             .range(offset, offset + limit - 1)

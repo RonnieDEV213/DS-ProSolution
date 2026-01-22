@@ -967,6 +967,7 @@ class AuditLogEntry(BaseModel):
     user_id: Optional[str] = None
     created_at: datetime
     affected_count: int
+    seller_count_snapshot: Optional[int] = None
 
 
 class AuditLogResponse(BaseModel):
@@ -1150,6 +1151,7 @@ class CollectionHistoryEntry(BaseModel):
     sellers_new: int
     failed_items: int
     created_by: str
+    seller_count_snapshot: Optional[int] = None
 
 
 class CollectionHistoryResponse(BaseModel):

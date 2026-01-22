@@ -188,20 +188,10 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
             </motion.div>
           </AnimatePresence>
 
-          {/* Current activity text with animation */}
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={progress.checkpoint?.current_activity || "idle"}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              transition={{ duration: 0.15 }}
-              className="text-gray-400 truncate min-w-0"
-              title={progress.checkpoint?.current_activity}
-            >
-              {progress.checkpoint?.current_activity || "Starting..."}
-            </motion.span>
-          </AnimatePresence>
+          {/* Simple status text (activity now in detail modal) */}
+          <span className="text-gray-400 text-sm">
+            {progress.status === "paused" ? "Paused" : "Running..."}
+          </span>
         </div>
 
         {/* Right side: Stats */}
