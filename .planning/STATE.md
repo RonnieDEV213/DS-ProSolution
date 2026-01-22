@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 11 of 11 (Collection Bug Fixes & Polish)
-Plan: 3 of 5 (Phase 11 plans: 04 pending; 01, 02, 03, 05 complete)
-Status: In progress
-Last activity: 2026-01-22 - Completed 11-03-PLAN.md (Selection UX Improvements)
+Plan: 5 of 5 (All Phase 11 plans complete: 01, 02, 03, 04, 05)
+Status: Phase complete
+Last activity: 2026-01-22 - Completed 11-04-PLAN.md (Undo/Redo Delete)
 
-Progress: [█████████████░░░░░░░░░░░░] 25/26 plans complete (21 v2 + 4 Phase 11)
+Progress: [██████████████████████████] 26/26 plans complete (21 v2 + 5 Phase 11)
 
 ## Shipped Milestones
 
@@ -108,6 +108,10 @@ Recent for v2:
 - Selection anchor pattern for Shift+click range selection (track last clicked index)
 - Shift preview IDs state for visual feedback before Shift+click action
 - Empty space detection via index >= filteredSellers.length for deselect-on-click
+- UndoEntry stores DeletedSeller[] with originalIndex for position restoration
+- Redo stack clears on new delete (standard undo/redo pattern)
+- Toast duration 5 seconds with undo action button
+- Keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z) respect input focus
 
 ### Pending Todos
 
@@ -127,9 +131,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 11-03-PLAN.md (Selection UX Improvements)
+Stopped at: Completed 11-04-PLAN.md (Undo/Redo Delete)
 Resume file: None
-Next action: Execute remaining Phase 11 plan (04)
+Next action: Phase 11 complete - all v2 SellerCollection plans executed
 
 ## Roadmap Evolution
 
