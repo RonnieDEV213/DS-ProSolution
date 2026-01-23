@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
@@ -87,6 +87,21 @@ export function ProgressDetailModal({
   );
   const supabase = createClient();
 
+  // Stable run_id ref - only updates when we get a valid new run_id
+  // This prevents SSE disconnection when progress briefly flickers to null
+  const stableRunIdRef = useRef<string | null>(null);
+
+  // Update stable run_id only when we have a valid new one
+  useEffect(() => {
+    if (progress?.run_id && progress.run_id !== stableRunIdRef.current) {
+      // New run started - reset state and update ref
+      stableRunIdRef.current = progress.run_id;
+      setActivities([]);
+      setWorkerMetrics(new Map([1, 2, 3, 4, 5].map((id) => [id, createEmptyMetrics(id)])));
+      setExpandedWorkerId(null);
+    }
+  }, [progress?.run_id]);
+
   // Update duration timer every second
   useEffect(() => {
     if (!progress?.started_at) {
@@ -153,27 +168,35 @@ export function ProgressDetailModal({
     });
   }, []);
 
-  // SSE activity stream subscription
+  // Clear stable run_id when modal closes intentionally
   useEffect(() => {
-    if (!open || !progress?.run_id) {
-      setActivities([]);
-      // Reset metrics when modal closes/reopens
-      setWorkerMetrics(new Map([1, 2, 3, 4, 5].map((id) => [id, createEmptyMetrics(id)])));
-      setExpandedWorkerId(null);
+    if (!open) {
+      stableRunIdRef.current = null;
+    }
+  }, [open]);
+
+  // SSE activity stream subscription - uses stable run_id to prevent flicker
+  useEffect(() => {
+    // Get stable run_id (either from ref or current progress)
+    const runId = stableRunIdRef.current || progress?.run_id;
+
+    if (!open || !runId) {
       return;
     }
 
     let eventSource: EventSource | null = null;
+    let mounted = true;
 
     const connectSSE = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        if (!session || !mounted) return;
 
-        const url = `${API_BASE}/collection/runs/${progress.run_id}/activity?token=${session.access_token}`;
+        const url = `${API_BASE}/collection/runs/${runId}/activity?token=${session.access_token}`;
         eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
+          if (!mounted) return;
           try {
             const activity = JSON.parse(event.data) as ActivityEntry;
             if (activity.action === "connected") {
@@ -202,6 +225,7 @@ export function ProgressDetailModal({
     connectSSE();
 
     return () => {
+      mounted = false;
       if (eventSource) {
         eventSource.close();
       }
