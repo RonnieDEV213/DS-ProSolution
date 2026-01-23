@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-13 (complete)
+- **v2 SellerCollection** - Phases 6-14 (in progress)
 
 ## Phases
 
@@ -19,6 +19,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
 - [x] **Phase 12: Live Activity Feed & Concurrency** - Live visual activity feed, parallel collection (5 workers), seller snapshot counts
 - [x] **Phase 13: Worker Status Dashboard & Metrics** - 2-panel detail modal, per-worker status cards, click-to-expand logs/metrics, data pipeline status
+- [ ] **Phase 14: History & Snapshot Simplification** - Enrich snapshot with inline diff, remove compare mode, remove run detail modal
 
 ## Phase Details
 
@@ -186,6 +187,24 @@ Plans:
 - [x] 13-03-PLAN.md — Metrics panel components (PipelineFeed, MetricsSummary, MetricsPanel)
 - [x] 13-04-PLAN.md — Modal integration (2-panel layout, client-side metrics aggregation)
 
+### Phase 14: History & Snapshot Simplification
+
+**Goal:** Simplify history UI by showing inline diff in snapshots and removing unused comparison/detail modals
+**Depends on:** Phase 13
+**Requirements:** UX simplification (no new requirements - cleanup phase)
+**Success Criteria** (what must be TRUE):
+  1. Snapshot response includes added/removed arrays computed from audit log entry
+  2. LogDetailModal shows unified seller list with green (+) for added, red (-) for removed
+  3. Compare mode and DiffModal removed from UI
+  4. Run detail button and HierarchicalRunModal removed
+  5. Unused backend endpoints cleaned up (diff, breakdown if orphaned)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — Backend diff computation (extend audit-log/{log_id}/sellers to return added/removed)
+- [ ] 14-02-PLAN.md — History Entry modal (refactor LogDetailModal with Changes panel and inline diff)
+- [ ] 14-03-PLAN.md — Cleanup (delete DiffModal, HierarchicalRunModal, /diff endpoint, /breakdown endpoint)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -198,6 +217,7 @@ Plans:
 | 11. Collection Bug Fixes & Polish | v2 | 5/5 | Complete | 2026-01-22 |
 | 12. Live Activity Feed & Concurrency | v2 | 4/4 | Complete | 2026-01-22 |
 | 13. Worker Status Dashboard & Metrics | v2 | 4/4 | Complete | 2026-01-23 |
+| 14. History & Snapshot Simplification | v2 | 0/3 | In Progress | - |
 
 ## Requirement Coverage
 
