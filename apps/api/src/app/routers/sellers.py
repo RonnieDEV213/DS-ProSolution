@@ -292,7 +292,13 @@ async def get_sellers_at_log(
     service: CollectionService = Depends(get_collection_service),
 ):
     """
-    Get the seller list as it was after a specific log entry.
+    Get the seller list as it was after a specific log entry, plus the diff for that entry.
+
+    Returns:
+        - sellers: Full seller list at that point in time
+        - count: Number of sellers
+        - added: Sellers added by this specific entry
+        - removed: Sellers removed by this specific entry
 
     Requires admin.automation permission.
     """
@@ -300,7 +306,13 @@ async def get_sellers_at_log(
 
     try:
         sellers = await service.get_sellers_at_log(org_id, log_id)
-        return {"sellers": sellers, "count": len(sellers)}
+        added, removed = await service.get_entry_diff(org_id, log_id)
+        return {
+            "sellers": sellers,
+            "count": len(sellers),
+            "added": added,
+            "removed": removed,
+        }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
