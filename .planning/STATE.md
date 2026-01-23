@@ -5,16 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** v2 SellerCollection Phase 12 - Live Activity Feed & Concurrency
+**Current focus:** v2 SellerCollection Phase 13 - Worker Status Dashboard & Metrics
 
 ## Current Position
 
-Phase: 12 of 12 (Live Activity Feed & Concurrency)
-Plan: 4 of 4
-Status: Phase complete
-Last activity: 2026-01-22 - Completed 12-04-PLAN.md
+Phase: 13 of 13 (Worker Status Dashboard & Metrics)
+Plan: 1 of 4 (Rich Activity Events)
+Status: In progress
+Last activity: 2026-01-23 - Completed 13-01-PLAN.md
 
-Progress: [██████████████████████████████] 30/30 plans complete
+Progress: [███████████████████████████████░░░] 31/34 plans complete
+**Next Plan:** 13-02 - Worker Status Cards Frontend
 
 ## Shipped Milestones
 
@@ -122,6 +123,11 @@ Recent for v2:
 - Store seller count snapshot after run completion
 - Flexible auth centralized in auth.py (require_permission_key_flexible for SSE)
 - Factory pattern for flexible auth mirrors existing require_permission_key API
+- ActivityEvent extended with optional fields (backward compatible via to_dict None filtering)
+- Pipeline events use worker_id=0 to distinguish from worker-specific events
+- Error classification: error_type (rate_limit, timeout, http_500, api_error) and error_stage (api, product_extraction, seller_extraction, price_parsing)
+- api_params dict stores query parameters for debugging (node_id for Amazon, query/price_min/price_max/page for eBay)
+- duration_ms tracks request timing using time.time() delta
 
 ### Pending Todos
 
@@ -141,13 +147,14 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-22
-Stopped at: Completed 12-04-PLAN.md
+Last session: 2026-01-23
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
-Next action: Phase 12 complete - v2 SellerCollection milestone ready for review
+Next action: Continue with 13-02-PLAN.md (Worker Status Cards Frontend)
 
 ## Roadmap Evolution
 
 - Phase 10 added: Collection UI Cleanup - streamline UI, remove clutter, improve data surfacing
 - Phase 11 added: Collection Bug Fixes & Polish - fix progress bar, history section, concurrency settings
 - Phase 12 added: Live Activity Feed & Concurrency - live feed in modal, fix history seller counts, implement parallel collection
+- Phase 13 added: Worker Status Dashboard & Metrics - 2-panel detail modal, per-worker status cards, click-to-expand logs/metrics, data pipeline status
