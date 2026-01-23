@@ -1,5 +1,31 @@
 # Project Milestones: DS-ProSolution
 
+## v2 SellerCollection (Shipped: 2026-01-23)
+
+**Delivered:** Automated dropshipper discovery by cross-referencing Amazon Best Sellers with eBay search results, with 5-worker parallel collection, real-time activity streaming, and comprehensive seller management UI.
+
+**Phases completed:** 6-14 (37 plans total)
+
+**Key accomplishments:**
+- Full Amazon Best Sellers pipeline with Oxylabs API, category selector UI, and custom presets
+- eBay dropshipper search with Brand New, free shipping, 80-120% markup, and US seller filters
+- 5-worker parallel collection with real-time SSE activity streaming
+- Worker status dashboard with per-worker cards, metrics aggregation, and click-to-expand details
+- Seller management UI with bulk selection, drag-to-select, hover cards, undo/redo, export (JSON/CSV/clipboard)
+- Unified history timeline with inline diff (added/removed sellers)
+
+**Stats:**
+- 272 files modified
+- +69,166 / -30,926 lines of code (net +38,240)
+- 9 phases, 37 plans, 224 commits
+- 4 days from start to ship (2026-01-20 → 2026-01-23)
+
+**Git range:** `feat(06-01)` → `docs(14)`
+
+**What's next:** v2.1 Seller Filtering Pipeline or new milestone TBD
+
+---
+
 ## v1 Extension Auth & RBAC (Shipped: 2026-01-20)
 
 **Delivered:** Secure access code authentication and RBAC-driven tab visibility for Chrome extension, enabling controlled VA access to account automation features.
