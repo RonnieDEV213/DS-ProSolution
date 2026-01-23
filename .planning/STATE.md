@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 13 of 13 (Worker Status Dashboard & Metrics)
-Plan: 1 of 4 (Rich Activity Events)
+Plan: 3 of 4 (Metrics Panel Components)
 Status: In progress
-Last activity: 2026-01-23 - Completed 13-01-PLAN.md
+Last activity: 2026-01-23 - Completed 13-03-PLAN.md
 
-Progress: [███████████████████████████████░░░] 31/34 plans complete
-**Next Plan:** 13-02 - Worker Status Cards Frontend
+Progress: [█████████████████████████████████░░] 33/34 plans complete
+**Next Plan:** 13-04 - Integration into 2-Panel Detail Modal
 
 ## Shipped Milestones
 
@@ -128,6 +128,10 @@ Recent for v2:
 - Error classification: error_type (rate_limit, timeout, http_500, api_error) and error_stage (api, product_extraction, seller_extraction, price_parsing)
 - api_params dict stores query parameters for debugging (node_id for Amazon, query/price_min/price_max/page for eBay)
 - duration_ms tracks request timing using time.time() delta
+- Pipeline events filtered by worker_id=0 (system-level operations)
+- Error breakdown classifies into 5 categories: rate_limit, timeout, http_error, parse_error, other
+- Mini worker icons show only when a worker is expanded for awareness
+- Phase-appropriate output stats: products for Amazon, sellers for eBay
 
 ### Pending Todos
 
@@ -148,9 +152,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 13-01-PLAN.md
+Stopped at: Completed 13-03-PLAN.md
 Resume file: None
-Next action: Continue with 13-02-PLAN.md (Worker Status Cards Frontend)
+Next action: Continue with 13-04-PLAN.md (Integration into 2-Panel Detail Modal)
 
 ## Roadmap Evolution
 
