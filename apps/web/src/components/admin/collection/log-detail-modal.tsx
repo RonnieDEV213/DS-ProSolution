@@ -8,15 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { GitCompare, Plus, Minus, Edit3, Check, Download, FileText, Braces, ChevronDown, Bot, ExternalLink } from "lucide-react";
+import { Plus, Minus, Edit3, Bot, FileQuestion } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -47,13 +40,10 @@ interface CollectionRunEntry {
 
 type HistoryEntry = ManualLogEntry | CollectionRunEntry;
 
-// Seller type for display
-interface Seller {
-  display_name: string;
-  platform?: string;
-  feedback_score?: number;
-  times_seen?: number;
-  discovered_at?: string;
+// Changes type for diff display
+interface SellerChanges {
+  added: string[];
+  removed: string[];
 }
 
 interface LogDetailModalProps {
@@ -61,8 +51,6 @@ interface LogDetailModalProps {
   onOpenChange: (open: boolean) => void;
   selectedLogId: string | null;
   selectedRunId?: string | null;
-  onCompare: (sourceId: string | null, targetId: string | null) => void;
-  onCollectionRunDetail?: (runId: string) => void;
 }
 
 const actionColors = {
@@ -82,74 +70,66 @@ export function LogDetailModal({
   onOpenChange,
   selectedLogId,
   selectedRunId,
-  onCompare,
-  onCollectionRunDetail,
 }: LogDetailModalProps) {
-  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [changes, setChanges] = useState<SellerChanges>({ added: [], removed: [] });
   const [allEntries, setAllEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sellersLoading, setSellersLoading] = useState(false);
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareSelection, setCompareSelection] = useState<Set<string>>(new Set());
+  const [changesLoading, setChangesLoading] = useState(false);
   const [viewingEntry, setViewingEntry] = useState<{ type: "log" | "run"; id: string } | null>(null);
 
   const supabase = createClient();
 
-  // Fetch sellers for a specific audit log entry
-  const fetchSellersForLog = useCallback(async (logId: string) => {
-    setSellersLoading(true);
+  // Fetch changes for a specific audit log entry
+  const fetchChangesForEntry = useCallback(async (logId: string) => {
+    setChangesLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const sellersRes = await fetch(
+      const res = await fetch(
         `${API_BASE}/sellers/audit-log/${logId}/sellers`,
         { headers: { Authorization: `Bearer ${session.access_token}` } }
       );
-      if (sellersRes.ok) {
-        const data = await sellersRes.json();
-        // Convert string array to Seller objects for consistency
-        const sellerObjects: Seller[] = (data.sellers || []).map((name: string) => ({
-          display_name: name,
-        }));
-        setSellers(sellerObjects);
+      if (res.ok) {
+        const data = await res.json();
+        // New response shape: { sellers, count, added, removed }
+        setChanges({
+          added: data.added || [],
+          removed: data.removed || [],
+        });
       }
     } catch (e) {
-      console.error("Failed to fetch sellers:", e);
+      console.error("Failed to fetch changes:", e);
     } finally {
-      setSellersLoading(false);
+      setChangesLoading(false);
     }
   }, [supabase.auth]);
 
-  // Fetch sellers for a specific collection run
-  const fetchSellersForRun = useCallback(async (runId: string) => {
-    setSellersLoading(true);
+  // Fetch changes for a specific collection run
+  const fetchChangesForRun = useCallback(async (runId: string) => {
+    setChangesLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const sellersRes = await fetch(
+      const res = await fetch(
         `${API_BASE}/sellers/export?run_id=${runId}&format=json`,
         { headers: { Authorization: `Bearer ${session.access_token}` } }
       );
-      if (sellersRes.ok) {
-        const data = await sellersRes.json();
-        setSellers(data.sellers || []);
+      if (res.ok) {
+        const data = await res.json();
+        // Collection runs only add sellers, never remove
+        setChanges({
+          added: (data.sellers || []).map((s: { display_name: string }) => s.display_name),
+          removed: [],
+        });
       }
     } catch (e) {
-      console.error("Failed to fetch sellers for run:", e);
+      console.error("Failed to fetch changes for run:", e);
     } finally {
-      setSellersLoading(false);
+      setChangesLoading(false);
     }
   }, [supabase.auth]);
-
-  // Reset compare mode when modal opens
-  useEffect(() => {
-    if (open) {
-      setCompareMode(false);
-      setCompareSelection(new Set());
-    }
-  }, [open]);
 
   // Initial fetch when modal opens
   useEffect(() => {
@@ -227,11 +207,11 @@ export function LogDetailModal({
 
         setAllEntries(mergedEntries);
 
-        // Fetch sellers for initial selection
+        // Fetch changes for initial selection
         if (selectedRunId) {
-          await fetchSellersForRun(selectedRunId);
+          await fetchChangesForRun(selectedRunId);
         } else if (selectedLogId) {
-          await fetchSellersForLog(selectedLogId);
+          await fetchChangesForEntry(selectedLogId);
         }
       } catch (e) {
         console.error("Failed to fetch log data:", e);
@@ -241,52 +221,18 @@ export function LogDetailModal({
     };
 
     fetchData();
-  }, [open, selectedLogId, selectedRunId, supabase.auth, fetchSellersForLog, fetchSellersForRun]);
+  }, [open, selectedLogId, selectedRunId, supabase.auth, fetchChangesForEntry, fetchChangesForRun]);
 
-  // Handle clicking an entry in normal mode
+  // Unified click handler for all entry types
   const handleEntryClick = (entry: HistoryEntry) => {
-    if (compareMode && entry.type === "manual_edit") {
-      toggleLogSelection(entry.id);
-    } else if (entry.type === "manual_edit") {
+    if (entry.type === "manual_edit") {
       setViewingEntry({ type: "log", id: entry.id });
-      fetchSellersForLog(entry.id);
+      fetchChangesForEntry(entry.id);
     } else if (entry.type === "collection_run") {
       setViewingEntry({ type: "run", id: entry.id });
-      fetchSellersForRun(entry.id);
+      fetchChangesForRun(entry.id);
     }
   };
-
-  // Toggle selection like a checkbox (only for manual edits)
-  const toggleLogSelection = (logId: string) => {
-    setCompareSelection((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(logId)) {
-        newSet.delete(logId);
-      } else if (newSet.size < 2) {
-        newSet.add(logId);
-      }
-      return newSet;
-    });
-  };
-
-  // Enter compare mode and pre-select 2 most recent manual edit logs
-  const enterCompareMode = () => {
-    const manualLogs = allEntries.filter((e) => e.type === "manual_edit");
-    const preselected = new Set<string>();
-    if (manualLogs.length >= 1) preselected.add(manualLogs[0].id);
-    if (manualLogs.length >= 2) preselected.add(manualLogs[1].id);
-    setCompareSelection(preselected);
-    setCompareMode(true);
-  };
-
-  const startCompare = () => {
-    const selected = Array.from(compareSelection);
-    if (selected.length === 2) {
-      onCompare(selected[0], selected[1]);
-    }
-  };
-
-  const isSelected = (logId: string) => compareSelection.has(logId);
 
   const isViewing = (entry: HistoryEntry) => {
     if (!viewingEntry) return false;
@@ -299,28 +245,6 @@ export function LogDetailModal({
     return false;
   };
 
-  // Get manual edit count for compare button
-  const manualEditCount = allEntries.filter((e) => e.type === "manual_edit").length;
-
-  // Export functions
-  const downloadCSV = () => {
-    const content = "seller_name\n" + sellers.map((s) => s.display_name).join("\n");
-    const blob = new Blob([content], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "sellers_snapshot.csv";
-    a.click();
-  };
-
-  const copyJSON = async () => {
-    await navigator.clipboard.writeText(JSON.stringify(sellers, null, 2));
-  };
-
-  const copyRawText = async () => {
-    await navigator.clipboard.writeText(sellers.map((s) => s.display_name).join("\n"));
-  };
-
   // Get timestamp for an entry
   const getEntryTime = (entry: HistoryEntry): string => {
     if (entry.type === "collection_run") {
@@ -329,50 +253,14 @@ export function LogDetailModal({
     return entry.created_at;
   };
 
+  const hasChanges = changes.added.length > 0 || changes.removed.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gray-900 border-gray-800 max-w-3xl h-[80vh] flex flex-col" hideCloseButton>
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-white flex items-center justify-between">
-            <span>Log Details</span>
-            <div className="flex items-center gap-2">
-              {compareMode ? (
-                <>
-                  <span className="text-sm text-gray-400">
-                    Select 2 logs to compare ({compareSelection.size}/2)
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setCompareMode(false);
-                      setCompareSelection(new Set());
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={startCompare}
-                    disabled={compareSelection.size !== 2}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    <GitCompare className="h-4 w-4 mr-1" />
-                    Compare
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={enterCompareMode}
-                  disabled={manualEditCount < 2}
-                >
-                  <GitCompare className="h-4 w-4 mr-1" />
-                  Compare
-                </Button>
-              )}
-            </div>
+          <DialogTitle className="text-white">
+            History Entry
           </DialogTitle>
         </DialogHeader>
 
@@ -380,54 +268,68 @@ export function LogDetailModal({
           <div className="text-gray-400 p-4">Loading...</div>
         ) : (
           <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
-            {/* Left: Sellers at this log point */}
+            {/* Left: Changes panel */}
             <div className="flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                <h4 className="text-sm font-medium text-gray-300">
-                  Sellers at this point ({sellers.length})
-                </h4>
-                {sellers.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                        Export
-                        <ChevronDown className="h-3 w-3 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
-                      <DropdownMenuItem onClick={downloadCSV} className="text-gray-200 focus:bg-gray-700">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download CSV
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={copyJSON} className="text-gray-200 focus:bg-gray-700">
-                        <Braces className="h-4 w-4 mr-2" />
-                        Copy JSON
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={copyRawText} className="text-gray-200 focus:bg-gray-700">
-                        <FileText className="h-4 w-4 mr-2" />
-                        Copy Raw Text
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
+              <h4 className="text-sm font-medium text-gray-300 mb-2 flex-shrink-0">
+                Changes
+              </h4>
               <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 p-2 min-h-0">
-                {sellersLoading ? (
-                  <div className="text-gray-500 text-sm">Loading sellers...</div>
-                ) : sellers.length === 0 ? (
-                  <div className="text-gray-500 text-sm">No sellers at this point</div>
+                {changesLoading ? (
+                  <div className="text-gray-500 text-sm">Loading changes...</div>
+                ) : !hasChanges ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                    <FileQuestion className="h-12 w-12 mb-2 text-gray-600" />
+                    <span className="text-sm">No changes in this entry</span>
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-1">
-                    {sellers.map((seller, i) => (
-                      <div
-                        key={i}
-                        className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300 truncate"
-                        title={seller.display_name}
-                      >
-                        <span className="text-gray-500 mr-1">{i + 1}.</span>
-                        {seller.display_name}
+                  <div className="space-y-4">
+                    {/* Added section - only if items exist */}
+                    {changes.added.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-300 mb-2">
+                          Added ({changes.added.length})
+                        </h4>
+                        <div className="space-y-1">
+                          {changes.added.map((name, i) => (
+                            <div
+                              key={`added-${name}-${i}`}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded",
+                                "border-l-2 border-green-500",
+                                i % 2 === 0 ? "bg-green-500/10" : "bg-green-500/5"
+                              )}
+                            >
+                              <Plus className="h-3.5 w-3.5 text-green-400" />
+                              <span className="text-sm text-green-300">{name}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Removed section - only if items exist */}
+                    {changes.removed.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-300 mb-2">
+                          Removed ({changes.removed.length})
+                        </h4>
+                        <div className="space-y-1">
+                          {changes.removed.map((name, i) => (
+                            <div
+                              key={`removed-${name}-${i}`}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded",
+                                "border-l-2 border-red-500",
+                                i % 2 === 0 ? "bg-red-500/10" : "bg-red-500/5"
+                              )}
+                            >
+                              <Minus className="h-3.5 w-3.5 text-red-400" />
+                              <span className="text-sm text-red-300">{name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -449,8 +351,7 @@ export function LogDetailModal({
                         className={cn(
                           "w-full text-left px-3 py-2 border-b border-gray-700 last:border-0",
                           "hover:bg-gray-700 transition-colors",
-                          !compareMode && isViewing(entry) && "bg-gray-700",
-                          compareMode && isSelected(entry.id) && "bg-blue-900/50 ring-1 ring-blue-500"
+                          isViewing(entry) && "bg-blue-500/20 ring-1 ring-blue-500/50"
                         )}
                       >
                         <div className="flex items-center gap-2">
@@ -465,9 +366,6 @@ export function LogDetailModal({
                               ? `${entry.affected_count} sellers`
                               : entry.seller_name}
                           </span>
-                          {compareMode && isSelected(entry.id) && (
-                            <Check className="h-4 w-4 text-blue-400" />
-                          )}
                         </div>
                         <div className="text-gray-500 text-xs mt-1">
                           {format(new Date(entry.created_at), "MMM d, yyyy h:mm a")}
@@ -475,61 +373,37 @@ export function LogDetailModal({
                       </button>
                     );
                   } else {
-                    // Collection run entry with "more detail" tab
+                    // Collection run entry
                     return (
-                      <div
+                      <button
                         key={`run-${entry.id}`}
+                        onClick={() => handleEntryClick(entry)}
                         className={cn(
-                          "relative border-b border-gray-700 last:border-0",
-                          !compareMode && isViewing(entry) && "bg-gray-700"
+                          "w-full text-left px-3 py-2 border-b border-gray-700 last:border-0",
+                          "hover:bg-gray-700 transition-colors",
+                          isViewing(entry) && "bg-blue-500/20 ring-1 ring-blue-500/50"
                         )}
                       >
-                        <button
-                          onClick={() => handleEntryClick(entry)}
-                          className={cn(
-                            "w-full text-left px-3 py-2 pr-10",
-                            "hover:bg-gray-700/50 transition-colors"
+                        <div className="flex items-center gap-2">
+                          <Bot className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                          <span className="text-gray-300 text-sm truncate flex-1">
+                            {entry.name}
+                          </span>
+                          <Badge className={cn("text-xs", statusStyles[entry.status])}>
+                            {entry.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {entry.sellers_new > 0 && (
+                            <span className="text-green-400 text-xs">
+                              +{entry.sellers_new}
+                            </span>
                           )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Bot className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                            <span className="text-gray-300 text-sm truncate flex-1">
-                              {entry.name}
-                            </span>
-                            <Badge className={cn("text-xs", statusStyles[entry.status])}>
-                              {entry.status}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            {entry.sellers_new > 0 && (
-                              <span className="text-green-400 text-xs">
-                                +{entry.sellers_new}
-                              </span>
-                            )}
-                            <span className="text-gray-500 text-xs">
-                              {format(new Date(getEntryTime(entry)), "MMM d, yyyy h:mm a")}
-                            </span>
-                          </div>
-                        </button>
-                        {/* More detail tab on right side */}
-                        {onCollectionRunDetail && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onCollectionRunDetail(entry.id);
-                            }}
-                            className={cn(
-                              "absolute right-0 top-0 bottom-0 w-8",
-                              "bg-blue-500/10 hover:bg-blue-500/20 transition-colors",
-                              "flex items-center justify-center",
-                              "border-l border-blue-500/30"
-                            )}
-                            title="View full details"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5 text-blue-400" />
-                          </button>
-                        )}
-                      </div>
+                          <span className="text-gray-500 text-xs">
+                            {format(new Date(getEntryTime(entry)), "MMM d, yyyy h:mm a")}
+                          </span>
+                        </div>
+                      </button>
                     );
                   }
                 })}
