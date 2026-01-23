@@ -10,6 +10,11 @@ import {
   Loader2,
   CheckCircle,
   User,
+  DollarSign,
+  Package,
+  Truck,
+  Globe,
+  ExternalLink,
 } from "lucide-react";
 import {
   ActivityEntry,
@@ -23,7 +28,7 @@ interface WorkerCardProps {
   onClick: () => void;
 }
 
-// Worker colors for visual distinction (same as activity-feed.tsx)
+// Worker colors for visual distinction
 const workerColors = [
   "border-blue-500/50 hover:border-blue-500",
   "border-green-500/50 hover:border-green-500",
@@ -62,11 +67,11 @@ function StateIcon({ state }: { state: WorkerState }) {
 function stateLabel(state: WorkerState): string {
   switch (state) {
     case "searching_products":
-      return "Searching products...";
+      return "Fetching products...";
     case "returning_products":
       return "Products found";
     case "searching_sellers":
-      return "Searching sellers...";
+      return "Searching eBay...";
     case "returning_sellers":
       return "Sellers found";
     case "rate_limited":
@@ -80,26 +85,21 @@ function stateLabel(state: WorkerState): string {
   }
 }
 
-function formatLastActivity(entry: ActivityEntry): string {
-  if (entry.action === "found") {
-    const count = entry.new_sellers_count || 0;
-    return entry.phase === "amazon"
-      ? `Found ${count} products`
-      : `Found ${count} sellers`;
+function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+function truncateUrl(url: string, maxLen = 50): string {
+  if (url.length <= maxLen) return url;
+  // Show domain + truncated path
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname + parsed.search;
+    const truncatedPath = path.length > 30 ? path.slice(0, 30) + "..." : path;
+    return parsed.hostname + truncatedPath;
+  } catch {
+    return url.slice(0, maxLen) + "...";
   }
-  if (entry.action === "error") {
-    return `Error: ${entry.error_message?.slice(0, 30) || "Unknown"}`;
-  }
-  if (entry.action === "rate_limited") {
-    return "Rate limited - waiting...";
-  }
-  if (entry.action === "fetching") {
-    return `Fetching ${entry.category || entry.product_name || "..."}`;
-  }
-  if (entry.action === "complete") {
-    return entry.phase === "amazon" ? "Amazon phase done" : "eBay phase done";
-  }
-  return "";
 }
 
 export function WorkerCard({
@@ -110,6 +110,9 @@ export function WorkerCard({
   const state = deriveWorkerState(lastActivity);
   const isIdle = state === "idle";
   const colorIdx = (worker_id - 1) % workerColors.length;
+  const params = lastActivity?.api_params;
+  const isEbay = lastActivity?.phase === "ebay";
+  const isAmazon = lastActivity?.phase === "amazon";
 
   return (
     <div
@@ -121,7 +124,7 @@ export function WorkerCard({
         "hover:bg-gray-800/50"
       )}
     >
-      {/* Header: Worker badge + Phase */}
+      {/* Header: Worker badge + Phase + State icon */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Badge className="text-xs bg-gray-700 text-gray-300">
@@ -131,67 +134,106 @@ export function WorkerCard({
             <Badge
               className={cn(
                 "text-[10px]",
-                lastActivity.phase === "amazon"
+                isAmazon
                   ? "bg-orange-500/20 text-orange-400"
                   : "bg-blue-500/20 text-blue-400"
               )}
             >
-              {lastActivity.phase === "amazon" ? (
+              {isAmazon ? (
                 <ShoppingCart className="h-2.5 w-2.5 mr-0.5" />
               ) : (
                 <Search className="h-2.5 w-2.5 mr-0.5" />
               )}
-              {lastActivity.phase === "amazon" ? "Amazon" : "eBay"}
+              {isAmazon ? "Amazon" : "eBay"}
             </Badge>
           )}
         </div>
-        <StateIcon state={state} />
+        <div className="flex items-center gap-2">
+          {lastActivity?.duration_ms && (
+            <span className="text-[10px] text-gray-500">
+              {lastActivity.duration_ms}ms
+            </span>
+          )}
+          <StateIcon state={state} />
+        </div>
       </div>
 
       {/* State label */}
       <div
         className={cn(
-          "text-sm font-medium mb-1",
+          "text-sm font-medium",
           isIdle ? "text-gray-500" : "text-white"
         )}
       >
         {stateLabel(state)}
       </div>
 
-      {/* Request details (when active) */}
-      {lastActivity?.api_params && !isIdle && (
-        <div className="text-[10px] text-gray-500 mb-1 truncate">
-          {lastActivity.api_params.query && (
-            <span>
-              Query: {lastActivity.api_params.query.slice(0, 25)}
-              {lastActivity.api_params.query.length > 25 ? "..." : ""}
-            </span>
-          )}
-          {lastActivity.api_params.node_id && (
-            <span>Node: {lastActivity.api_params.node_id}</span>
-          )}
-          {lastActivity.api_params.page && (
-            <span className="ml-2">Page {lastActivity.api_params.page}</span>
-          )}
+      {/* Search query / product name (when active) */}
+      {!isIdle && (params?.query || lastActivity?.product_name || lastActivity?.category) && (
+        <div className="mt-1.5 text-xs text-gray-300 line-clamp-2">
+          {params?.query || lastActivity?.product_name || lastActivity?.category}
         </div>
       )}
 
-      {/* Duration (when available) */}
-      {lastActivity?.duration_ms && (
-        <div className="text-[10px] text-gray-500 mb-1">
-          {lastActivity.duration_ms}ms
+      {/* eBay Parameters (compact grid) */}
+      {!isIdle && isEbay && params && (
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
+          {/* Price range */}
+          {(params.price_min || params.price_max) && (
+            <div className="flex items-center gap-1 text-emerald-400">
+              <DollarSign className="h-3 w-3" />
+              <span>
+                {params.price_min ? formatPrice(params.price_min) : "$0"} - {params.price_max ? formatPrice(params.price_max) : "∞"}
+              </span>
+            </div>
+          )}
+          {/* Page */}
+          {params.page && (
+            <div className="flex items-center gap-1 text-gray-400">
+              <Package className="h-3 w-3" />
+              <span>Page {params.page}</span>
+            </div>
+          )}
+          {/* Indicators */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-green-400" title="Brand New">NEW</span>
+            <span title="Free Shipping"><Truck className="h-3 w-3 text-blue-400" /></span>
+            <span title="US Only"><Globe className="h-3 w-3 text-purple-400" /></span>
+          </div>
         </div>
       )}
 
-      {/* Last activity summary line */}
-      {lastActivity && (
+      {/* Amazon Parameters */}
+      {!isIdle && isAmazon && params?.node_id && (
+        <div className="mt-2 text-[10px] text-gray-400">
+          Node: {params.node_id}
+        </div>
+      )}
+
+      {/* URL (truncated) */}
+      {!isIdle && lastActivity?.url && (
+        <div className="mt-2 flex items-center gap-1 text-[10px] text-gray-500 truncate">
+          <ExternalLink className="h-3 w-3 flex-shrink-0" />
+          <span className="truncate">{truncateUrl(lastActivity.url)}</span>
+        </div>
+      )}
+
+      {/* Result summary (when found/error) */}
+      {lastActivity && (lastActivity.action === "found" || lastActivity.action === "error") && (
         <div
           className={cn(
-            "text-xs mt-2 pt-2 border-t border-gray-700/50 truncate",
-            state === "error" ? "text-red-400" : "text-gray-400"
+            "text-xs mt-2 pt-2 border-t border-gray-700/50",
+            lastActivity.action === "error" ? "text-red-400" : "text-green-400"
           )}
         >
-          {formatLastActivity(lastActivity)}
+          {lastActivity.action === "found" ? (
+            <>
+              Found {lastActivity.new_sellers_count || 0}{" "}
+              {isAmazon ? "products" : "sellers"}
+            </>
+          ) : (
+            <>Error: {lastActivity.error_message?.slice(0, 40) || "Unknown"}</>
+          )}
         </div>
       )}
     </div>
