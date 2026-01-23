@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,22 +11,119 @@ import {
   CheckCircle,
   User,
   FolderOpen,
+  Upload,
+  Copy,
+  Plus,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
 // Activity entry type from backend
 export interface ActivityEntry {
+  // Existing fields
   id: string;
   timestamp: string;
   worker_id: number;
   phase: "amazon" | "ebay";
-  action: "fetching" | "found" | "error" | "rate_limited" | "complete";
+  action:
+    | "fetching"
+    | "found"
+    | "error"
+    | "rate_limited"
+    | "complete"
+    // Pipeline actions
+    | "uploading"
+    | "deduped"
+    | "inserted"
+    | "updated"
+    // SSE control
+    | "connected";
   category?: string;
   product_name?: string;
   seller_found?: string;
   new_sellers_count?: number;
   error_message?: string;
+
+  // NEW: Request details (for full transparency)
+  url?: string;
+  api_params?: {
+    query?: string;
+    price_min?: number;
+    price_max?: number;
+    node_id?: string;
+    page?: number;
+  };
+
+  // NEW: Timing
+  duration_ms?: number;
+  started_at?: string;
+
+  // NEW: Retry context
+  attempt?: number;
+
+  // NEW: Error classification
+  error_type?: string; // "rate_limit", "timeout", "http_500", "parse_error"
+  error_stage?: string; // "api", "product_extraction", "seller_extraction", "price_parsing"
+
+  // NEW: Pipeline context (for worker_id=0 system events)
+  items_count?: number;
+  source_worker_id?: number;
+  operation_type?: string;
+}
+
+// Worker metrics for aggregated stats
+export interface WorkerMetrics {
+  worker_id: number;
+
+  // API stats
+  api_requests_total: number;
+  api_requests_success: number;
+  api_requests_failed: number;
+  api_retries: number;
+  total_duration_ms: number; // Sum for avg calculation
+
+  // Output stats
+  products_found: number; // Amazon phase
+  sellers_found: number; // eBay phase
+  sellers_new: number;
+
+  // Error breakdown
+  errors_by_type: Record<string, number>; // {rate_limit: 2, timeout: 1, parse_error: 3}
+
+  // Last activity for summary line
+  last_activity?: ActivityEntry;
+}
+
+// Worker state derived from last activity
+export type WorkerState =
+  | "idle"
+  | "searching_products" // Amazon phase: fetching
+  | "returning_products" // Amazon phase: found
+  | "searching_sellers" // eBay phase: fetching
+  | "returning_sellers" // eBay phase: found
+  | "rate_limited"
+  | "error"
+  | "complete";
+
+export function deriveWorkerState(
+  entry: ActivityEntry | undefined
+): WorkerState {
+  if (!entry) return "idle";
+
+  if (entry.action === "complete") return "complete";
+  if (entry.action === "error") return "error";
+  if (entry.action === "rate_limited") return "rate_limited";
+
+  if (entry.phase === "amazon") {
+    return entry.action === "fetching"
+      ? "searching_products"
+      : "returning_products";
+  } else {
+    return entry.action === "fetching"
+      ? "searching_sellers"
+      : "returning_sellers";
+  }
 }
 
 interface ActivityFeedProps {
@@ -44,21 +141,37 @@ const workerColors = [
 ];
 
 // Action icons
-const actionIcons = {
+const actionIcons: Record<ActivityEntry["action"], React.ReactNode> = {
+  // Existing
   fetching: <FolderOpen className="h-4 w-4" />,
   found: <CheckCircle className="h-4 w-4" />,
   error: <AlertCircle className="h-4 w-4" />,
   rate_limited: <Clock className="h-4 w-4" />,
   complete: <CheckCircle className="h-4 w-4" />,
+  // Pipeline
+  uploading: <Upload className="h-4 w-4" />,
+  deduped: <Copy className="h-4 w-4" />,
+  inserted: <Plus className="h-4 w-4" />,
+  updated: <RefreshCw className="h-4 w-4" />,
+  // SSE control
+  connected: <CheckCircle className="h-4 w-4" />,
 };
 
 // Action styles
-const actionStyles = {
+const actionStyles: Record<ActivityEntry["action"], string> = {
+  // Existing
   fetching: "border-l-blue-400",
   found: "border-l-green-400",
   error: "border-l-red-400",
   rate_limited: "border-l-yellow-400",
   complete: "border-l-emerald-400",
+  // Pipeline
+  uploading: "border-l-purple-400",
+  deduped: "border-l-gray-400",
+  inserted: "border-l-green-400",
+  updated: "border-l-blue-400",
+  // SSE control
+  connected: "border-l-gray-400",
 };
 
 function ActivityCard({ entry }: { entry: ActivityEntry }) {
