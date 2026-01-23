@@ -35,7 +35,7 @@ class OxylabsEbayScraper(EbayScraperService):
         query: str,
         amazon_price: float,
         page: int,
-    ) -> str:
+    ) -> tuple[str, dict]:
         """Build eBay search URL with dropshipper filters.
 
         Filters applied:
@@ -43,18 +43,41 @@ class OxylabsEbayScraper(EbayScraperService):
         - LH_ItemCondition=1000: Brand New
         - LH_Free=1: Free shipping
         - LH_PrefLoc=1: US sellers only
+        - _udlo: Min price (80% of Amazon price)
+        - _udhi: Max price (120% of Amazon price)
         - _ipg=60: Items per page
         - _pgn: Page number
+
+        Returns:
+            tuple of (url, params_dict for logging)
         """
+        # Price range: 80-120% of Amazon price (dropshipper markup range)
+        min_price = round(amazon_price * 0.8, 2)
+        max_price = round(amazon_price * 1.2, 2)
+
         params = [
             f"_nkw={quote_plus(query)}",
-            "LH_ItemCondition=1000",
-            "LH_Free=1",
-            "LH_PrefLoc=1",
-            "_ipg=60",
-            f"_pgn={page}",
+            "LH_ItemCondition=1000",  # Brand New
+            "LH_Free=1",              # Free Shipping
+            "LH_PrefLoc=1",           # US Only
+            f"_udlo={min_price}",     # Min price
+            f"_udhi={max_price}",     # Max price
+            "_ipg=60",                # Items per page
+            f"_pgn={page}",           # Page number
         ]
-        return f"https://www.ebay.com/sch/i.html?{'&'.join(params)}"
+
+        params_dict = {
+            "query": query,
+            "condition": "Brand New",
+            "free_shipping": True,
+            "us_only": True,
+            "price_min": min_price,
+            "price_max": max_price,
+            "items_per_page": 60,
+            "page": page,
+        }
+
+        return f"https://www.ebay.com/sch/i.html?{'&'.join(params)}", params_dict
 
     async def search_sellers(
         self,
@@ -75,7 +98,19 @@ class OxylabsEbayScraper(EbayScraperService):
         Returns:
             EbaySearchResult with extracted sellers, deduped within page
         """
-        url = self._build_search_url(query, amazon_price, page)
+        url, params = self._build_search_url(query, amazon_price, page)
+
+        # Log the search with all parameters
+        truncated_query = query[:60] + "..." if len(query) > 60 else query
+        print(f"\n{'-'*60}")
+        print(f"[EBAY] Searching: \"{truncated_query}\"")
+        print(f"[EBAY] Parameters:")
+        print(f"       Condition: {params['condition']}")
+        print(f"       Free Shipping: {params['free_shipping']}")
+        print(f"       US Only: {params['us_only']}")
+        print(f"       Price Range: ${params['price_min']:.2f} - ${params['price_max']:.2f}")
+        print(f"       Page: {params['page']}, Items/Page: {params['items_per_page']}")
+        print(f"[EBAY] URL: {url[:100]}...")
 
         payload = {
             "source": "universal_ecommerce",
@@ -99,6 +134,7 @@ class OxylabsEbayScraper(EbayScraperService):
 
             if response.status_code == 429:
                 logger.warning(f"Rate limited on eBay search: {query[:50]}...")
+                print(f"[EBAY] ⚠ Rate limited - waiting...")
                 return EbaySearchResult(
                     sellers=[],
                     page=page,
@@ -183,6 +219,12 @@ class OxylabsEbayScraper(EbayScraperService):
             has_more = "pagination__next" in content
 
             logger.info(f"eBay search found {len(sellers)} sellers for: {query[:50]}...")
+            print(f"[EBAY] ✓ Found {len(sellers)} sellers")
+            if sellers:
+                print(f"[EBAY] Sellers: {', '.join(s.username for s in sellers[:5])}" +
+                      (f" (+{len(sellers)-5} more)" if len(sellers) > 5 else ""))
+            if has_more:
+                print(f"[EBAY] More pages available")
 
             return EbaySearchResult(
                 sellers=sellers,
@@ -193,6 +235,7 @@ class OxylabsEbayScraper(EbayScraperService):
 
         except httpx.TimeoutException:
             logger.error(f"Timeout on eBay search: {query[:50]}...")
+            print(f"[EBAY] ✗ Timeout error")
             return EbaySearchResult(
                 sellers=[],
                 page=page,
@@ -201,6 +244,7 @@ class OxylabsEbayScraper(EbayScraperService):
             )
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error on eBay search: {e}")
+            print(f"[EBAY] ✗ HTTP error: {e.response.status_code}")
             return EbaySearchResult(
                 sellers=[],
                 page=page,
@@ -209,6 +253,7 @@ class OxylabsEbayScraper(EbayScraperService):
             )
         except Exception as e:
             logger.error(f"Unexpected error on eBay search: {type(e).__name__}: {e}")
+            print(f"[EBAY] ✗ Error: {e}")
             return EbaySearchResult(
                 sellers=[],
                 page=page,
