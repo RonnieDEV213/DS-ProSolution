@@ -26,16 +26,40 @@ MAX_CONSECUTIVE_FAILURES = 5
 @dataclass
 class ActivityEvent:
     """Activity event for SSE streaming."""
+    # Core identification
     id: str
     timestamp: str
     worker_id: int
     phase: str  # "amazon" or "ebay"
-    action: str  # "fetching", "found", "error", "rate_limited", "complete"
+    action: str  # Existing: "fetching", "found", "error", "rate_limited", "complete"
+                 # NEW pipeline: "uploading", "deduped", "inserted", "updated"
+
+    # Context fields
     category: str | None = None
     product_name: str | None = None
     seller_found: str | None = None
     new_sellers_count: int | None = None
     error_message: str | None = None
+
+    # Request details (for full transparency)
+    url: str | None = None                      # Full URL being hit
+    api_params: dict | None = None              # {query, price_min, price_max, node_id, page}
+
+    # Timing
+    duration_ms: int | None = None              # Request duration in milliseconds
+    started_at: str | None = None               # ISO timestamp when request began
+
+    # Retry context
+    attempt: int | None = None                  # 1, 2, 3 for retry attempts
+
+    # Error classification
+    error_type: str | None = None               # "rate_limit", "timeout", "http_500", "parse_error"
+    error_stage: str | None = None              # "api", "product_extraction", "seller_extraction", "price_parsing"
+
+    # Pipeline context (for worker_id=0 system events)
+    items_count: int | None = None              # Number of items affected
+    source_worker_id: int | None = None         # Which worker produced this data
+    operation_type: str | None = None           # "product_batch", "seller_dedupe", "seller_insert"
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in self.__dict__.items() if v is not None}
@@ -72,6 +96,11 @@ class ParallelCollectionRunner:
     def cancel(self):
         """Signal workers to stop processing."""
         self._cancelled = True
+
+    @property
+    def is_cancelled(self) -> bool:
+        """Check if runner has been cancelled."""
+        return self._cancelled
 
     async def emit_activity(self, event: ActivityEvent):
         """Emit activity event if callback registered."""
@@ -133,12 +162,19 @@ class ParallelCollectionRunner:
                 self.work_queue.task_done()
                 break
 
+            # Check cancellation BEFORE starting any work on this task
+            if self._cancelled:
+                self.work_queue.task_done()
+                break
+
             try:
                 result = await process_task(task, worker_id)
                 results.append(result)
                 await self.reset_failures()
 
             except CollectionPausedException:
+                # Signal all other workers to stop immediately
+                self.cancel()
                 self.work_queue.task_done()
                 raise
 
@@ -200,7 +236,14 @@ class ParallelCollectionRunner:
             self.cancel()
             raise
 
-        # Flatten results, filtering out exceptions
+        # Check if any worker raised CollectionPausedException - if so, re-raise it
+        # This ensures pause/cancel propagates up to the caller
+        for result in results_per_worker:
+            if isinstance(result, CollectionPausedException):
+                logger.info(f"Collection paused/cancelled: {result}")
+                raise result
+
+        # Flatten results, filtering out other exceptions
         all_results: list[R] = []
         for result in results_per_worker:
             if isinstance(result, list):
