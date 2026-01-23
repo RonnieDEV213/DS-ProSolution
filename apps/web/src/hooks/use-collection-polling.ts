@@ -217,13 +217,16 @@ export function useCollectionPolling(pollingInterval = 500) {
 
   // Full refresh that updates both activeRun AND progress
   // Use this after pause/resume/cancel to immediately reflect the new state
+  // NOTE: We don't clear progress here - let the polling loop handle that
+  // with its consecutive failure tracking to avoid flicker on timing issues
   const refreshAll = useCallback(async () => {
     const run = await checkActiveRun();
     if (run && (run.status === "running" || run.status === "paused")) {
+      consecutiveFailuresRef.current = 0;
       await fetchProgress(run);
-    } else {
-      setProgress(null);
     }
+    // Don't setProgress(null) here - the polling loop will handle cleanup
+    // after consecutive failures to avoid UI flicker during pause/resume
   }, [checkActiveRun, fetchProgress]);
 
   return {

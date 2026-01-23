@@ -52,11 +52,14 @@ class ActivityStreamManager:
         if queue.full():
             try:
                 queue.get_nowait()
+                logger.debug(f"Activity queue full, dropped oldest event for run {run_id}")
             except asyncio.QueueEmpty:
                 pass
 
         try:
             queue.put_nowait(event)
+            action = event.get("action", "unknown")
+            logger.debug(f"Pushed activity event: {action} for run {run_id} (queue size: {queue.qsize()})")
         except asyncio.QueueFull:
             # Should not happen after dropping oldest, but handle anyway
             logger.warning(f"Activity queue full for run {run_id}")

@@ -41,6 +41,7 @@ const workerColors = [
   "bg-purple-500",
   "bg-orange-500",
   "bg-pink-500",
+  "bg-cyan-500",
 ];
 
 function MiniWorkerIcon({
@@ -146,7 +147,7 @@ export function MetricsPanel({
         <div className="mb-4 pb-3 border-b border-gray-800">
           <div className="text-xs text-gray-500 uppercase mb-2">Other Workers</div>
           <div className="flex gap-2">
-            {[1, 2, 3, 4, 5]
+            {[1, 2, 3, 4, 5, 6]
               .filter((id) => id !== expandedWorkerId)
               .map((workerId) => {
                 const lastActivity = lastActivityByWorker.get(workerId);
@@ -178,9 +179,11 @@ export function MetricsPanel({
       </div>
 
       {/* Pipeline Feed */}
-      <div className="flex-1 min-h-0">
-        <div className="text-sm font-medium text-gray-300 mb-2">Data Pipeline</div>
-        <PipelineFeed activities={activities} />
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="text-sm font-medium text-gray-300 mb-2 flex-shrink-0">Data Pipeline</div>
+        <div className="flex-1 min-h-0">
+          <PipelineFeed activities={activities} />
+        </div>
       </div>
     </div>
   );

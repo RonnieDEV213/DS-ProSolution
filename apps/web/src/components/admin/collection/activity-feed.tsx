@@ -139,6 +139,7 @@ const workerColors = [
   "bg-purple-500/20 text-purple-400 border-purple-500/30",
   "bg-orange-500/20 text-orange-400 border-orange-500/30",
   "bg-pink-500/20 text-pink-400 border-pink-500/30",
+  "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
 ];
 
 // Action icons

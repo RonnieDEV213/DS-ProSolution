@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Loader2, Pause, Play, Square, ShoppingCart, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Pause, Play, Square, ShoppingCart, Search, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -12,7 +12,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 interface ProgressBarProps {
   progress: {
     run_id: string;
-    status: "running" | "paused" | "pending";
+    status: "running" | "paused" | "pending" | "completed" | "cancelled";
     phase: "amazon" | "ebay";  // Current phase
     // Amazon phase fields
     departments_total: number;
@@ -35,8 +35,11 @@ interface ProgressBarProps {
     };
   } | null;
   onDetailsClick: () => void;
-  onRunStateChange: () => void;
+  onRunStateChange: () => void | Promise<void>;
 }
+
+// Transitional action state
+type PendingAction = "pausing" | "resuming" | "cancelling" | null;
 
 function formatDuration(startedAt: string): string {
   const start = new Date(startedAt);
@@ -54,24 +57,89 @@ function formatDuration(startedAt: string): string {
 
 export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: ProgressBarProps) {
   const [expanded, setExpanded] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [duration, setDuration] = useState<string>("");
   const supabase = createClient();
 
-  // Update duration timer every second
+  // Track previous status to detect transitions
+  const prevStatusRef = useRef<string | null>(null);
+  const pendingActionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Timeout to auto-clear pending action if it takes too long (10 seconds)
+  useEffect(() => {
+    if (pendingAction) {
+      // Clear any existing timeout
+      if (pendingActionTimeoutRef.current) {
+        clearTimeout(pendingActionTimeoutRef.current);
+      }
+      // Set new timeout to revert after 10 seconds
+      pendingActionTimeoutRef.current = setTimeout(() => {
+        console.warn(`Action "${pendingAction}" timed out after 10 seconds, reverting`);
+        setPendingAction(null);
+      }, 10000);
+    } else {
+      // Clear timeout when action completes
+      if (pendingActionTimeoutRef.current) {
+        clearTimeout(pendingActionTimeoutRef.current);
+        pendingActionTimeoutRef.current = null;
+      }
+    }
+
+    return () => {
+      if (pendingActionTimeoutRef.current) {
+        clearTimeout(pendingActionTimeoutRef.current);
+      }
+    };
+  }, [pendingAction]);
+
+  // Clear pending action when status actually changes
+  useEffect(() => {
+    if (!progress) {
+      setPendingAction(null);
+      prevStatusRef.current = null;
+      return;
+    }
+
+    const currentStatus = progress.status;
+    const prevStatus = prevStatusRef.current;
+
+    // Detect status transitions and clear pending action
+    if (prevStatus && prevStatus !== currentStatus) {
+      // Status changed - clear pending action
+      if (pendingAction === "pausing" && currentStatus === "paused") {
+        setPendingAction(null);
+      } else if (pendingAction === "resuming" && currentStatus === "running") {
+        setPendingAction(null);
+      } else if (pendingAction === "cancelling" && (currentStatus === "cancelled" || currentStatus === "completed")) {
+        setPendingAction(null);
+      }
+    }
+
+    prevStatusRef.current = currentStatus;
+  }, [progress?.status, pendingAction]);
+
+  // Update duration timer every second (pauses when run is paused or transitioning)
   useEffect(() => {
     if (!progress?.started_at) {
       setDuration("");
       return;
     }
 
+    // Calculate initial duration
     setDuration(formatDuration(progress.started_at));
+
+    // Only keep updating if running (not paused or transitioning)
+    if (progress.status === "paused" || pendingAction) {
+      // When paused or transitioning, keep showing the last duration but don't update
+      return;
+    }
+
     const interval = setInterval(() => {
       setDuration(formatDuration(progress.started_at!));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [progress?.started_at]);
+  }, [progress?.started_at, progress?.status, pendingAction]);
 
   if (!progress) return null;
 
@@ -79,39 +147,120 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
   const phase = progress.phase || "amazon";
 
   const handlePauseResume = async () => {
-    setActionLoading(true);
+    const action = progress.status === "paused" ? "resume" : "pause";
+    console.log(`[handlePauseResume] progress.status=${progress.status}, action=${action}`);
+    setPendingAction(action === "pause" ? "pausing" : "resuming");
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        console.log("[handlePauseResume] No session, returning early");
+        setPendingAction(null);
+        return;
+      }
 
-      const action = progress.status === "paused" ? "resume" : "pause";
-      await fetch(`${API_BASE}/collection/runs/${progress.run_id}/${action}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      onRunStateChange();
+      const url = `${API_BASE}/collection/runs/${progress.run_id}/${action}`;
+      console.log(`[handlePauseResume] Calling ${url}`);
+
+      // Use AbortController with 5-second timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log(`[handlePauseResume] Request timed out after 5 seconds, aborting`);
+        controller.abort();
+      }, 5000);
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        console.log(`[handlePauseResume] Response: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[handlePauseResume] Error: ${errorText}`);
+          // Clear pending action on API error so UI reflects true state
+          setPendingAction(null);
+          return;
+        }
+
+        // Trigger refresh - polling will detect actual status change
+        await onRunStateChange();
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError instanceof Error && fetchError.name === "AbortError") {
+          console.error("[handlePauseResume] Request was aborted (timeout)");
+        } else {
+          throw fetchError;
+        }
+        setPendingAction(null);
+      }
     } catch (e) {
       console.error("Failed to pause/resume run:", e);
-    } finally {
-      setActionLoading(false);
+      setPendingAction(null);
     }
   };
 
   const handleCancel = async () => {
-    setActionLoading(true);
+    setPendingAction("cancelling");
+    console.log(`[handleCancel] Cancelling run ${progress.run_id}`);
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        console.log("[handleCancel] No session, returning early");
+        setPendingAction(null);
+        return;
+      }
 
-      await fetch(`${API_BASE}/collection/runs/${progress.run_id}/cancel`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      onRunStateChange();
+      const url = `${API_BASE}/collection/runs/${progress.run_id}/cancel`;
+      console.log(`[handleCancel] Calling ${url}`);
+
+      // Use AbortController with 5-second timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log(`[handleCancel] Request timed out after 5 seconds, aborting`);
+        controller.abort();
+      }, 5000);
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        console.log(`[handleCancel] Response: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[handleCancel] Error: ${errorText}`);
+          setPendingAction(null);
+          return;
+        }
+
+        // Trigger refresh - polling will detect actual status change
+        await onRunStateChange();
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError instanceof Error && fetchError.name === "AbortError") {
+          console.error("[handleCancel] Request was aborted (timeout)");
+        } else {
+          throw fetchError;
+        }
+        setPendingAction(null);
+      }
     } catch (e) {
       console.error("Failed to cancel run:", e);
-    } finally {
-      setActionLoading(false);
+      setPendingAction(null);
     }
   };
 
@@ -132,16 +281,103 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
 
   const progressPercent = getProgressPercent();
 
+  // Get status display info (combines phase + status + transition)
+  const getStatusDisplay = () => {
+    // Transitional states take priority
+    if (pendingAction === "pausing") {
+      return {
+        text: "Pausing...",
+        icon: <Loader2 className="h-3 w-3 mr-1 animate-spin" />,
+        className: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      };
+    }
+    if (pendingAction === "resuming") {
+      return {
+        text: "Resuming...",
+        icon: <Loader2 className="h-3 w-3 mr-1 animate-spin" />,
+        className: "bg-green-500/20 text-green-400 border-green-500/30",
+      };
+    }
+    if (pendingAction === "cancelling") {
+      return {
+        text: "Cancelling...",
+        icon: <Loader2 className="h-3 w-3 mr-1 animate-spin" />,
+        className: "bg-red-500/20 text-red-400 border-red-500/30",
+      };
+    }
+
+    // Paused state
+    if (progress.status === "paused") {
+      return {
+        text: "Paused",
+        icon: <Pause className="h-3 w-3 mr-1" />,
+        className: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      };
+    }
+
+    // Running - show phase info with animated icon
+    if (phase === "amazon") {
+      return {
+        text: "Finding Products",
+        icon: <ShoppingCart className="h-3 w-3 mr-1 animate-pulse" />,
+        className: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+      };
+    } else {
+      return {
+        text: "Searching Sellers",
+        icon: <Loader2 className="h-3 w-3 mr-1 animate-spin" style={{ animationDuration: "2s" }} />,
+        className: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      };
+    }
+  };
+
+  const statusDisplay = getStatusDisplay();
+
+  // Determine progress bar color based on state
+  const getProgressBarColor = () => {
+    if (pendingAction === "cancelling") return "bg-red-500";
+    if (pendingAction === "pausing" || progress.status === "paused") return "bg-yellow-500";
+    if (pendingAction === "resuming") return "bg-green-500";
+    return phase === "amazon" ? "bg-orange-500" : "bg-blue-500";
+  };
+
+  // Determine if we should animate (running or transitioning)
+  const isAnimating = progress.status === "running" || !!pendingAction;
+  const isPaused = progress.status === "paused" && !pendingAction;
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
       {/* Progress bar */}
-      <div className="h-2 bg-gray-800">
-        <div
-          className={`h-full transition-all duration-300 ${
-            phase === "amazon" ? "bg-orange-500" : "bg-blue-500"
-          }`}
-          style={{ width: `${progressPercent}%` }}
+      <div className="h-2 bg-gray-800 overflow-hidden relative">
+        <motion.div
+          className={`h-full ${getProgressBarColor()}`}
+          animate={{
+            width: `${progressPercent}%`,
+            opacity: pendingAction ? [1, 0.5, 1] : 1,
+          }}
+          transition={{
+            width: { duration: 0.5, ease: "easeOut" },
+            opacity: {
+              duration: pendingAction ? 1 : 0.3,
+              repeat: pendingAction ? Infinity : 0,
+            },
+          }}
         />
+        {/* Shimmer effect when running */}
+        {isAnimating && !isPaused && (
+          <motion.div
+            className="absolute top-0 left-0 h-full w-[30%] bg-gradient-to-r from-transparent via-white/20 to-transparent"
+            animate={{
+              x: ["-100%", "400%"],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            style={{ width: `${Math.max(progressPercent * 0.3, 10)}%` }}
+          />
+        )}
       </div>
 
       {/* Throttle status banner */}
@@ -154,44 +390,31 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
 
       {/* Quick info */}
       <div className="px-4 py-2 flex items-center justify-between text-sm gap-4">
-        {/* Left side: Phase badge + current activity */}
+        {/* Left side: Combined status badge */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <AnimatePresence mode="wait">
             <motion.div
-              key={phase}
+              key={`${phase}-${progress.status}-${pendingAction}`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
               className="flex-shrink-0"
             >
-              {/* Phase badge */}
-              <Badge
-                className={`text-xs ${
-                  phase === "amazon"
-                    ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
-                    : "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                }`}
-              >
-                {phase === "amazon" ? (
-                  <>
-                    <ShoppingCart className="h-3 w-3 mr-1" />
-                    Finding Products
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-3 w-3 mr-1" />
-                    Searching Sellers
-                  </>
-                )}
+              {/* Combined status badge */}
+              <Badge className={`text-xs ${statusDisplay.className}`}>
+                {statusDisplay.icon}
+                {statusDisplay.text}
               </Badge>
             </motion.div>
           </AnimatePresence>
 
-          {/* Simple status text (activity now in detail modal) */}
-          <span className="text-gray-400 text-sm">
-            {progress.status === "paused" ? "Paused" : "Running..."}
-          </span>
+          {/* Current activity (when running) */}
+          {progress.status === "running" && !pendingAction && progress.checkpoint?.current_activity && (
+            <span className="text-gray-500 text-xs truncate max-w-[200px]">
+              {progress.checkpoint.current_activity}
+            </span>
+          )}
         </div>
 
         {/* Right side: Stats */}
@@ -265,11 +488,15 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
             variant="ghost"
             size="sm"
             onClick={handlePauseResume}
-            disabled={actionLoading}
+            disabled={!!pendingAction}
             className="h-7 px-2"
             title={progress.status === "paused" ? "Resume" : "Pause"}
           >
-            {progress.status === "paused" ? (
+            {pendingAction === "pausing" ? (
+              <Loader2 className="h-4 w-4 text-yellow-400 animate-spin" />
+            ) : pendingAction === "resuming" ? (
+              <Loader2 className="h-4 w-4 text-green-400 animate-spin" />
+            ) : progress.status === "paused" ? (
               <Play className="h-4 w-4 text-green-400" />
             ) : (
               <Pause className="h-4 w-4 text-yellow-400" />
@@ -281,11 +508,15 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
             variant="ghost"
             size="sm"
             onClick={handleCancel}
-            disabled={actionLoading}
+            disabled={!!pendingAction}
             className="h-7 px-2"
             title="Cancel"
           >
-            <Square className="h-4 w-4 text-red-400" />
+            {pendingAction === "cancelling" ? (
+              <Loader2 className="h-4 w-4 text-red-400 animate-spin" />
+            ) : (
+              <Square className="h-4 w-4 text-red-400" />
+            )}
           </Button>
 
           {/* Details */}

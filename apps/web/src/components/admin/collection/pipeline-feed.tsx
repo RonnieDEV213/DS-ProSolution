@@ -111,7 +111,7 @@ export function PipelineFeed({ activities, maxEntries = 30 }: PipelineFeedProps)
 
   if (displayedActivities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-24 text-gray-500 text-sm">
+      <div className="flex flex-col items-center justify-center h-full min-h-[100px] text-gray-500 text-sm">
         <Database className="h-5 w-5 mb-2 opacity-50" />
         <span>Waiting for pipeline activity...</span>
       </div>
@@ -121,7 +121,7 @@ export function PipelineFeed({ activities, maxEntries = 30 }: PipelineFeedProps)
   return (
     <div
       ref={containerRef}
-      className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1"
+      className="space-y-1.5 h-full overflow-y-auto pr-1"
     >
       <AnimatePresence mode="popLayout">
         {displayedActivities.map((entry) => (

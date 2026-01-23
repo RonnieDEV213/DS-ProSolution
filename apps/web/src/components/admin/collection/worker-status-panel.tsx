@@ -28,9 +28,9 @@ export function WorkerStatusPanel({
   return (
     <div className="space-y-2">
       <div className="text-sm font-medium text-gray-300 mb-3">Workers</div>
-      {/* Vertical stack of 5 workers - all visible without scroll */}
-      <div className="flex flex-col gap-2">
-        {[1, 2, 3, 4, 5].map((workerId) => (
+      {/* 2x3 grid of workers */}
+      <div className="grid grid-cols-2 gap-2">
+        {[1, 2, 3, 4, 5, 6].map((workerId) => (
           <WorkerCard
             key={workerId}
             worker_id={workerId}

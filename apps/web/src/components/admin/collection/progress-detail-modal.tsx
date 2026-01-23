@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Minimize2, ShoppingCart, Search, Clock } from "lucide-react";
+import { ShoppingCart, Search, Clock, Pause, Play, Loader2 } from "lucide-react";
 import { ActivityEntry, WorkerMetrics } from "./activity-feed";
 import { WorkerStatusPanel } from "./worker-status-panel";
 import { WorkerDetailView } from "./worker-detail-view";
@@ -23,6 +23,7 @@ interface ProgressDetailModalProps {
   onOpenChange: (open: boolean) => void;
   progress: {
     run_id?: string;
+    status?: "running" | "paused" | "pending";
     phase: "amazon" | "ebay";
     departments_total: number;
     departments_completed: number;
@@ -35,9 +36,9 @@ interface ProgressDetailModalProps {
     sellers_new: number;
     started_at?: string;
   } | null;
-  isMinimized: boolean;
-  onMinimizeChange: (minimized: boolean) => void;
   onCancel: () => void;
+  onPauseResume?: () => void;  // Callback after pause/resume to refresh state
+  hideMinimized?: boolean;  // Hide the floating indicator (e.g., when progress bar is visible)
 }
 
 function formatDuration(startedAt: string): string {
@@ -75,17 +76,51 @@ export function ProgressDetailModal({
   open,
   onOpenChange,
   progress,
-  isMinimized,
-  onMinimizeChange,
   onCancel,
+  onPauseResume,
+  hideMinimized,
 }: ProgressDetailModalProps) {
   const [duration, setDuration] = useState<string>("");
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [expandedWorkerId, setExpandedWorkerId] = useState<number | null>(null);
   const [workerMetrics, setWorkerMetrics] = useState<Map<number, WorkerMetrics>>(
-    () => new Map([1, 2, 3, 4, 5].map((id) => [id, createEmptyMetrics(id)]))
+    () => new Map([1, 2, 3, 4, 5, 6].map((id) => [id, createEmptyMetrics(id)]))
   );
+  const [isPauseResumeLoading, setIsPauseResumeLoading] = useState(false);
   const supabase = createClient();
+
+  // Handle pause/resume toggle
+  const handlePauseResume = async () => {
+    if (!progress?.run_id) return;
+
+    setIsPauseResumeLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const isPaused = progress.status === "paused";
+      const endpoint = isPaused ? "resume" : "pause";
+
+      const response = await fetch(
+        `${API_BASE}/collection/runs/${progress.run_id}/${endpoint}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }
+      );
+
+      if (response.ok) {
+        // Trigger parent refresh to update progress state
+        onPauseResume?.();
+      } else {
+        console.error(`Failed to ${endpoint} run:`, await response.text());
+      }
+    } catch (e) {
+      console.error("Failed to pause/resume:", e);
+    } finally {
+      setIsPauseResumeLoading(false);
+    }
+  };
 
   // Stable run_id ref - only updates when we get a valid new run_id
   // This prevents SSE disconnection when progress briefly flickers to null
@@ -97,7 +132,7 @@ export function ProgressDetailModal({
       // New run started - reset state and update ref
       stableRunIdRef.current = progress.run_id;
       setActivities([]);
-      setWorkerMetrics(new Map([1, 2, 3, 4, 5].map((id) => [id, createEmptyMetrics(id)])));
+      setWorkerMetrics(new Map([1, 2, 3, 4, 5, 6].map((id) => [id, createEmptyMetrics(id)])));
       setExpandedWorkerId(null);
     }
   }, [progress?.run_id]);
@@ -249,27 +284,21 @@ export function ProgressDetailModal({
   };
 
   const progressPercent = getProgressPercent();
+  const isPaused = progress.status === "paused";
 
-  // Calculate total metrics for detail view
-  const totalMetrics = {
-    total_requests: Array.from(workerMetrics.values()).reduce(
-      (sum, m) => sum + m.api_requests_total, 0
-    ),
-    total_errors: Array.from(workerMetrics.values()).reduce(
-      (sum, m) => sum + m.api_requests_failed, 0
-    ),
-    total_sellers: progress.sellers_found,
-  };
-
-  // Minimized floating indicator (unchanged from before)
-  if (isMinimized) {
+  // Floating indicator shown when modal is closed but run is active
+  // Hide when on Collections tab (progress bar is visible there)
+  if (!open) {
+    if (hideMinimized) return null;
     return (
       <div
-        onClick={() => onMinimizeChange(false)}
+        onClick={() => onOpenChange(true)}
         className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 rounded-lg p-3 cursor-pointer shadow-lg z-50 min-w-[200px] hover:bg-gray-750"
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-white">Collection Running</span>
+          <span className="text-sm font-medium text-white">
+            {isPaused ? "Collection Paused" : "Collection Running"}
+          </span>
           <Badge
             className={`text-xs ${
               phase === "amazon"
@@ -299,8 +328,8 @@ export function ProgressDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-gray-800 max-w-5xl max-h-[85vh]">
-        <DialogHeader>
+      <DialogContent hideCloseButton className="bg-gray-900 border-gray-800 max-w-5xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <DialogTitle className="text-white">Collection Progress</DialogTitle>
@@ -324,6 +353,13 @@ export function ProgressDetailModal({
                   </>
                 )}
               </Badge>
+              {/* Paused indicator */}
+              {isPaused && (
+                <Badge className="bg-yellow-500/20 text-yellow-400">
+                  <Pause className="h-3 w-3 mr-1" />
+                  Paused
+                </Badge>
+              )}
               {/* Duration */}
               {progress.started_at && duration && (
                 <span className="text-sm text-gray-500 flex items-center gap-1">
@@ -332,19 +368,11 @@ export function ProgressDetailModal({
                 </span>
               )}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onMinimizeChange(true)}
-              className="text-gray-400 hover:text-white"
-            >
-              <Minimize2 className="h-4 w-4" />
-            </Button>
           </div>
         </DialogHeader>
 
         {/* 2-Panel Layout */}
-        <div className="grid grid-cols-[1fr_320px] gap-6 h-[calc(85vh-120px)]">
+        <div className="grid grid-cols-[1fr_320px] gap-6 flex-1 min-h-0 overflow-hidden">
           {/* Left Panel: Workers */}
           <div className="overflow-y-auto">
             {expandedWorkerId === null ? (
@@ -358,14 +386,13 @@ export function ProgressDetailModal({
                 workerId={expandedWorkerId}
                 activities={activities}
                 metrics={workerMetrics.get(expandedWorkerId)}
-                totalMetrics={totalMetrics}
                 onBack={() => setExpandedWorkerId(null)}
               />
             )}
           </div>
 
           {/* Right Panel: Metrics + Pipeline */}
-          <div className="border-l border-gray-800 pl-6 overflow-y-auto">
+          <div className="border-l border-gray-800 pl-6 flex flex-col min-h-0">
             <MetricsPanel
               activities={activities}
               workerMetrics={workerMetrics}
@@ -381,8 +408,26 @@ export function ProgressDetailModal({
           </div>
         </div>
 
-        {/* Footer: Cancel button */}
-        <div className="flex justify-end pt-4 border-t border-gray-800">
+        {/* Footer: Pause/Resume + Cancel buttons */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-800 flex-shrink-0">
+          <Button
+            variant="outline"
+            onClick={handlePauseResume}
+            disabled={isPauseResumeLoading}
+            className={isPaused
+              ? "border-green-600 text-green-400 hover:bg-green-600/20"
+              : "border-yellow-600 text-yellow-400 hover:bg-yellow-600/20"
+            }
+          >
+            {isPauseResumeLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : isPaused ? (
+              <Play className="h-4 w-4 mr-2" />
+            ) : (
+              <Pause className="h-4 w-4 mr-2" />
+            )}
+            {isPaused ? "Resume" : "Pause"}
+          </Button>
           <Button
             variant="destructive"
             onClick={onCancel}

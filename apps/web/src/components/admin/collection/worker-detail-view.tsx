@@ -25,11 +25,6 @@ interface WorkerDetailViewProps {
   workerId: number;
   activities: ActivityEntry[];
   metrics: WorkerMetrics | undefined;
-  totalMetrics: {
-    total_requests: number;
-    total_errors: number;
-    total_sellers: number;
-  };
   onBack: () => void;
 }
 
@@ -40,6 +35,7 @@ const workerBgColors = [
   "bg-purple-500/10",
   "bg-orange-500/10",
   "bg-pink-500/10",
+  "bg-cyan-500/10",
 ];
 
 type FilterType = "all" | "fetching" | "found" | "error" | "rate_limited";
@@ -48,7 +44,6 @@ export function WorkerDetailView({
   workerId,
   activities,
   metrics,
-  totalMetrics,
   onBack,
 }: WorkerDetailViewProps) {
   const [filter, setFilter] = useState<FilterType>("all");
@@ -62,11 +57,14 @@ export function WorkerDetailView({
 
   const colorIdx = (workerId - 1) % workerBgColors.length;
 
-  // Calculate average response time
+  // Calculate average response time (only from successful requests that have duration)
   const avgResponseTime =
-    metrics && metrics.api_requests_total > 0
-      ? Math.round(metrics.total_duration_ms / metrics.api_requests_total)
+    metrics && metrics.api_requests_success > 0
+      ? Math.round(metrics.total_duration_ms / metrics.api_requests_success)
       : 0;
+
+  // Calculate rate limited count from errors_by_type
+  const rateLimitedCount = metrics?.errors_by_type["rate_limit"] || 0;
 
   return (
     <div className="h-full flex flex-col">
@@ -86,60 +84,53 @@ export function WorkerDetailView({
         </Badge>
       </div>
 
-      {/* Dual metrics: Worker + Total */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        {/* Worker metrics */}
+      {/* Worker metrics - grouped sections */}
+      <div className="space-y-3 mb-4">
+        {/* API Requests Section */}
         <div className={cn("p-3 rounded-lg", workerBgColors[colorIdx])}>
-          <div className="text-xs text-gray-400 uppercase mb-2">
-            This Worker
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
+            API Requests
           </div>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <div className="text-gray-400">Requests</div>
-              <div className="text-white font-medium">
-                {metrics?.api_requests_total || 0}
-              </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400">Sent:</span>
+              <span className="text-white font-medium">{metrics?.api_requests_total || 0}</span>
             </div>
-            <div>
-              <div className="text-gray-400">Avg Time</div>
-              <div className="text-white font-medium">{avgResponseTime}ms</div>
+            <span className="text-gray-600">|</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400">Completed:</span>
+              <span className="text-blue-400 font-medium">{metrics?.api_requests_success || 0}</span>
             </div>
-            <div>
-              <div className="text-gray-400">Success</div>
-              <div className="text-green-400 font-medium">
-                {metrics?.api_requests_success || 0}
-              </div>
+            <span className="text-gray-600">|</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400">Errors:</span>
+              <span className="text-red-400 font-medium">{metrics?.api_requests_failed || 0}</span>
             </div>
-            <div>
-              <div className="text-gray-400">Failed</div>
-              <div className="text-red-400 font-medium">
-                {metrics?.api_requests_failed || 0}
-              </div>
+            <span className="text-gray-600">|</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400">Rate Limited:</span>
+              <span className="text-yellow-400 font-medium">{rateLimitedCount}</span>
             </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+            <span>Retries: {metrics?.api_retries || 0}</span>
+            <span>Avg: {avgResponseTime}ms</span>
           </div>
         </div>
 
-        {/* Total run metrics */}
+        {/* Results Section */}
         <div className="p-3 rounded-lg bg-gray-800/50">
-          <div className="text-xs text-gray-400 uppercase mb-2">Run Totals</div>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <div className="text-gray-400">Total Requests</div>
-              <div className="text-white font-medium">
-                {totalMetrics.total_requests}
-              </div>
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
+            Results Found
+          </div>
+          <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">Sellers:</span>
+              <span className="text-green-400 font-medium text-lg">{metrics?.sellers_found || 0}</span>
             </div>
-            <div>
-              <div className="text-gray-400">Total Errors</div>
-              <div className="text-red-400 font-medium">
-                {totalMetrics.total_errors}
-              </div>
-            </div>
-            <div className="col-span-2">
-              <div className="text-gray-400">Sellers Found</div>
-              <div className="text-green-400 font-medium">
-                {totalMetrics.total_sellers}
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">Products:</span>
+              <span className="text-orange-400 font-medium text-lg">{metrics?.products_found || 0}</span>
             </div>
           </div>
         </div>
