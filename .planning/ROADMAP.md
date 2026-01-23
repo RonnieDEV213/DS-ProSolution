@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-14 (in progress)
+- **v2 SellerCollection** - Phases 6-14 (complete)
 
 ## Phases
 
@@ -19,7 +19,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
 - [x] **Phase 12: Live Activity Feed & Concurrency** - Live visual activity feed, parallel collection (5 workers), seller snapshot counts
 - [x] **Phase 13: Worker Status Dashboard & Metrics** - 2-panel detail modal, per-worker status cards, click-to-expand logs/metrics, data pipeline status
-- [ ] **Phase 14: History & Snapshot Simplification** - Enrich snapshot with inline diff, remove compare mode, remove run detail modal
+- [x] **Phase 14: History & Snapshot Simplification** - Enrich snapshot with inline diff, remove compare mode, remove run detail modal
 
 ## Phase Details
 
@@ -201,9 +201,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 14-01-PLAN.md — Backend diff computation (extend audit-log/{log_id}/sellers to return added/removed)
-- [ ] 14-02-PLAN.md — History Entry modal (refactor LogDetailModal with Changes panel and inline diff)
-- [ ] 14-03-PLAN.md — Cleanup (delete DiffModal, HierarchicalRunModal, /diff endpoint, /breakdown endpoint)
+- [x] 14-01-PLAN.md — Backend diff computation (extend audit-log/{log_id}/sellers to return added/removed)
+- [x] 14-02-PLAN.md — History Entry modal (refactor LogDetailModal with Changes panel and inline diff)
+- [x] 14-03-PLAN.md — Cleanup (delete DiffModal, HierarchicalRunModal, /diff endpoint, /breakdown endpoint)
 
 ## Progress
 
@@ -217,7 +217,7 @@ Plans:
 | 11. Collection Bug Fixes & Polish | v2 | 5/5 | Complete | 2026-01-22 |
 | 12. Live Activity Feed & Concurrency | v2 | 4/4 | Complete | 2026-01-22 |
 | 13. Worker Status Dashboard & Metrics | v2 | 4/4 | Complete | 2026-01-23 |
-| 14. History & Snapshot Simplification | v2 | 0/3 | In Progress | - |
+| 14. History & Snapshot Simplification | v2 | 3/3 | Complete | 2026-01-23 |
 
 ## Requirement Coverage
 

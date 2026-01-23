@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** v2 SellerCollection Phase 14 - History & Snapshot Simplification
+**Current focus:** v2 SellerCollection complete - ready for milestone audit
 
 ## Current Position
 
