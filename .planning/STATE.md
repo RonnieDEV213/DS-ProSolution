@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** v2 SellerCollection Phase 13 - Worker Status Dashboard & Metrics
+**Current focus:** v2 SellerCollection Phase 13 - Worker Status Dashboard & Metrics (COMPLETE)
 
 ## Current Position
 
 Phase: 13 of 13 (Worker Status Dashboard & Metrics)
-Plan: 3 of 4 (Metrics Panel Components)
-Status: In progress
-Last activity: 2026-01-23 - Completed 13-03-PLAN.md
+Plan: 4 of 4 (Integration into 2-Panel Detail Modal)
+Status: Phase complete
+Last activity: 2026-01-23 - Completed 13-04-PLAN.md
 
-Progress: [█████████████████████████████████░░] 33/34 plans complete
-**Next Plan:** 13-04 - Integration into 2-Panel Detail Modal
+Progress: [████████████████████████████████████] 34/34 plans complete
+**Phase 13 Complete** - Worker status dashboard fully functional
 
 ## Shipped Milestones
 
@@ -34,7 +34,7 @@ Progress: [███████████████████████
 - Lines added: +16,544
 
 **v2 Milestone:**
-- Total plans completed: 24
+- Total plans completed: 22 (phases 8-13)
 - Average duration: ~4 min
 - Total execution time: ~113 min
 
@@ -132,6 +132,9 @@ Recent for v2:
 - Error breakdown classifies into 5 categories: rate_limit, timeout, http_error, parse_error, other
 - Mini worker icons show only when a worker is expanded for awareness
 - Phase-appropriate output stats: products for Amazon, sellers for eBay
+- 2-panel modal layout: workers left (1fr), metrics right (320px)
+- Client-side metrics aggregation from SSE events via updateMetrics callback
+- expandedWorkerId state for click-to-expand worker detail behavior
 
 ### Pending Todos
 
@@ -152,9 +155,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 13-03-PLAN.md
+Stopped at: Completed 13-04-PLAN.md (Phase 13 complete)
 Resume file: None
-Next action: Continue with 13-04-PLAN.md (Integration into 2-Panel Detail Modal)
+Next action: v2 SellerCollection milestone complete - ready for user testing
 
 ## Roadmap Evolution
 
