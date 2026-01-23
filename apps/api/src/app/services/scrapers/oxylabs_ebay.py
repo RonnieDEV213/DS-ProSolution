@@ -51,9 +51,12 @@ class OxylabsEbayScraper(EbayScraperService):
         Returns:
             tuple of (url, params_dict for logging)
         """
-        # Price range: 80-120% of Amazon price (dropshipper markup range)
-        min_price = round(amazon_price * 0.8, 2)
-        max_price = round(amazon_price * 1.2, 2)
+        # Price range: 80-120% MARKUP on Amazon price
+        # Markup formula: ebay_price = amazon_price + (amazon_price * markup%)
+        # 80% markup:  amazon_price * 1.8 (e.g., $10 -> $18)
+        # 120% markup: amazon_price * 2.2 (e.g., $10 -> $22)
+        min_price = round(amazon_price * 1.8, 2)
+        max_price = round(amazon_price * 2.2, 2)
 
         params = [
             f"_nkw={quote_plus(query)}",

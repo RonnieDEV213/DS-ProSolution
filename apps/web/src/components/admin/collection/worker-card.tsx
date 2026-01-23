@@ -177,28 +177,38 @@ export function WorkerCard({
 
       {/* eBay Parameters (compact grid) */}
       {!isIdle && isEbay && params && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
-          {/* Price range */}
+        <div className="mt-2 space-y-1 text-[10px]">
+          {/* Amazon price */}
+          {params.amazon_price && (
+            <div className="flex items-center gap-1 text-orange-400">
+              <ShoppingCart className="h-3 w-3" />
+              <span>Amazon: {formatPrice(params.amazon_price)}</span>
+            </div>
+          )}
+          {/* eBay price range (80-120% markup) */}
           {(params.price_min || params.price_max) && (
             <div className="flex items-center gap-1 text-emerald-400">
               <DollarSign className="h-3 w-3" />
               <span>
-                {params.price_min ? formatPrice(params.price_min) : "$0"} - {params.price_max ? formatPrice(params.price_max) : "∞"}
+                eBay: {params.price_min ? formatPrice(params.price_min) : "$0"} - {params.price_max ? formatPrice(params.price_max) : "∞"}
               </span>
+              <span className="text-gray-500">(80-120% markup)</span>
             </div>
           )}
-          {/* Page */}
-          {params.page && (
-            <div className="flex items-center gap-1 text-gray-400">
-              <Package className="h-3 w-3" />
-              <span>Page {params.page}</span>
+          {/* Page + Indicators row */}
+          <div className="flex items-center gap-3">
+            {params.page && (
+              <div className="flex items-center gap-1 text-gray-400">
+                <Package className="h-3 w-3" />
+                <span>Page {params.page}</span>
+              </div>
+            )}
+            {/* Indicators */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-green-400" title="Brand New">NEW</span>
+              <span title="Free Shipping"><Truck className="h-3 w-3 text-blue-400" /></span>
+              <span title="US Only"><Globe className="h-3 w-3 text-purple-400" /></span>
             </div>
-          )}
-          {/* Indicators */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-green-400" title="Brand New">NEW</span>
-            <span title="Free Shipping"><Truck className="h-3 w-3 text-blue-400" /></span>
-            <span title="US Only"><Globe className="h-3 w-3 text-purple-400" /></span>
           </div>
         </div>
       )}

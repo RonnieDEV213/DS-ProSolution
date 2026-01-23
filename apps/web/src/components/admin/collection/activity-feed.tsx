@@ -49,8 +49,9 @@ export interface ActivityEntry {
   url?: string;
   api_params?: {
     query?: string;
-    price_min?: number;
-    price_max?: number;
+    amazon_price?: number;  // Amazon price in cents
+    price_min?: number;     // eBay min price in cents (80% markup)
+    price_max?: number;     // eBay max price in cents (120% markup)
     node_id?: string;
     page?: number;
   };

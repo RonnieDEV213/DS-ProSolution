@@ -53,11 +53,14 @@ class EbayScraperService(ABC):
         - Brand New condition (LH_ItemCondition=1000)
         - Free shipping (LH_Free=1)
         - US sellers only (LH_PrefLoc=1)
-        - Price 80-120% of amazon_price (_udlo/_udhi)
+        - Price 80-120% MARKUP on amazon_price (_udlo/_udhi)
+          Formula: ebay_price = amazon_price * (1 + markup%)
+          80% markup:  amazon_price * 1.8 (e.g., $10 -> $18)
+          120% markup: amazon_price * 2.2 (e.g., $10 -> $22)
 
         Args:
             query: Search term (Amazon product title)
-            amazon_price: Reference price for filtering (80-120% range)
+            amazon_price: Reference price for markup calculation
             page: Page number to fetch (1-indexed)
 
         Returns:

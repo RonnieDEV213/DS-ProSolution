@@ -1660,8 +1660,16 @@ class CollectionService:
                     return {"product_id": product["id"], "cat_id": cat_id, "found": 0, "new": 0, "skipped": True}
 
             short_title = title[:40] + "..." if len(title) > 40 else title
-            price_min = int(price * 0.8)
-            price_max = int(price * 1.2)
+            # Price range: 80-120% MARKUP on Amazon price
+            # Markup formula: ebay_price = amazon_price * (1 + markup%)
+            # 80% markup:  price * 1.8 (e.g., $10 -> $18)
+            # 120% markup: price * 2.2 (e.g., $10 -> $22)
+            price_min_dollars = round(price * 1.8, 2)
+            price_max_dollars = round(price * 2.2, 2)
+            # Store in cents for frontend display
+            price_min_cents = int(price_min_dollars * 100)
+            price_max_cents = int(price_max_dollars * 100)
+            amazon_price_cents = int(price * 100)
 
             all_sellers = []
             total_duration_ms = 0
@@ -1669,7 +1677,7 @@ class CollectionService:
             # Search 3 pages per product
             for page in range(1, PAGES_PER_PRODUCT + 1):
                 # Build URL for display (same logic as scraper)
-                ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(title)}&LH_ItemCondition=1000&LH_Free=1&LH_PrefLoc=1&_udlo={price_min/100:.2f}&_udhi={price_max/100:.2f}&_ipg=60&_pgn={page}"
+                ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(title)}&LH_ItemCondition=1000&LH_Free=1&LH_PrefLoc=1&_udlo={price_min_dollars}&_udhi={price_max_dollars}&_ipg=60&_pgn={page}"
 
                 # Emit fetching activity with api_params and URL
                 await runner.emit_activity(create_activity_event(
@@ -1680,8 +1688,9 @@ class CollectionService:
                     product_name=short_title,
                     api_params={
                         "query": title[:50],  # Truncate for readability
-                        "price_min": price_min,
-                        "price_max": price_max,
+                        "amazon_price": amazon_price_cents,  # Amazon price in cents
+                        "price_min": price_min_cents,  # eBay min price in cents (80% markup)
+                        "price_max": price_max_cents,  # eBay max price in cents (120% markup)
                         "page": page,
                     },
                     attempt=1,
