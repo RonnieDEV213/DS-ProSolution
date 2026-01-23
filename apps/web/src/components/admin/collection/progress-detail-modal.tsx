@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
@@ -11,8 +11,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Minimize2, ShoppingCart, Search, Clock } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { ActivityFeed, ActivityEntry } from "./activity-feed";
+import { ActivityEntry, WorkerMetrics } from "./activity-feed";
+import { WorkerStatusPanel } from "./worker-status-panel";
+import { WorkerDetailView } from "./worker-detail-view";
+import { MetricsPanel } from "./metrics-panel";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -26,7 +28,7 @@ interface ProgressDetailModalProps {
     departments_completed: number;
     categories_total: number;
     categories_completed: number;
-    products_found: number;  // Amazon phase
+    products_found: number;
     products_total: number;
     products_searched: number;
     sellers_found: number;
@@ -52,6 +54,23 @@ function formatDuration(startedAt: string): string {
   return `${minutes}m ${seconds}s`;
 }
 
+// Initialize empty metrics for a worker
+function createEmptyMetrics(workerId: number): WorkerMetrics {
+  return {
+    worker_id: workerId,
+    api_requests_total: 0,
+    api_requests_success: 0,
+    api_requests_failed: 0,
+    api_retries: 0,
+    total_duration_ms: 0,
+    products_found: 0,
+    sellers_found: 0,
+    sellers_new: 0,
+    errors_by_type: {},
+    last_activity: undefined,
+  };
+}
+
 export function ProgressDetailModal({
   open,
   onOpenChange,
@@ -62,6 +81,10 @@ export function ProgressDetailModal({
 }: ProgressDetailModalProps) {
   const [duration, setDuration] = useState<string>("");
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
+  const [expandedWorkerId, setExpandedWorkerId] = useState<number | null>(null);
+  const [workerMetrics, setWorkerMetrics] = useState<Map<number, WorkerMetrics>>(
+    () => new Map([1, 2, 3, 4, 5].map((id) => [id, createEmptyMetrics(id)]))
+  );
   const supabase = createClient();
 
   // Update duration timer every second
@@ -79,10 +102,64 @@ export function ProgressDetailModal({
     return () => clearInterval(interval);
   }, [progress?.started_at]);
 
+  // Client-side metrics aggregation from activity events
+  const updateMetrics = useCallback((activity: ActivityEntry) => {
+    if (activity.worker_id <= 0) return; // Skip system events
+
+    setWorkerMetrics((prev) => {
+      const newMap = new Map(prev);
+      const metrics = newMap.get(activity.worker_id) || createEmptyMetrics(activity.worker_id);
+
+      // Update last activity
+      metrics.last_activity = activity;
+
+      // Count requests
+      if (activity.action === "fetching") {
+        metrics.api_requests_total += 1;
+        if (activity.attempt && activity.attempt > 1) {
+          metrics.api_retries += 1;
+        }
+      }
+
+      // Track success/failure
+      if (activity.action === "found") {
+        metrics.api_requests_success += 1;
+        if (activity.duration_ms) {
+          metrics.total_duration_ms += activity.duration_ms;
+        }
+        // Track output
+        if (activity.phase === "amazon") {
+          metrics.products_found += activity.new_sellers_count || 0;
+        } else {
+          metrics.sellers_found += activity.new_sellers_count || 0;
+        }
+      }
+
+      if (activity.action === "error") {
+        metrics.api_requests_failed += 1;
+        // Track error type
+        const errorType = activity.error_type || "other";
+        metrics.errors_by_type[errorType] = (metrics.errors_by_type[errorType] || 0) + 1;
+      }
+
+      if (activity.action === "rate_limited") {
+        // Rate limited counts as a request attempt
+        const rateType = "rate_limit";
+        metrics.errors_by_type[rateType] = (metrics.errors_by_type[rateType] || 0) + 1;
+      }
+
+      newMap.set(activity.worker_id, metrics);
+      return newMap;
+    });
+  }, []);
+
   // SSE activity stream subscription
   useEffect(() => {
     if (!open || !progress?.run_id) {
       setActivities([]);
+      // Reset metrics when modal closes/reopens
+      setWorkerMetrics(new Map([1, 2, 3, 4, 5].map((id) => [id, createEmptyMetrics(id)])));
+      setExpandedWorkerId(null);
       return;
     }
 
@@ -93,22 +170,28 @@ export function ProgressDetailModal({
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        // SSE with token query param (EventSource doesn't support headers)
         const url = `${API_BASE}/collection/runs/${progress.run_id}/activity?token=${session.access_token}`;
-
         eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
           try {
             const activity = JSON.parse(event.data) as ActivityEntry;
+            if (activity.action === "connected") {
+              console.log("SSE activity stream connected");
+              return;
+            }
+
+            // Add to activities (newest first)
             setActivities((prev) => [activity, ...prev].slice(0, 100));
+
+            // Update metrics
+            updateMetrics(activity);
           } catch (e) {
             console.error("Failed to parse activity:", e);
           }
         };
 
         eventSource.onerror = () => {
-          // Reconnect is automatic, but log for debugging
           console.log("SSE connection error, auto-reconnecting...");
         };
       } catch (e) {
@@ -123,14 +206,12 @@ export function ProgressDetailModal({
         eventSource.close();
       }
     };
-  }, [open, progress?.run_id, supabase.auth]);
+  }, [open, progress?.run_id, supabase.auth, updateMetrics]);
 
   if (!progress) return null;
 
-  // Default phase to "amazon" for backwards compatibility
   const phase = progress.phase || "amazon";
 
-  // Calculate phase-appropriate progress percentage
   const getProgressPercent = () => {
     if (phase === "amazon") {
       return progress.categories_total > 0
@@ -145,7 +226,18 @@ export function ProgressDetailModal({
 
   const progressPercent = getProgressPercent();
 
-  // Minimized floating indicator
+  // Calculate total metrics for detail view
+  const totalMetrics = {
+    total_requests: Array.from(workerMetrics.values()).reduce(
+      (sum, m) => sum + m.api_requests_total, 0
+    ),
+    total_errors: Array.from(workerMetrics.values()).reduce(
+      (sum, m) => sum + m.api_requests_failed, 0
+    ),
+    total_sellers: progress.sellers_found,
+  };
+
+  // Minimized floating indicator (unchanged from before)
   if (isMinimized) {
     return (
       <div
@@ -183,10 +275,39 @@ export function ProgressDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl">
+      <DialogContent className="bg-gray-900 border-gray-800 max-w-5xl max-h-[85vh]">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-white">Collection Progress</DialogTitle>
+            <div className="flex items-center gap-3">
+              <DialogTitle className="text-white">Collection Progress</DialogTitle>
+              {/* Phase badge */}
+              <Badge
+                className={
+                  phase === "amazon"
+                    ? "bg-orange-500/20 text-orange-400"
+                    : "bg-blue-500/20 text-blue-400"
+                }
+              >
+                {phase === "amazon" ? (
+                  <>
+                    <ShoppingCart className="h-3 w-3 mr-1" />
+                    Amazon: {progressPercent}%
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-3 w-3 mr-1" />
+                    eBay: {progressPercent}%
+                  </>
+                )}
+              </Badge>
+              {/* Duration */}
+              {progress.started_at && duration && (
+                <span className="text-sm text-gray-500 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {duration}
+                </span>
+              )}
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -198,137 +319,53 @@ export function ProgressDetailModal({
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Summary stats */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Phase indicator card */}
-            <div className="bg-gray-800 rounded p-3">
-              <div className="text-gray-500 text-xs uppercase mb-1">Current Phase</div>
-              <div className="flex items-center gap-2">
-                {phase === "amazon" ? (
-                  <>
-                    <ShoppingCart className="h-5 w-5 text-orange-400" />
-                    <div>
-                      <div className="text-lg font-bold text-white">Step 1: Collecting</div>
-                      <div className="text-sm text-orange-400">{progressPercent}% complete</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-5 w-5 text-blue-400" />
-                    <div>
-                      <div className="text-lg font-bold text-white">Step 2: Searching</div>
-                      <div className="text-sm text-blue-400">{progressPercent}% complete</div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* New Sellers card */}
-            <div className="bg-gray-800 rounded p-3">
-              <div className="text-gray-500 text-xs uppercase">New Sellers</div>
-              <div className="text-xl font-bold text-green-400">
-                +{progress.sellers_new}
-              </div>
-              <div className="text-gray-500 text-sm">
-                {progress.sellers_found} total found
-              </div>
-            </div>
-          </div>
-
-          {/* Duration display */}
-          {progress.started_at && (
-            <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-800/50 rounded px-3 py-2">
-              <Clock className="h-4 w-4" />
-              <span>
-                Started {formatDistanceToNow(new Date(progress.started_at), { addSuffix: true })}
-                {duration && <span className="ml-2 text-gray-500">({duration})</span>}
-              </span>
-            </div>
-          )}
-
-          {/* Hierarchical progress */}
-          <div className="space-y-2">
-            {/* Departments */}
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Departments</span>
-              <span className="text-gray-300">
-                {progress.departments_completed}/{progress.departments_total}
-              </span>
-            </div>
-            <div className="h-2 bg-gray-800 rounded overflow-hidden">
-              <div
-                className="h-full bg-purple-500"
-                style={{
-                  width: `${(progress.departments_completed / Math.max(1, progress.departments_total)) * 100}%`,
-                }}
+        {/* 2-Panel Layout */}
+        <div className="grid grid-cols-[1fr_320px] gap-6 h-[calc(85vh-120px)]">
+          {/* Left Panel: Workers */}
+          <div className="overflow-hidden">
+            {expandedWorkerId === null ? (
+              <WorkerStatusPanel
+                activities={activities}
+                workerMetrics={workerMetrics}
+                onExpandWorker={setExpandedWorkerId}
               />
-            </div>
-
-            {/* Categories */}
-            <div className="flex justify-between text-sm mt-3">
-              <span className="text-gray-400">Categories</span>
-              <span className="text-gray-300">
-                {progress.categories_completed}/{progress.categories_total}
-              </span>
-            </div>
-            <div className="h-2 bg-gray-800 rounded overflow-hidden">
-              <div
-                className={`h-full ${phase === "amazon" ? "bg-orange-500" : "bg-blue-500"}`}
-                style={{
-                  width: `${(progress.categories_completed / Math.max(1, progress.categories_total)) * 100}%`,
-                }}
+            ) : (
+              <WorkerDetailView
+                workerId={expandedWorkerId}
+                activities={activities}
+                metrics={workerMetrics.get(expandedWorkerId)}
+                totalMetrics={totalMetrics}
+                onBack={() => setExpandedWorkerId(null)}
               />
-            </div>
-
-            {/* Products - only shown in eBay phase */}
-            {phase === "ebay" && (
-              <>
-                <div className="flex justify-between text-sm mt-3">
-                  <span className="text-gray-400">Products</span>
-                  <span className="text-gray-300">
-                    {progress.products_searched}/{progress.products_total}
-                  </span>
-                </div>
-                <div className="h-2 bg-gray-800 rounded overflow-hidden">
-                  <div
-                    className="h-full bg-cyan-500"
-                    style={{
-                      width: `${(progress.products_searched / Math.max(1, progress.products_total)) * 100}%`,
-                    }}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Products found - only shown in Amazon phase */}
-            {phase === "amazon" && (
-              <div className="mt-4 p-3 bg-gray-800/50 rounded">
-                <div className="text-sm text-gray-400">Products discovered so far</div>
-                <div className="text-2xl font-bold text-orange-400">
-                  {progress.products_found || 0}
-                </div>
-              </div>
             )}
           </div>
 
-          {/* Activity Feed - Live updates */}
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-300">Live Activity</div>
-            <ActivityFeed activities={activities} maxEntries={50} />
+          {/* Right Panel: Metrics + Pipeline */}
+          <div className="border-l border-gray-800 pl-6 overflow-hidden">
+            <MetricsPanel
+              activities={activities}
+              workerMetrics={workerMetrics}
+              progress={{
+                phase,
+                sellers_found: progress.sellers_found,
+                sellers_new: progress.sellers_new,
+                products_found: progress.products_found,
+              }}
+              expandedWorkerId={expandedWorkerId}
+              onExpandWorker={setExpandedWorkerId}
+            />
           </div>
+        </div>
 
-          {/* Cancel button */}
-          <div className="flex justify-end pt-4 border-t border-gray-800">
-            <Button
-              variant="destructive"
-              onClick={onCancel}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Cancel Collection
-            </Button>
-          </div>
+        {/* Footer: Cancel button */}
+        <div className="flex justify-end pt-4 border-t border-gray-800">
+          <Button
+            variant="destructive"
+            onClick={onCancel}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            Cancel Collection
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
