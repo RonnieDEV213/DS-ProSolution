@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 14 of 14 (History & Snapshot Simplification)
-Plan: 1 of 3 (Backend Diff Endpoint)
+Plan: 2 of 3 (Frontend Changes Panel)
 Status: In progress
-Last activity: 2026-01-23 - Completed 14-01-PLAN.md
+Last activity: 2026-01-23 - Completed 14-02-PLAN.md
 
-Progress: [█████████████████████████████████████] 35/37 plans complete
-**Phase 14 Plan 01 Complete** - Backend diff endpoint extended
+Progress: [██████████████████████████████████████] 36/37 plans complete
+**Phase 14 Plan 02 Complete** - History Entry modal with Changes panel
 
 ## Shipped Milestones
 
@@ -135,6 +135,11 @@ Recent for v2:
 - 2-panel modal layout: workers left (1fr), metrics right (320px)
 - Client-side metrics aggregation from SSE events via updateMetrics callback
 - expandedWorkerId state for click-to-expand worker detail behavior
+- Unified History Entry modal for all entry types (manual edits and collection runs behave identically)
+- Collection runs display all found sellers as 'added' (runs only add, never remove)
+- Blue ring highlight (bg-blue-500/20 ring-1 ring-blue-500/50) for selected entry in history list
+- Conditional section rendering: only show Added/Removed sections when array length > 0
+- Alternating row tints using index modulo: i % 2 === 0 ? 'bg-X/10' : 'bg-X/5'
 
 ### Pending Todos
 
@@ -155,9 +160,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 14-01-PLAN.md (Backend Diff Endpoint)
+Stopped at: Completed 14-02-PLAN.md (Frontend Changes Panel)
 Resume file: None
-Next action: Execute 14-02-PLAN.md (Frontend Changes Panel)
+Next action: Execute 14-03-PLAN.md (Component Cleanup)
 
 ## Roadmap Evolution
 
