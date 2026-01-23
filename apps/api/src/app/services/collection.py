@@ -953,6 +953,95 @@ class CollectionService:
 
         return sorted(list(sellers))
 
+    def compute_entry_diff(self, entry: dict) -> tuple[list[str], list[str]]:
+        """
+        Compute added/removed seller lists from a single audit log entry.
+
+        Args:
+            entry: Audit log entry dict with keys: action, seller_name, old_value, new_value
+
+        Returns:
+            tuple of (added, removed) lists, both sorted alphabetically
+        """
+        import json
+
+        action = entry.get("action")
+        old_value = entry.get("old_value")
+        new_value = entry.get("new_value")
+        seller_name = entry.get("seller_name")
+
+        added: list[str] = []
+        removed: list[str] = []
+
+        if action == "add":
+            if new_value:
+                try:
+                    data = json.loads(new_value) if isinstance(new_value, str) else new_value
+                    if "names" in data:  # Bulk add
+                        added = data["names"]
+                    elif "display_name" in data:  # Single add
+                        added = [data["display_name"]]
+                except (json.JSONDecodeError, TypeError):
+                    added = [seller_name] if seller_name else []
+            else:
+                added = [seller_name] if seller_name else []
+
+        elif action == "remove":
+            if old_value:
+                try:
+                    data = json.loads(old_value) if isinstance(old_value, str) else old_value
+                    if "names" in data:  # Bulk remove
+                        removed = data["names"]
+                    elif "display_name" in data:  # Single remove
+                        removed = [data["display_name"]]
+                except (json.JSONDecodeError, TypeError):
+                    removed = [seller_name] if seller_name else []
+            else:
+                removed = [seller_name] if seller_name else []
+
+        elif action == "edit":
+            # Edit: old name removed, new name added
+            if old_value:
+                try:
+                    old_data = json.loads(old_value) if isinstance(old_value, str) else old_value
+                    old_name = old_data.get("display_name")
+                    if old_name:
+                        removed = [old_name]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            # seller_name is the new name
+            if seller_name:
+                added = [seller_name]
+
+        return sorted(added), sorted(removed)
+
+    async def get_entry_diff(self, org_id: str, log_id: str) -> tuple[list[str], list[str]]:
+        """
+        Fetch a single audit log entry and compute its diff.
+
+        Args:
+            org_id: Organization ID
+            log_id: Audit log entry ID
+
+        Returns:
+            tuple of (added, removed) lists, both sorted alphabetically
+            Returns ([], []) if entry not found
+        """
+        # Fetch the single audit log entry
+        result = (
+            self.supabase.table("seller_audit_log")
+            .select("action, seller_name, old_value, new_value")
+            .eq("id", log_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+
+        if not result.data:
+            return [], []
+
+        entry = result.data[0]
+        return self.compute_entry_diff(entry)
+
     async def calculate_diff(
         self,
         source_sellers: list[str],
@@ -1211,7 +1300,7 @@ class CollectionService:
 
         # Create parallel runner
         runner = ParallelCollectionRunner(
-            max_workers=5,
+            max_workers=6,
             on_activity=emit_activity,
         )
 
@@ -1594,7 +1683,7 @@ class CollectionService:
 
         # Create parallel runner
         runner = ParallelCollectionRunner(
-            max_workers=5,
+            max_workers=6,
             on_activity=emit_activity,
         )
 
@@ -1679,73 +1768,87 @@ class CollectionService:
                 # Build URL for display (same logic as scraper)
                 ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(title)}&LH_ItemCondition=1000&LH_Free=1&LH_PrefLoc=1&_udlo={price_min_dollars}&_udhi={price_max_dollars}&_ipg=60&_pgn={page}"
 
-                # Emit fetching activity with api_params and URL
-                await runner.emit_activity(create_activity_event(
-                    worker_id=worker_id,
-                    phase="ebay",
-                    action="fetching",
-                    category=cat_name,
-                    product_name=short_title,
-                    api_params={
-                        "query": title[:50],  # Truncate for readability
-                        "amazon_price": amazon_price_cents,  # Amazon price in cents
-                        "price_min": price_min_cents,  # eBay min price in cents (80% markup)
-                        "price_max": price_max_cents,  # eBay max price in cents (120% markup)
-                        "page": page,
-                    },
-                    attempt=1,
-                    url=ebay_url,
-                ))
-                print(f"[W{worker_id}] Searching: {short_title} (page {page})")
-
-                # Check before API call
-                await check_cancelled_throttled("before API call")
-
-                # Track request timing
-                request_start = time.time()
-                result = await scraper.search_sellers(title, price, page)
-                duration_ms = int((time.time() - request_start) * 1000)
-                total_duration_ms += duration_ms
-
-                # Check after API call (which can take 10-90 seconds)
-                await check_cancelled_throttled("after API call")
-
-                if result.error == "rate_limited":
+                # Retry logic (3 attempts) - same as Amazon phase
+                page_success = False
+                for attempt_num in range(3):
+                    # Emit fetching activity with api_params, URL, and attempt
                     await runner.emit_activity(create_activity_event(
                         worker_id=worker_id,
                         phase="ebay",
-                        action="rate_limited",
+                        action="fetching",
+                        category=cat_name,
                         product_name=short_title,
-                        duration_ms=duration_ms,
-                        error_type="rate_limit",
-                        error_stage="api",
+                        api_params={
+                            "query": title[:50],  # Truncate for readability
+                            "amazon_price": amazon_price_cents,  # Amazon price in cents
+                            "price_min": price_min_cents,  # eBay min price in cents (80% markup)
+                            "price_max": price_max_cents,  # eBay max price in cents (120% markup)
+                            "page": page,
+                        },
+                        attempt=attempt_num + 1,
+                        url=ebay_url,
                     ))
-                    print(f"[W{worker_id}] Rate limited, waiting 5s...")
-                    # Check during wait - check DB every second for fast cancel response
-                    for i in range(10):
-                        if i % 2 == 0:  # Check DB every 1 second (every 2 iterations)
-                            await check_cancelled_throttled("during rate limit wait")
-                        await asyncio.sleep(0.5)
-                    continue
+                    print(f"[W{worker_id}] Searching: {short_title} (page {page})" + (f" (attempt {attempt_num + 1})" if attempt_num > 0 else ""))
 
-                if result.error:
-                    # Classify error type
-                    error_type = "timeout" if "timeout" in result.error.lower() else (
-                        "http_500" if "http" in result.error.lower() or "500" in result.error else "api_error"
-                    )
-                    await runner.emit_activity(create_activity_event(
-                        worker_id=worker_id,
-                        phase="ebay",
-                        action="error",
-                        product_name=short_title,
-                        error_message=result.error,
-                        error_type=error_type,
-                        error_stage="api",
-                        duration_ms=duration_ms,
-                    ))
-                    break  # Skip remaining pages
+                    # Check before API call
+                    await check_cancelled_throttled("before API call")
 
-                all_sellers.extend(result.sellers)
+                    # Track request timing
+                    request_start = time.time()
+                    result = await scraper.search_sellers(title, price, page)
+                    duration_ms = int((time.time() - request_start) * 1000)
+                    total_duration_ms += duration_ms
+
+                    # Check after API call (which can take 10-90 seconds)
+                    await check_cancelled_throttled("after API call")
+
+                    if result.error == "rate_limited":
+                        await runner.emit_activity(create_activity_event(
+                            worker_id=worker_id,
+                            phase="ebay",
+                            action="rate_limited",
+                            product_name=short_title,
+                            duration_ms=duration_ms,
+                            error_type="rate_limit",
+                            error_stage="api",
+                            attempt=attempt_num + 1,
+                        ))
+                        print(f"[W{worker_id}] Rate limited, waiting 5s...")
+                        # Check during wait - check DB every second for fast cancel response
+                        for i in range(10):
+                            if i % 2 == 0:  # Check DB every 1 second (every 2 iterations)
+                                await check_cancelled_throttled("during rate limit wait")
+                            await asyncio.sleep(0.5)
+                        continue  # Retry this page
+
+                    if result.error:
+                        # Classify error type
+                        error_type = "timeout" if "timeout" in result.error.lower() else (
+                            "http_500" if "http" in result.error.lower() or "500" in result.error else "api_error"
+                        )
+                        await runner.emit_activity(create_activity_event(
+                            worker_id=worker_id,
+                            phase="ebay",
+                            action="error",
+                            product_name=short_title,
+                            error_message=result.error,
+                            error_type=error_type,
+                            error_stage="api",
+                            duration_ms=duration_ms,
+                            attempt=attempt_num + 1,
+                        ))
+                        print(f"[W{worker_id}] Error: {result.error}" + (f" (attempt {attempt_num + 1})" if attempt_num > 0 else ""))
+                        raise Exception(result.error)
+
+                    # Success - break out of retry loop
+                    all_sellers.extend(result.sellers)
+                    page_success = True
+                    break
+
+                # If all retries failed (only happens with rate limits), skip remaining pages
+                if not page_success:
+                    print(f"[W{worker_id}] Max retries reached for page {page}, skipping remaining pages")
+                    break
 
                 if not result.has_more:
                     break
