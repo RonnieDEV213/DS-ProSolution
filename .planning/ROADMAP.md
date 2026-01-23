@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-12 (complete)
+- **v2 SellerCollection** - Phases 6-13 (in progress)
 
 ## Phases
 
@@ -18,6 +18,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
 - [x] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
 - [x] **Phase 12: Live Activity Feed & Concurrency** - Live visual activity feed, parallel collection (5 workers), seller snapshot counts
+- [ ] **Phase 13: Worker Status Dashboard & Metrics** - 2-panel detail modal, per-worker status cards, click-to-expand logs/metrics, data pipeline status
 
 ## Phase Details
 
@@ -165,6 +166,26 @@ Plans:
 - [x] 12-03-PLAN.md — Frontend activity feed UI (ActivityFeed component, modal integration, progress bar cleanup, history snapshots)
 - [x] 12-04-PLAN.md — Backend auth and API updates (SSE query param auth, history/audit-log snapshot responses)
 
+### Phase 13: Worker Status Dashboard & Metrics
+
+**Goal:** Rework progress detail modal into 2-panel layout with per-worker status cards and comprehensive metrics tracking
+**Depends on:** Phase 12
+**Requirements:** UX enhancement (no new requirements - observability/monitoring phase)
+**Success Criteria** (what must be TRUE):
+  1. Progress detail modal has 2-panel layout: worker status (left) + metrics/status (right)
+  2. 5 worker status cards show real-time activity (searching products, returning products, searching sellers, returning sellers)
+  3. Clicking a worker card opens detailed log and metrics for that worker (successful API hits, failures, cancelled, etc.)
+  4. Metrics panel shows data pipeline status ("uploading 25 new sellers from worker 4", etc.)
+  5. Failure tracking distinguishes parse errors vs API errors
+  6. Total failure counts displayed with breakdown by type
+**Plans:** 4 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — Backend activity event extension (rich metadata, pipeline actions)
+- [ ] 13-02-PLAN.md — Frontend types and worker status components (WorkerCard, WorkerStatusPanel, WorkerDetailView)
+- [ ] 13-03-PLAN.md — Metrics panel components (PipelineFeed, MetricsSummary, MetricsPanel)
+- [ ] 13-04-PLAN.md — Modal integration (2-panel layout, client-side metrics aggregation)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -176,6 +197,7 @@ Plans:
 | 10. Collection UI Cleanup | v2 | 5/5 | Complete | 2026-01-21 |
 | 11. Collection Bug Fixes & Polish | v2 | 5/5 | Complete | 2026-01-22 |
 | 12. Live Activity Feed & Concurrency | v2 | 4/4 | Complete | 2026-01-22 |
+| 13. Worker Status Dashboard & Metrics | v2 | 0/4 | In Progress | - |
 
 ## Requirement Coverage
 
