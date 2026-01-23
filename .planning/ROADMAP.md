@@ -7,7 +7,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 ## Milestones
 
 - **v1 Extension Auth & RBAC** - Phases 1-5 (shipped 2026-01-20)
-- **v2 SellerCollection** - Phases 6-13 (in progress)
+- **v2 SellerCollection** - Phases 6-13 (complete)
 
 ## Phases
 
@@ -18,7 +18,7 @@ SellerCollection automates dropshipper discovery by cross-referencing Amazon Bes
 - [x] **Phase 10: Collection UI Cleanup** - Streamline UI, remove clutter, improve data surfacing
 - [x] **Phase 11: Collection Bug Fixes & Polish** - Fix progress bar, history section, and concurrency settings
 - [x] **Phase 12: Live Activity Feed & Concurrency** - Live visual activity feed, parallel collection (5 workers), seller snapshot counts
-- [ ] **Phase 13: Worker Status Dashboard & Metrics** - 2-panel detail modal, per-worker status cards, click-to-expand logs/metrics, data pipeline status
+- [x] **Phase 13: Worker Status Dashboard & Metrics** - 2-panel detail modal, per-worker status cards, click-to-expand logs/metrics, data pipeline status
 
 ## Phase Details
 
@@ -181,10 +181,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — Backend activity event extension (rich metadata, pipeline actions)
-- [ ] 13-02-PLAN.md — Frontend types and worker status components (WorkerCard, WorkerStatusPanel, WorkerDetailView)
-- [ ] 13-03-PLAN.md — Metrics panel components (PipelineFeed, MetricsSummary, MetricsPanel)
-- [ ] 13-04-PLAN.md — Modal integration (2-panel layout, client-side metrics aggregation)
+- [x] 13-01-PLAN.md — Backend activity event extension (rich metadata, pipeline actions)
+- [x] 13-02-PLAN.md — Frontend types and worker status components (WorkerCard, WorkerStatusPanel, WorkerDetailView)
+- [x] 13-03-PLAN.md — Metrics panel components (PipelineFeed, MetricsSummary, MetricsPanel)
+- [x] 13-04-PLAN.md — Modal integration (2-panel layout, client-side metrics aggregation)
 
 ## Progress
 
@@ -197,7 +197,7 @@ Plans:
 | 10. Collection UI Cleanup | v2 | 5/5 | Complete | 2026-01-21 |
 | 11. Collection Bug Fixes & Polish | v2 | 5/5 | Complete | 2026-01-22 |
 | 12. Live Activity Feed & Concurrency | v2 | 4/4 | Complete | 2026-01-22 |
-| 13. Worker Status Dashboard & Metrics | v2 | 0/4 | In Progress | - |
+| 13. Worker Status Dashboard & Metrics | v2 | 4/4 | Complete | 2026-01-23 |
 
 ## Requirement Coverage
 
