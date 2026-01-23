@@ -9,6 +9,7 @@ This module handles:
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from supabase import Client
@@ -30,6 +31,7 @@ from app.services.parallel_runner import (
     CollectionPausedException,
 )
 from app.services.activity_stream import get_activity_stream
+from app.services.run_signals import is_paused_or_cancelled, is_cancelled, clear_signal
 
 logger = logging.getLogger(__name__)
 
@@ -246,18 +248,22 @@ class CollectionService:
         """Pause a running collection."""
         run = await self.get_run(run_id, org_id)
         if not run:
+            print(f"[PAUSE-SVC] Run {run_id} not found")
             return {"error": "not_found", "message": "Run not found"}
 
+        print(f"[PAUSE-SVC] Run {run_id} current status: {run['status']}")
         if run["status"] != "running":
+            print(f"[PAUSE-SVC] Cannot pause - status is {run['status']}")
             return {"error": "invalid_status", "message": f"Cannot pause run in {run['status']} status"}
 
         now = datetime.now(timezone.utc).isoformat()
-        self.supabase.table("collection_runs").update({
+        result = self.supabase.table("collection_runs").update({
             "status": "paused",
             "paused_at": now,
             "updated_at": now,
         }).eq("id", run_id).execute()
 
+        print(f"[PAUSE-SVC] DB update executed, affected rows: {len(result.data) if result.data else 0}")
         logger.info(f"Paused collection run {run_id}")
         return {"ok": True, "status": "paused"}
 
@@ -265,18 +271,22 @@ class CollectionService:
         """Resume a paused collection."""
         run = await self.get_run(run_id, org_id)
         if not run:
+            print(f"[RESUME-SVC] Run {run_id} not found")
             return {"error": "not_found", "message": "Run not found"}
 
+        print(f"[RESUME-SVC] Run {run_id} current status: {run['status']}")
         if run["status"] != "paused":
+            print(f"[RESUME-SVC] Cannot resume - status is {run['status']}")
             return {"error": "invalid_status", "message": f"Cannot resume run in {run['status']} status"}
 
         now = datetime.now(timezone.utc).isoformat()
-        self.supabase.table("collection_runs").update({
+        result = self.supabase.table("collection_runs").update({
             "status": "running",
             "paused_at": None,
             "updated_at": now,
         }).eq("id", run_id).execute()
 
+        print(f"[RESUME-SVC] DB update executed, affected rows: {len(result.data) if result.data else 0}")
         logger.info(f"Resumed collection run {run_id}")
         return {"ok": True, "status": "running"}
 
@@ -1204,30 +1214,70 @@ class CollectionService:
             on_activity=emit_activity,
         )
 
+        # Shared counters for real-time progress
+        shared_categories_completed = 0
+        shared_products_found = 0
+        amazon_progress_lock = asyncio.Lock()
+
+        # Instant cancellation check using in-memory signal registry
+        # No database polling needed - API endpoints set signals directly
+        async def check_cancelled_throttled(context: str) -> None:
+            """Check if run was cancelled/paused. INSTANT - uses in-memory signal registry."""
+            # Check 1: Another worker already detected and set the runner flag
+            if runner.is_cancelled:
+                print(f"[WORKER] Detected runner.is_cancelled=True at {context}")
+                raise CollectionPausedException(f"Run cancelled: {context}")
+
+            # Check 2: Signal registry (set by API endpoints - instant, no DB call)
+            if is_paused_or_cancelled(run_id):
+                print(f"[WORKER] Detected signal for run {run_id} at {context} - stopping")
+                runner.cancel()  # Signal other workers via runner flag
+                raise CollectionPausedException(f"Run signaled to stop: {context}")
+
+        async def update_amazon_progress_in_db():
+            """Write current Amazon phase progress to database for frontend polling."""
+            async with amazon_progress_lock:
+                self.supabase.table("collection_runs").update({
+                    "categories_completed": resume_from_idx + shared_categories_completed,
+                    "products_total": products_fetched + shared_products_found,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", run_id).execute()
+
         # Define the task processing function
         async def process_category(task: dict, worker_id: int) -> dict:
             """Process a single category - called by parallel worker."""
+            nonlocal shared_categories_completed, shared_products_found
+
             cat_id = task["cat_id"]
             node_id = task["node_id"]
             category_name = task["category_name"]
 
-            # Emit fetching activity
-            await runner.emit_activity(create_activity_event(
-                worker_id=worker_id,
-                phase="amazon",
-                action="fetching",
-                category=category_name,
-            ))
-            print(f"[W{worker_id}] Fetching: {category_name}")
-
-            # Check if run was cancelled
-            run_check = await self.get_run(run_id, org_id)
-            if run_check and run_check["status"] in ("cancelled", "paused"):
-                raise CollectionPausedException(f"Run {run_check['status']}")
+            # FIRST: Check if paused/cancelled BEFORE doing ANY work
+            await check_cancelled_throttled("before category processing")
 
             # Retry logic (3 attempts)
-            for attempt in range(3):
+            for attempt_num in range(3):
+                # Emit fetching activity with api_params and attempt
+                await runner.emit_activity(create_activity_event(
+                    worker_id=worker_id,
+                    phase="amazon",
+                    action="fetching",
+                    category=category_name,
+                    api_params={"node_id": node_id},
+                    attempt=attempt_num + 1,
+                ))
+                print(f"[W{worker_id}] Fetching: {category_name}" + (f" (attempt {attempt_num + 1})" if attempt_num > 0 else ""))
+
+                # Check before API call (includes DB check for fast cancel detection)
+                await check_cancelled_throttled("before API call")
+
+                # Track request timing
+                request_start = time.time()
                 result = await scraper.fetch_bestsellers(node_id, category_name=category_name)
+                duration_ms = int((time.time() - request_start) * 1000)
+
+                # Check after API call (includes DB check for fast cancel detection)
+                await check_cancelled_throttled("after API call")
 
                 if result.error == "rate_limited":
                     await runner.emit_activity(create_activity_event(
@@ -1235,31 +1285,55 @@ class CollectionService:
                         phase="amazon",
                         action="rate_limited",
                         category=category_name,
+                        duration_ms=duration_ms,
+                        error_type="rate_limit",
+                        error_stage="api",
+                        attempt=attempt_num + 1,
                     ))
                     print(f"[W{worker_id}] Rate limited, waiting 5s...")
-                    await asyncio.sleep(5)
+                    # Check during wait - check DB every second for fast cancel response
+                    for i in range(10):
+                        if i % 2 == 0:  # Check DB every 1 second
+                            await check_cancelled_throttled("during rate limit wait")
+                        await asyncio.sleep(0.5)
                     continue
 
                 if result.error:
+                    # Classify error type
+                    error_type = "timeout" if "timeout" in result.error.lower() else (
+                        "http_500" if "http" in result.error.lower() or "500" in result.error else "api_error"
+                    )
                     await runner.emit_activity(create_activity_event(
                         worker_id=worker_id,
                         phase="amazon",
                         action="error",
                         category=category_name,
                         error_message=result.error,
+                        error_type=error_type,
+                        error_stage="api",
+                        duration_ms=duration_ms,
+                        attempt=attempt_num + 1,
                     ))
                     print(f"[W{worker_id}] Error: {result.error}")
                     raise Exception(result.error)
 
-                # Success - emit found event
+                # Success - emit found event with duration
                 await runner.emit_activity(create_activity_event(
                     worker_id=worker_id,
                     phase="amazon",
                     action="found",
                     category=category_name,
                     new_sellers_count=len(result.products),  # Reusing field for product count
+                    duration_ms=duration_ms,
                 ))
                 print(f"[W{worker_id}] Found {len(result.products)} products in {category_name}")
+
+                # Update shared counters and sync to DB for real-time progress
+                # (skip if cancelled to avoid race conditions)
+                if not runner.is_cancelled:
+                    shared_categories_completed += 1
+                    shared_products_found += len(result.products)
+                    await update_amazon_progress_in_db()
 
                 return {
                     "cat_id": cat_id,
@@ -1268,6 +1342,9 @@ class CollectionService:
                 }
 
             # Max retries reached
+            if not runner.is_cancelled:
+                shared_categories_completed += 1
+                await update_amazon_progress_in_db()
             return {"cat_id": cat_id, "products": [], "error": "max_retries"}
 
         # Prepare tasks list (skip already-processed when resuming)
@@ -1290,8 +1367,9 @@ class CollectionService:
         try:
             results = await runner.run(tasks, process_category, phase="amazon")
         except CollectionPausedException:
-            print(f"\n[COLLECTION] Run paused/cancelled - stopping Amazon collection")
-            return {"status": "paused", "products_fetched": products_fetched}
+            action = "CANCELLED" if is_cancelled(run_id) else "PAUSED"
+            print(f"\n[COLLECTION] Run {action} - stopping Amazon collection")
+            return {"status": "paused" if not is_cancelled(run_id) else "cancelled", "products_fetched": products_fetched}
 
         # Process results and save to database
         for result in results:
@@ -1323,6 +1401,15 @@ class CollectionService:
 
             if items_to_insert:
                 batched_insert(self.supabase, table="collection_items", rows=items_to_insert)
+                # Emit pipeline event for product batch upload
+                await runner.emit_activity(create_activity_event(
+                    worker_id=0,  # System event
+                    phase="amazon",
+                    action="uploading",
+                    items_count=len(items_to_insert),
+                    operation_type="product_batch",
+                    category=result.get("category_name"),
+                ))
 
         # Update progress - set to 100% complete for Amazon phase
         now = datetime.now(timezone.utc).isoformat()
@@ -1514,11 +1601,41 @@ class CollectionService:
         # Using nonlocal to allow workers to update these
         shared_sellers_found = 0
         shared_sellers_new = 0
+        shared_products_searched = 0
+        progress_lock = asyncio.Lock()
+
+        # Instant cancellation check using in-memory signal registry
+        # No database polling needed - API endpoints set signals directly
+        async def check_cancelled_throttled(context: str) -> None:
+            """Check if run was cancelled/paused. INSTANT - uses in-memory signal registry."""
+            # Check 1: Another worker already detected and set the runner flag
+            if runner.is_cancelled:
+                print(f"[WORKER] Detected runner.is_cancelled=True at {context}")
+                raise CollectionPausedException(f"Run cancelled: {context}")
+
+            # Check 2: Signal registry (set by API endpoints - instant, no DB call)
+            if is_paused_or_cancelled(run_id):
+                print(f"[WORKER] Detected signal for run {run_id} at {context} - stopping")
+                runner.cancel()  # Signal other workers via runner flag
+                raise CollectionPausedException(f"Run signaled to stop: {context}")
+
+        async def update_progress_in_db():
+            """Write current progress to database for frontend polling."""
+            async with progress_lock:
+                self.supabase.table("collection_runs").update({
+                    "products_searched": resume_from_idx + shared_products_searched,
+                    "sellers_found": sellers_found + shared_sellers_found,
+                    "sellers_new": sellers_new + shared_sellers_new,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", run_id).execute()
 
         # Define the task processing function
         async def process_product(task: dict, worker_id: int) -> dict:
             """Process a single product - search eBay, extract sellers, and INSERT IMMEDIATELY."""
-            nonlocal shared_sellers_found, shared_sellers_new
+            nonlocal shared_sellers_found, shared_sellers_new, shared_products_searched
+
+            # FIRST: Check if paused/cancelled BEFORE doing ANY work
+            await check_cancelled_throttled("before product processing")
 
             product = task["product"]
             product_data = product.get("data", {})
@@ -1528,6 +1645,8 @@ class CollectionService:
             cat_name = cat_name_lookup.get(cat_id, cat_id.replace("-", " ").title())
 
             if not title or not price:
+                shared_products_searched += 1
+                await update_progress_in_db()
                 return {"product_id": product["id"], "cat_id": cat_id, "found": 0, "new": 0, "skipped": True}
 
             # Parse price
@@ -1535,30 +1654,47 @@ class CollectionService:
                 try:
                     price = float(price.replace("$", "").replace(",", ""))
                 except ValueError:
+                    shared_products_searched += 1
+                    await update_progress_in_db()
                     return {"product_id": product["id"], "cat_id": cat_id, "found": 0, "new": 0, "skipped": True}
 
             short_title = title[:40] + "..." if len(title) > 40 else title
-
-            # Emit fetching activity
-            await runner.emit_activity(create_activity_event(
-                worker_id=worker_id,
-                phase="ebay",
-                action="fetching",
-                category=cat_name,
-                product_name=short_title,
-            ))
-            print(f"[W{worker_id}] Searching: {short_title}")
+            price_min = int(price * 0.8)
+            price_max = int(price * 1.2)
 
             all_sellers = []
+            total_duration_ms = 0
 
             # Search 3 pages per product
             for page in range(1, PAGES_PER_PRODUCT + 1):
-                # Check cancellation
-                run_check = await self.get_run(run_id, org_id)
-                if run_check and run_check["status"] in ("cancelled", "paused"):
-                    raise CollectionPausedException(f"Run {run_check['status']}")
+                # Emit fetching activity with api_params
+                await runner.emit_activity(create_activity_event(
+                    worker_id=worker_id,
+                    phase="ebay",
+                    action="fetching",
+                    category=cat_name,
+                    product_name=short_title,
+                    api_params={
+                        "query": title[:50],  # Truncate for readability
+                        "price_min": price_min,
+                        "price_max": price_max,
+                        "page": page,
+                    },
+                    attempt=1,
+                ))
+                print(f"[W{worker_id}] Searching: {short_title} (page {page})")
 
+                # Check before API call
+                await check_cancelled_throttled("before API call")
+
+                # Track request timing
+                request_start = time.time()
                 result = await scraper.search_sellers(title, price, page)
+                duration_ms = int((time.time() - request_start) * 1000)
+                total_duration_ms += duration_ms
+
+                # Check after API call (which can take 10-90 seconds)
+                await check_cancelled_throttled("after API call")
 
                 if result.error == "rate_limited":
                     await runner.emit_activity(create_activity_event(
@@ -1566,12 +1702,33 @@ class CollectionService:
                         phase="ebay",
                         action="rate_limited",
                         product_name=short_title,
+                        duration_ms=duration_ms,
+                        error_type="rate_limit",
+                        error_stage="api",
                     ))
                     print(f"[W{worker_id}] Rate limited, waiting 5s...")
-                    await asyncio.sleep(5)
+                    # Check during wait - check DB every second for fast cancel response
+                    for i in range(10):
+                        if i % 2 == 0:  # Check DB every 1 second (every 2 iterations)
+                            await check_cancelled_throttled("during rate limit wait")
+                        await asyncio.sleep(0.5)
                     continue
 
                 if result.error:
+                    # Classify error type
+                    error_type = "timeout" if "timeout" in result.error.lower() else (
+                        "http_500" if "http" in result.error.lower() or "500" in result.error else "api_error"
+                    )
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=worker_id,
+                        phase="ebay",
+                        action="error",
+                        product_name=short_title,
+                        error_message=result.error,
+                        error_type=error_type,
+                        error_stage="api",
+                        duration_ms=duration_ms,
+                    ))
                     break  # Skip remaining pages
 
                 all_sellers.extend(result.sellers)
@@ -1581,7 +1738,7 @@ class CollectionService:
 
                 await asyncio.sleep(REQUEST_DELAY_MS / 1000)
 
-            # Emit found activity
+            # Emit found activity with total duration
             found_count = len(all_sellers)
             if all_sellers:
                 await runner.emit_activity(create_activity_event(
@@ -1591,10 +1748,13 @@ class CollectionService:
                     category=cat_name,
                     product_name=short_title,
                     new_sellers_count=found_count,
+                    duration_ms=total_duration_ms,
                 ))
                 print(f"[W{worker_id}] Found {found_count} sellers for {short_title}")
 
             # INSERT SELLERS IMMEDIATELY (don't wait until end)
+            # NOTE: We intentionally save sellers BEFORE checking cancellation
+            # to avoid wasting API calls - if we found sellers, save them!
             new_count = 0
             if all_sellers:
                 # Prepare seller data
@@ -1623,8 +1783,10 @@ class CollectionService:
                 seen_normalized = set()
                 new_sellers = []
                 existing_ids = []
+                duplicates_within = 0
                 for info in seller_info:
                     if info["normalized"] in seen_normalized:
+                        duplicates_within += 1
                         continue  # Skip duplicates within this product's results
                     seen_normalized.add(info["normalized"])
 
@@ -1643,6 +1805,18 @@ class CollectionService:
                             "times_seen": 1,
                         })
 
+                # Emit deduplication event if duplicates were found
+                total_deduped = duplicates_within + len(existing_ids)
+                if total_deduped > 0:
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=0,  # System event
+                        phase="ebay",
+                        action="deduped",
+                        items_count=total_deduped,
+                        operation_type="seller_dedupe",
+                        source_worker_id=worker_id,
+                    ))
+
                 # Update existing sellers
                 if existing_ids:
                     batched_update(
@@ -1655,6 +1829,15 @@ class CollectionService:
                             "updated_at": datetime.now(timezone.utc).isoformat(),
                         },
                     )
+                    # Emit update event
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=0,  # System event
+                        phase="ebay",
+                        action="updated",
+                        items_count=len(existing_ids),
+                        operation_type="seller_update",
+                        source_worker_id=worker_id,
+                    ))
 
                 # Insert new sellers
                 if new_sellers:
@@ -1666,10 +1849,28 @@ class CollectionService:
                     new_count = inserted
                     if inserted > 0:
                         print(f"[W{worker_id}] +{inserted} NEW SELLERS")
+                        # Emit insert event
+                        await runner.emit_activity(create_activity_event(
+                            worker_id=0,  # System event
+                            phase="ebay",
+                            action="inserted",
+                            items_count=inserted,
+                            operation_type="seller_insert",
+                            source_worker_id=worker_id,
+                        ))
 
-            # Update shared counters
+            # Update shared counters and sync to DB for real-time progress
+            # Always update (sellers were saved, we want accurate counts)
             shared_sellers_found += found_count
             shared_sellers_new += new_count
+            shared_products_searched += 1
+
+            # Update database periodically for frontend polling (every product)
+            await update_progress_in_db()
+
+            # Check cancellation AFTER saving sellers - data is preserved, now we can exit
+            if runner.is_cancelled:
+                raise CollectionPausedException("Run cancelled after seller save")
 
             return {
                 "product_id": product["id"],
@@ -1689,7 +1890,9 @@ class CollectionService:
         try:
             results = await runner.run(tasks, process_product, phase="ebay")
         except CollectionPausedException:
-            print(f"\n[COLLECTION] Run paused/cancelled - stopping eBay search")
+            was_cancelled = is_cancelled(run_id)
+            action = "CANCELLED" if was_cancelled else "PAUSED"
+            print(f"\n[COLLECTION] Run {action} - stopping eBay search")
             print(f"[COLLECTION] Sellers saved so far: {shared_sellers_found} found, {shared_sellers_new} new")
             # Update run with partial results before returning
             now = datetime.now(timezone.utc).isoformat()
@@ -1698,7 +1901,7 @@ class CollectionService:
                 "sellers_new": sellers_new + shared_sellers_new,
                 "updated_at": now,
             }).eq("id", run_id).execute()
-            return {"status": "paused", "sellers_found": sellers_found + shared_sellers_found, "sellers_new": sellers_new + shared_sellers_new}
+            return {"status": "cancelled" if was_cancelled else "paused", "sellers_found": sellers_found + shared_sellers_found, "sellers_new": sellers_new + shared_sellers_new}
 
         # Update totals from shared counters (sellers already inserted per-product)
         sellers_found += shared_sellers_found
@@ -1720,6 +1923,9 @@ class CollectionService:
 
         # Store seller count snapshot
         await self._store_run_snapshot(run_id, org_id)
+
+        # Clean up signal registry (run is done)
+        await clear_signal(run_id)
 
         # Emit complete activity
         await activity_manager.push(run_id, {
