@@ -346,7 +346,7 @@ export function ProgressDetailModal({
         {/* 2-Panel Layout */}
         <div className="grid grid-cols-[1fr_320px] gap-6 h-[calc(85vh-120px)]">
           {/* Left Panel: Workers */}
-          <div className="overflow-hidden">
+          <div className="overflow-y-auto">
             {expandedWorkerId === null ? (
               <WorkerStatusPanel
                 activities={activities}
@@ -365,7 +365,7 @@ export function ProgressDetailModal({
           </div>
 
           {/* Right Panel: Metrics + Pipeline */}
-          <div className="border-l border-gray-800 pl-6 overflow-hidden">
+          <div className="border-l border-gray-800 pl-6 overflow-y-auto">
             <MetricsPanel
               activities={activities}
               workerMetrics={workerMetrics}
