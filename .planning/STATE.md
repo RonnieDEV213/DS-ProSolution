@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Automate the discovery and collection of Amazon-to-eBay dropshippers at scale
-**Current focus:** v2 SellerCollection Phase 13 - Worker Status Dashboard & Metrics (COMPLETE)
+**Current focus:** v2 SellerCollection Phase 14 - History & Snapshot Simplification
 
 ## Current Position
 
-Phase: 13 of 13 (Worker Status Dashboard & Metrics)
-Plan: 4 of 4 (Integration into 2-Panel Detail Modal)
-Status: Phase complete
-Last activity: 2026-01-23 - Completed 13-04-PLAN.md
+Phase: 14 of 14 (History & Snapshot Simplification)
+Plan: 1 of 3 (Backend Diff Endpoint)
+Status: In progress
+Last activity: 2026-01-23 - Completed 14-01-PLAN.md
 
-Progress: [████████████████████████████████████] 34/34 plans complete
-**Phase 13 Complete** - Worker status dashboard fully functional
+Progress: [█████████████████████████████████████] 35/37 plans complete
+**Phase 14 Plan 01 Complete** - Backend diff endpoint extended
 
 ## Shipped Milestones
 
@@ -155,9 +155,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 13-04-PLAN.md (Phase 13 complete)
+Stopped at: Completed 14-01-PLAN.md (Backend Diff Endpoint)
 Resume file: None
-Next action: v2 SellerCollection milestone complete - ready for user testing
+Next action: Execute 14-02-PLAN.md (Frontend Changes Panel)
 
 ## Roadmap Evolution
 
@@ -165,3 +165,4 @@ Next action: v2 SellerCollection milestone complete - ready for user testing
 - Phase 11 added: Collection Bug Fixes & Polish - fix progress bar, history section, concurrency settings
 - Phase 12 added: Live Activity Feed & Concurrency - live feed in modal, fix history seller counts, implement parallel collection
 - Phase 13 added: Worker Status Dashboard & Metrics - 2-panel detail modal, per-worker status cards, click-to-expand logs/metrics, data pipeline status
+- Phase 14 added: History & Snapshot Simplification - enrich snapshot with inline diff, remove compare mode, remove run detail modal
