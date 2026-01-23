@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { PairingRequestsTable } from "@/components/admin/automation/pairing-requests-table";
@@ -8,13 +8,10 @@ import { AgentsTable } from "@/components/admin/automation/agents-table";
 import { JobsTable } from "@/components/admin/automation/jobs-table";
 import { SellersGrid } from "@/components/admin/collection/sellers-grid";
 import { HistoryPanel } from "@/components/admin/collection/history-panel";
-import { HierarchicalRunModal } from "@/components/admin/collection/hierarchical-run-modal";
 import { LogDetailModal } from "@/components/admin/collection/log-detail-modal";
-import { DiffModal } from "@/components/admin/collection/diff-modal";
 import { ProgressBar } from "@/components/admin/collection/progress-bar";
-import { ProgressDetailModal } from "@/components/admin/collection/progress-detail-modal";
 import { RunConfigModal } from "@/components/admin/collection/run-config-modal";
-import { useCollectionPolling } from "@/hooks/use-collection-polling";
+import { useCollectionProgress } from "@/contexts/collection-progress-context";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -34,21 +31,45 @@ export default function AutomationPage() {
   // Collection modals state
   const [logDetailOpen, setLogDetailOpen] = useState(false);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
-  const [diffModalOpen, setDiffModalOpen] = useState(false);
-  const [diffSourceId, setDiffSourceId] = useState<string | null>(null);
-  const [diffTargetId, setDiffTargetId] = useState<string | null>(null);
-  const [progressDetailOpen, setProgressDetailOpen] = useState(false);
   const [runConfigOpen, setRunConfigOpen] = useState(false);
-  const [progressMinimized, setProgressMinimized] = useState(false);
   const [preselectedCategories, setPreselectedCategories] = useState<string[]>([]);
-  const [hierarchicalRunOpen, setHierarchicalRunOpen] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
-  // Collection polling
-  const { activeRun, progress, newSellerIds, clearNewSellerIds, refresh } =
-    useCollectionPolling(2000);
+  // Collection progress from global context
+  const { activeRun, progress, newSellerIds, clearNewSellerIds, refresh, openModal, setHideMinimized } =
+    useCollectionProgress();
+
+  // Hide minimized indicator when on Collections tab (progress bar is visible there)
+  useEffect(() => {
+    setHideMinimized(activeTab === "collections");
+    return () => setHideMinimized(false); // Reset when leaving page
+  }, [activeTab, setHideMinimized]);
 
   const supabase = createClient();
+
+  // Track sellers_new to refresh seller list when new sellers are found
+  const prevSellersNewRef = useRef<number | null>(null);
+  const prevRunStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!progress) {
+      // Run completed or no active run - trigger final refresh if we were tracking
+      if (prevSellersNewRef.current !== null && prevSellersNewRef.current > 0) {
+        handleRefresh();
+      }
+      prevSellersNewRef.current = null;
+      prevRunStatusRef.current = null;
+      return;
+    }
+
+    // Refresh seller list when new sellers count increases
+    const currentNew = progress.sellers_new || 0;
+    if (prevSellersNewRef.current !== null && currentNew > prevSellersNewRef.current) {
+      handleRefresh();
+    }
+    prevSellersNewRef.current = currentNew;
+    prevRunStatusRef.current = progress.status;
+  }, [progress?.sellers_new, progress?.status]);
 
   const handleRefresh = () => setRefreshTrigger((n) => n + 1);
 
@@ -81,13 +102,6 @@ export default function AutomationPage() {
       setSelectedLogId(mostRecentLogId);
       setLogDetailOpen(true);
     }
-  };
-
-  const handleCompare = (sourceId: string | null, targetId: string | null) => {
-    setDiffSourceId(sourceId);
-    setDiffTargetId(targetId);
-    setLogDetailOpen(false);
-    setDiffModalOpen(true);
   };
 
   const handleRunStarted = () => {
@@ -149,10 +163,7 @@ export default function AutomationPage() {
             {progress && (
               <ProgressBar
                 progress={progress}
-                onDetailsClick={() => {
-                  setProgressMinimized(false);
-                  setProgressDetailOpen(true);
-                }}
+                onDetailsClick={openModal}
                 onRunStateChange={refresh}
               />
             )}
@@ -176,7 +187,6 @@ export default function AutomationPage() {
                   hasActiveRun={!!activeRun}
                   onManualEditClick={handleLogClick}
                   onCollectionRunClick={(runId) => {
-                    // Open LogDetailModal with runId (not HierarchicalRunModal)
                     setSelectedRunId(runId);
                     setSelectedLogId(null);
                     setLogDetailOpen(true);
@@ -197,29 +207,6 @@ export default function AutomationPage() {
               }}
               selectedLogId={selectedLogId}
               selectedRunId={selectedRunId}
-              onCompare={handleCompare}
-              onCollectionRunDetail={(runId) => {
-                // Open HierarchicalRunModal for full details
-                setLogDetailOpen(false);
-                setSelectedRunId(runId);
-                setHierarchicalRunOpen(true);
-              }}
-            />
-
-            <DiffModal
-              open={diffModalOpen}
-              onOpenChange={setDiffModalOpen}
-              sourceId={diffSourceId}
-              targetId={diffTargetId}
-            />
-
-            <ProgressDetailModal
-              open={progressDetailOpen && !progressMinimized}
-              onOpenChange={setProgressDetailOpen}
-              progress={progress}
-              isMinimized={progressMinimized}
-              onMinimizeChange={setProgressMinimized}
-              onCancel={handleCancelRun}
             />
 
             <RunConfigModal
@@ -230,16 +217,6 @@ export default function AutomationPage() {
               }}
               onRunStarted={handleRunStarted}
               initialCategories={preselectedCategories}
-            />
-
-            <HierarchicalRunModal
-              open={hierarchicalRunOpen}
-              onOpenChange={setHierarchicalRunOpen}
-              runId={selectedRunId}
-              onRerun={(categoryIds) => {
-                setPreselectedCategories(categoryIds);
-                setRunConfigOpen(true);
-              }}
             />
           </div>
         )}
