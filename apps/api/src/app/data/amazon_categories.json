@@ -1,0 +1,186 @@
+{
+  "version": "2026-01",
+  "marketplace": "US",
+  "departments": [
+    {
+      "id": "appliances",
+      "name": "Appliances",
+      "node_id": "2619526011",
+      "categories": [
+        { "id": "appliances-cooktops", "name": "Cooktops", "node_id": "3741261" },
+        { "id": "appliances-dishwashers", "name": "Dishwashers", "node_id": "3741271" },
+        { "id": "appliances-freezers", "name": "Freezers", "node_id": "3741281" },
+        { "id": "appliances-microwaves", "name": "Microwaves", "node_id": "289935" },
+        { "id": "appliances-ranges", "name": "Ranges", "node_id": "3741291" }
+      ]
+    },
+    {
+      "id": "arts-crafts-sewing",
+      "name": "Arts, Crafts & Sewing",
+      "node_id": "2617942011",
+      "categories": [
+        { "id": "arts-beading", "name": "Beading & Jewelry Making", "node_id": "262613011" },
+        { "id": "arts-craft-supplies", "name": "Craft Supplies", "node_id": "12896161" },
+        { "id": "arts-fabric", "name": "Fabric", "node_id": "12899121" },
+        { "id": "arts-knitting", "name": "Knitting & Crochet", "node_id": "12897221" },
+        { "id": "arts-sewing", "name": "Sewing", "node_id": "12899291" }
+      ]
+    },
+    {
+      "id": "automotive",
+      "name": "Automotive",
+      "node_id": "15690151",
+      "categories": [
+        { "id": "auto-car-care", "name": "Car Care", "node_id": "15718271" },
+        { "id": "auto-exterior-accessories", "name": "Exterior Accessories", "node_id": "15718391" },
+        { "id": "auto-interior-accessories", "name": "Interior Accessories", "node_id": "15718411" },
+        { "id": "auto-replacement-parts", "name": "Replacement Parts", "node_id": "15719731" },
+        { "id": "auto-tools-equipment", "name": "Tools & Equipment", "node_id": "15719921" }
+      ]
+    },
+    {
+      "id": "baby",
+      "name": "Baby",
+      "node_id": "165797011",
+      "categories": [
+        { "id": "baby-activity-entertainment", "name": "Activity & Entertainment", "node_id": "166763011" },
+        { "id": "baby-car-seats", "name": "Car Seats & Accessories", "node_id": "166764011" },
+        { "id": "baby-diapering", "name": "Diapering", "node_id": "166772011" },
+        { "id": "baby-feeding", "name": "Feeding", "node_id": "166777011" },
+        { "id": "baby-nursery", "name": "Nursery", "node_id": "695338011" }
+      ]
+    },
+    {
+      "id": "beauty",
+      "name": "Beauty & Personal Care",
+      "node_id": "11055981",
+      "categories": [
+        { "id": "beauty-fragrance", "name": "Fragrance", "node_id": "11056591" },
+        { "id": "beauty-hair-care", "name": "Hair Care", "node_id": "11057241" },
+        { "id": "beauty-makeup", "name": "Makeup", "node_id": "11058281" },
+        { "id": "beauty-skin-care", "name": "Skin Care", "node_id": "11060451" },
+        { "id": "beauty-tools-accessories", "name": "Tools & Accessories", "node_id": "11062741" }
+      ]
+    },
+    {
+      "id": "electronics",
+      "name": "Electronics",
+      "node_id": "493964",
+      "categories": [
+        { "id": "electronics-accessories", "name": "Accessories & Supplies", "node_id": "281407" },
+        { "id": "electronics-camera-photo", "name": "Camera & Photo", "node_id": "502394" },
+        { "id": "electronics-computers", "name": "Computers & Accessories", "node_id": "541966" },
+        { "id": "electronics-headphones", "name": "Headphones", "node_id": "12097479011" },
+        { "id": "electronics-tv-video", "name": "Television & Video", "node_id": "1266092011" }
+      ]
+    },
+    {
+      "id": "grocery",
+      "name": "Grocery & Gourmet Food",
+      "node_id": "16310211",
+      "categories": [
+        { "id": "grocery-beverages", "name": "Beverages", "node_id": "16310231" },
+        { "id": "grocery-breakfast", "name": "Breakfast Foods", "node_id": "16310251" },
+        { "id": "grocery-candy-chocolate", "name": "Candy & Chocolate", "node_id": "16310271" },
+        { "id": "grocery-snacks", "name": "Snack Foods", "node_id": "16310391" },
+        { "id": "grocery-pantry-staples", "name": "Pantry Staples", "node_id": "16310361" }
+      ]
+    },
+    {
+      "id": "health",
+      "name": "Health & Personal Care",
+      "node_id": "3760931",
+      "categories": [
+        { "id": "health-medical-supplies", "name": "Medical Supplies & Equipment", "node_id": "3775181" },
+        { "id": "health-personal-care", "name": "Personal Care", "node_id": "3777891" },
+        { "id": "health-vitamins", "name": "Vitamins & Dietary Supplements", "node_id": "3764441" },
+        { "id": "health-wellness", "name": "Health & Wellness", "node_id": "3773931" },
+        { "id": "health-household", "name": "Household Supplies", "node_id": "15342821" }
+      ]
+    },
+    {
+      "id": "home-kitchen",
+      "name": "Home & Kitchen",
+      "node_id": "1063498",
+      "categories": [
+        { "id": "home-bath", "name": "Bath", "node_id": "1063280" },
+        { "id": "home-bedding", "name": "Bedding", "node_id": "1063252" },
+        { "id": "home-furniture", "name": "Furniture", "node_id": "1063306" },
+        { "id": "home-kitchen-dining", "name": "Kitchen & Dining", "node_id": "284507" },
+        { "id": "home-storage", "name": "Storage & Organization", "node_id": "511364" }
+      ]
+    },
+    {
+      "id": "industrial",
+      "name": "Industrial & Scientific",
+      "node_id": "16310161",
+      "categories": [
+        { "id": "industrial-additive-mfg", "name": "Additive Manufacturing Products", "node_id": "6066127011" },
+        { "id": "industrial-fasteners", "name": "Fasteners", "node_id": "16310181" },
+        { "id": "industrial-lab-scientific", "name": "Lab & Scientific Products", "node_id": "317970011" },
+        { "id": "industrial-material-handling", "name": "Material Handling Products", "node_id": "256348011" },
+        { "id": "industrial-safety", "name": "Occupational Health & Safety Products", "node_id": "318135011" }
+      ]
+    },
+    {
+      "id": "office",
+      "name": "Office Products",
+      "node_id": "1084128",
+      "categories": [
+        { "id": "office-desk-accessories", "name": "Desk Accessories & Workspace Organizers", "node_id": "1069456" },
+        { "id": "office-electronics", "name": "Office Electronics", "node_id": "172574" },
+        { "id": "office-furniture", "name": "Office Furniture & Lighting", "node_id": "1069166" },
+        { "id": "office-school-supplies", "name": "Office & School Supplies", "node_id": "1084744" },
+        { "id": "office-writing", "name": "Writing & Correction Supplies", "node_id": "1069818" }
+      ]
+    },
+    {
+      "id": "pet-supplies",
+      "name": "Pet Supplies",
+      "node_id": "2619534011",
+      "categories": [
+        { "id": "pet-birds", "name": "Birds", "node_id": "2975313011" },
+        { "id": "pet-cats", "name": "Cats", "node_id": "2975241011" },
+        { "id": "pet-dogs", "name": "Dogs", "node_id": "2975312011" },
+        { "id": "pet-fish", "name": "Fish & Aquatic Pets", "node_id": "2975429011" },
+        { "id": "pet-small-animals", "name": "Small Animals", "node_id": "2975446011" }
+      ]
+    },
+    {
+      "id": "sports-outdoors",
+      "name": "Sports & Outdoors",
+      "node_id": "3375301",
+      "categories": [
+        { "id": "sports-exercise-fitness", "name": "Exercise & Fitness", "node_id": "3407731" },
+        { "id": "sports-outdoor-recreation", "name": "Outdoor Recreation", "node_id": "706814011" },
+        { "id": "sports-sports-fitness", "name": "Sports", "node_id": "3375251" },
+        { "id": "sports-fan-shop", "name": "Fan Shop", "node_id": "3386071" },
+        { "id": "sports-hunting-fishing", "name": "Hunting & Fishing", "node_id": "3400371" }
+      ]
+    },
+    {
+      "id": "tools",
+      "name": "Tools & Home Improvement",
+      "node_id": "468240",
+      "categories": [
+        { "id": "tools-building-supplies", "name": "Building Supplies", "node_id": "551240" },
+        { "id": "tools-electrical", "name": "Electrical", "node_id": "495266" },
+        { "id": "tools-hardware", "name": "Hardware", "node_id": "511228" },
+        { "id": "tools-paint", "name": "Painting Supplies & Wall Treatments", "node_id": "3180271" },
+        { "id": "tools-power-hand", "name": "Power & Hand Tools", "node_id": "328182011" }
+      ]
+    },
+    {
+      "id": "toys-games",
+      "name": "Toys & Games",
+      "node_id": "165795011",
+      "categories": [
+        { "id": "toys-action-figures", "name": "Action Figures & Statues", "node_id": "166508011" },
+        { "id": "toys-arts-crafts", "name": "Arts & Crafts", "node_id": "166155011" },
+        { "id": "toys-building-toys", "name": "Building Toys", "node_id": "166092011" },
+        { "id": "toys-dolls-accessories", "name": "Dolls & Accessories", "node_id": "166250011" },
+        { "id": "toys-games", "name": "Games", "node_id": "166220011" }
+      ]
+    }
+  ]
+}

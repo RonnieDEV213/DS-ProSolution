@@ -2,24 +2,18 @@
 
 ## What This Is
 
-An in-house eBay automation account management platform for agency operations — tracking orders, managing bookkeeping, coordinating VAs, and providing client dashboards. Currently in "semi-automation" phase where VAs use a Chrome extension to assist with tasks while monitoring stats. The platform supports three user types (Admin, VA, Client) with role-based access control for VAs.
+An in-house eBay automation account management platform for agency operations — tracking orders, managing bookkeeping, coordinating VAs, providing client dashboards, and discovering dropshippers at scale. The platform supports three user types (Admin, VA, Client) with role-based access control, a Chrome extension for VA workflows, and an automated seller collection pipeline that cross-references Amazon Best Sellers with eBay to find dropshippers.
 
 ## Core Value
 
-Automate the discovery and collection of Amazon-to-eBay dropshippers at scale — enabling data-driven product sourcing decisions.
+Automate repetitive eBay operations — from VA task coordination to dropshipper discovery — so the business can scale without proportional headcount growth.
 
-## Current Milestone: v2 SellerCollection
+## Current State
 
-**Goal:** Automatically find eBay sellers who dropship from Amazon by cross-referencing Amazon Best Sellers with eBay search results.
-
-**Target features:**
-- Scrape Amazon Best Sellers (all departments/categories) via third-party API
-- Search each product on eBay with dropshipper filters (Brand New, free shipping, 80-120% of Amazon price)
-- Collect and deduplicate seller names against existing database
-- Store sellers in Supabase with collection metadata
-- Admin UI: "Collect Sellers" button, progress display, seller list view
-- Export functionality: JSON, CSV, copy to clipboard
-- Optional scheduled collection (monthly recurring)
+**Active:** Planning next milestone
+**Shipped:** v2 SellerCollection (2026-01-23), v1 Extension Auth & RBAC (2026-01-20)
+**Tech Stack:** Next.js 14+, FastAPI, Supabase, Chrome Extension MV3
+**Codebase:** ~55,000 lines across 346 files (v1: +16,544, v2: +38,240)
 
 ## Requirements
 
@@ -52,31 +46,40 @@ Automate the discovery and collection of Amazon-to-eBay dropshippers at scale �
 - ✓ Extension inactivity timeout: 1-hour with 5-minute warning, session recovery on restart
 - ✓ Permission re-check: periodic alarm detects role changes, forces re-auth
 
+**v2 SellerCollection (shipped 2026-01-23):**
+- ✓ Amazon Best Sellers scraping via Oxylabs E-Commerce API — v2
+- ✓ Category selection UI with department hierarchy, search, and custom presets — v2
+- ✓ eBay search with dropshipper filters (Brand New, free shipping, 80-120% markup, US sellers) — v2
+- ✓ Seller deduplication and persistent storage in Supabase — v2
+- ✓ 5-worker parallel collection with real-time SSE activity streaming — v2
+- ✓ Worker status dashboard with per-worker cards and metrics aggregation — v2
+- ✓ Seller management UI with bulk selection, drag-to-select, hover cards — v2
+- ✓ Undo/redo for deletions with keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z) — v2
+- ✓ Export: JSON, CSV, copy to clipboard with full metadata — v2
+- ✓ Scheduled monthly collection with cron configuration — v2
+- ✓ Unified history timeline with inline diff (added/removed sellers) — v2
+
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-**v2 SellerCollection:**
-- [ ] Amazon Best Sellers scraping via third-party API (Rainforest or similar)
-- [ ] eBay search via third-party API (ScraperAPI or similar)
-- [ ] Seller deduplication and persistent storage in Supabase
-- [ ] Collection orchestration with progress tracking
-- [ ] Admin UI: trigger collection, view sellers, track status
-- [ ] Export: JSON, CSV, copy to clipboard
+(No active requirements — next milestone to be defined)
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-**v2 boundaries:**
-- Seller filtering/quality pipeline (reverse image search, hero image detection, win rate analysis) — future milestone after collection is working
+**Future milestone candidates (deferred from v2):**
+- Seller filtering/quality pipeline (reverse image search, hero image detection, win rate analysis) — candidate for v2.1
+- Multi-marketplace support (UK, DE, etc.) — candidate for v2.1
+- Pause/resume for long-running collections — candidate for v2.1
+- Seller metadata capture (feedback score, item count) — candidate for v2.1
+
+**Permanent boundaries:**
 - Listing automation (copying dropshipper listings to your accounts) — separate project
 - Real-time monitoring of Amazon/eBay changes — brute force monthly is sufficient given work/cost ratio
-- Amazon price change tracking — not needed for seller discovery
-- Authenticated scraping — all data is public, use third-party APIs only
-- Building custom scrapers/proxies — buy from Rainforest/ScraperAPI, don't build
-
-**General boundaries (carried from v1):**
+- Building custom scrapers/proxies — buy from Oxylabs, don't build
+- Authenticated scraping — all data is public, no account risk
 - Mobile app or responsive redesign — desktop-first for VA workflow
 - New user types or auth methods — existing Admin/VA/Client model is sufficient
 
@@ -85,23 +88,23 @@ Automate the discovery and collection of Amazon-to-eBay dropshippers at scale �
 **Technical Environment:**
 - Monorepo: `apps/web` (Next.js 14+), `apps/api` (FastAPI), `packages/extension` (Chrome MV3)
 - Supabase for auth, database (PostgreSQL + RLS), and real-time
-- RBAC already implemented for VAs via department roles/access profiles
+- Oxylabs E-Commerce Scraper API ($49/month Micro plan) for Amazon and eBay
 
-**v2 Architecture (from research docs):**
-- Third-party APIs handle scraping (Rainforest for Amazon, ScraperAPI for eBay)
+**v2 SellerCollection Architecture:**
+- Oxylabs handles scraping for both Amazon Best Sellers and eBay search
+- 5-worker parallel collection for optimal throughput
+- SSE (Server-Sent Events) for real-time activity streaming
+- Audit log replay for seller snapshot reconstruction
 - All data is public — no authentication required, no account risk
-- FastAPI backend orchestrates collection flow and stores results
-- Next.js frontend provides Admin UI for triggering and viewing results
-- No proxy management needed — third-party services handle it
 
 **Data Flow:**
 ```
-Amazon Best Sellers (Rainforest API)
-    → Product titles + prices
-    → eBay search (ScraperAPI) with filters
+Amazon Best Sellers (Oxylabs)
+    → Product titles + prices (5 workers)
+    → eBay search (Oxylabs) with dropshipper filters (5 workers)
     → Seller names from results
     → Dedup against Supabase
-    → Store new sellers
+    → Store new sellers + audit log
 ```
 
 **User Types (source of truth = codebase):**
@@ -109,12 +112,14 @@ Amazon Best Sellers (Rainforest API)
 - VA: RBAC applies, access controlled by assigned roles/permissions
 - Client: Read-only dashboard, no RBAC, no extension access or access codes
 
-**v2 Access:** SellerCollection is Admin-only (data sourcing tool, not VA workflow)
+**Access Control:**
+- SellerCollection is Admin-only (data sourcing tool, not VA workflow)
+- Extension auth via access codes (4-char prefix + 12-char secret)
 
 ## Constraints
 
 - **Tech stack**: Next.js 14+ / FastAPI / Supabase — no new frameworks
-- **Scraping**: Use third-party APIs (Rainforest, ScraperAPI) — don't build scrapers
+- **Scraping**: Use Oxylabs E-Commerce API — don't build scrapers
 - **Cost/Work ratio**: Prefer simple brute-force over complex monitoring systems
 - **Public data only**: No authenticated scraping, no account risk
 - **UI patterns**: Use existing shadcn/ui components
@@ -134,13 +139,14 @@ Amazon Best Sellers (Rainforest API)
 | 1-hour inactivity timeout with 5-min warning | Protects account access while allowing reasonable work sessions | ✓ Good — v1 |
 | Service layer pattern for API | Business logic in services/, routes in routers/ — clean separation | ✓ Good — v1 |
 | Upsert for presence with user/org constraint | Atomic presence swap ensures VA can only be on one account at a time | ✓ Good — v1 |
-
-## Current State
-
-**Active:** v2 SellerCollection (started 2026-01-20)
-**Shipped:** v1 Extension Auth & RBAC (2026-01-20)
-**Tech Stack:** Next.js 14+, FastAPI, Supabase, Chrome Extension MV3
-**Codebase:** ~16,500 lines added in v1 milestone across 74 files
+| Oxylabs for both Amazon and eBay | Single vendor simplifies billing, $49/month Micro plan is cost-effective | ✓ Good — v2 |
+| 5 parallel workers (MAX_WORKERS=5) | Optimal concurrency for Oxylabs Micro plan rate limits | ✓ Good — v2 |
+| SSE for activity streaming | Simpler than WebSockets, works with existing auth, browser-native EventSource | ✓ Good — v2 |
+| Audit log replay for snapshots | No separate snapshot tables needed, simple and accurate | ✓ Good — v2 |
+| Static JSON for Amazon categories | Rarely changes, no DB overhead, easier to update | ✓ Good — v2 |
+| Client-side metrics aggregation | Reduces backend complexity, real-time updates via SSE | ✓ Good — v2 |
+| Unified History Entry modal | Single modal for runs and edits, simpler UX | ✓ Good — v2 |
+| Delete vs deprecate for unused code | Cleaner codebase, no confusion from deprecated stubs | ✓ Good — v2 |
 
 ---
-*Last updated: 2026-01-20 after starting v2 SellerCollection milestone*
+*Last updated: 2026-01-23 after v2 SellerCollection milestone*

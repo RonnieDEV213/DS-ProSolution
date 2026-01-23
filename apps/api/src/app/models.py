@@ -813,3 +813,373 @@ class AccessCodeErrorResponse(BaseModel):
     error_code: str  # "INVALID_CODE", "ACCOUNT_DISABLED", "RATE_LIMITED", "CODE_EXPIRED"
     message: str  # User-facing message
     retry_after: Optional[int] = None  # Seconds until retry allowed (for rate limit)
+
+
+# ============================================================
+# Collection Models
+# ============================================================
+
+
+class CollectionRunStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class CollectionSettingsResponse(BaseModel):
+    """Current collection settings."""
+
+    max_concurrent_runs: int
+
+
+class CollectionSettingsUpdate(BaseModel):
+    """Update collection settings."""
+
+    max_concurrent_runs: Optional[int] = None
+
+
+class CollectionRunCreate(BaseModel):
+    """Create a new collection run."""
+
+    name: Optional[str] = None  # Auto-generated if blank
+    category_ids: list[str]
+
+
+class CollectionRunResponse(BaseModel):
+    """Collection run details."""
+
+    id: str
+    name: str
+    status: CollectionRunStatus
+    total_items: int
+    processed_items: int
+    failed_items: int
+    category_ids: list[str]
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    paused_at: Optional[str] = None
+    created_by: str
+    created_at: str
+
+
+class CollectionRunListResponse(BaseModel):
+    """List of collection runs."""
+
+    runs: list[CollectionRunResponse]
+    total: int
+
+
+# ============================================================
+# Seller Management Models
+# ============================================================
+
+
+class SellerCreate(BaseModel):
+    """Request body for creating a seller."""
+
+    name: str
+
+
+class SellerUpdate(BaseModel):
+    """Request body for updating a seller."""
+
+    name: str
+
+
+class BulkSellerCreate(BaseModel):
+    """Request body for bulk creating sellers."""
+
+    names: list[str]
+
+
+class BulkSellerDelete(BaseModel):
+    """Request body for bulk deleting sellers."""
+
+    ids: list[str]
+
+
+class BulkOperationResponse(BaseModel):
+    """Response for bulk operations."""
+
+    success_count: int
+    failed_count: int
+    errors: list[str]
+
+
+class SellerResponse(BaseModel):
+    """Seller data in API responses."""
+
+    id: str
+    display_name: str
+    normalized_name: str
+    platform: str
+    platform_id: Optional[str] = None
+    times_seen: int
+    first_seen_run_id: Optional[str] = None
+    last_seen_run_id: Optional[str] = None
+    flagged: bool = False
+    created_at: datetime
+
+
+class SellerListResponse(BaseModel):
+    """Paginated seller list response."""
+
+    sellers: list[SellerResponse]
+    total: int
+
+
+class SellerExportItem(BaseModel):
+    """Single seller in export format."""
+
+    display_name: str
+    platform: str
+    feedback_score: Optional[int] = None
+    times_seen: int
+    discovered_at: datetime
+    first_seen_run_id: Optional[str] = None
+
+
+class SellerExportResponse(BaseModel):
+    """JSON export format."""
+
+    exported_at: datetime
+    run_id: Optional[str] = None
+    count: int
+    sellers: list[SellerExportItem]
+
+
+# ============================================================
+# Seller Audit Log Models
+# ============================================================
+
+
+class AuditLogEntry(BaseModel):
+    """Audit log entry for seller changes."""
+
+    id: str
+    action: Literal["add", "edit", "remove"]
+    seller_name: str
+    source: Literal["manual", "collection_run", "auto_remove"]
+    source_run_id: Optional[str] = None
+    user_id: Optional[str] = None
+    created_at: datetime
+    affected_count: int
+    seller_count_snapshot: Optional[int] = None
+
+
+class AuditLogResponse(BaseModel):
+    """Paginated audit log response."""
+
+    entries: list[AuditLogEntry]
+    total: int
+
+
+# ============================================================
+# Run Template Models
+# ============================================================
+
+
+class RunTemplateCreate(BaseModel):
+    """Request body for creating a run template."""
+
+    name: str
+    description: Optional[str] = None
+    department_ids: list[str] = []
+    concurrency: int = 3
+    is_default: bool = False
+
+
+class RunTemplateUpdate(BaseModel):
+    """Request body for updating a run template."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    department_ids: Optional[list[str]] = None
+    concurrency: Optional[int] = None
+    is_default: Optional[bool] = None
+
+
+class RunTemplateResponse(BaseModel):
+    """Run template data in API responses."""
+
+    id: str
+    name: str
+    description: Optional[str] = None
+    department_ids: list[str]
+    concurrency: int
+    is_default: bool
+    created_at: datetime
+
+
+class RunTemplateListResponse(BaseModel):
+    """List of run templates response."""
+
+    templates: list[RunTemplateResponse]
+
+
+# ============================================================
+# Enhanced Progress Models
+# ============================================================
+
+
+class WorkerStatus(BaseModel):
+    """Status of a single collection worker."""
+
+    worker_id: int
+    department: str
+    category: str
+    product: Optional[str] = None
+    status: Literal["idle", "fetching", "searching", "complete"]
+
+
+class EnhancedProgress(BaseModel):
+    """Detailed progress for a collection run."""
+
+    # Phase tracking
+    phase: Literal["amazon", "ebay"] = "amazon"
+    products_found: int = 0  # Live count during Amazon phase
+    started_at: Optional[str] = None
+    checkpoint: Optional[dict] = None
+    # Hierarchical counts
+    departments_total: int
+    departments_completed: int
+    categories_total: int
+    categories_completed: int
+    products_total: int
+    products_searched: int
+    sellers_found: int
+    sellers_new: int
+    # Workers
+    worker_status: list[WorkerStatus]
+
+
+# ============================================================
+# Amazon Category Presets
+# ============================================================
+
+
+class CategoryPresetCreate(BaseModel):
+    """Request to create a category preset."""
+
+    name: str
+    category_ids: list[str]
+
+
+class CategoryPresetResponse(BaseModel):
+    """Category preset response."""
+
+    id: str
+    name: str
+    category_ids: list[str]
+    is_builtin: bool
+    created_at: str
+
+
+class CategoryPresetListResponse(BaseModel):
+    """List of category presets."""
+
+    presets: list[CategoryPresetResponse]
+
+
+class AmazonCategory(BaseModel):
+    """Single Amazon category."""
+
+    id: str
+    name: str
+    node_id: str
+
+
+class AmazonDepartment(BaseModel):
+    """Amazon department with child categories."""
+
+    id: str
+    name: str
+    node_id: str
+    categories: list[AmazonCategory]
+
+
+class AmazonCategoriesResponse(BaseModel):
+    """Response containing all Amazon departments and categories."""
+
+    departments: list[AmazonDepartment]
+
+
+# ============================================================
+# Collection History Models
+# ============================================================
+
+
+class CollectionHistoryEntry(BaseModel):
+    """Single entry in collection history with full statistics."""
+
+    id: str
+    name: str
+    status: CollectionRunStatus
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
+    categories_count: int
+    products_total: int
+    products_searched: int
+    sellers_found: int
+    sellers_new: int
+    failed_items: int
+    created_by: str
+    seller_count_snapshot: Optional[int] = None
+
+
+class CollectionHistoryResponse(BaseModel):
+    """Paginated collection history response."""
+
+    runs: list[CollectionHistoryEntry]
+    total: int
+
+
+# ============================================================
+# Collection Schedule Models
+# ============================================================
+
+
+class CollectionScheduleResponse(BaseModel):
+    """Collection schedule configuration."""
+
+    id: Optional[str] = None
+    preset_id: Optional[str] = None
+    preset_name: Optional[str] = None
+    cron_expression: str
+    enabled: bool
+    notify_email: bool
+    last_run_at: Optional[datetime] = None
+    next_run_at: Optional[datetime] = None
+
+
+class CollectionScheduleUpdate(BaseModel):
+    """Update collection schedule."""
+
+    preset_id: Optional[str] = None
+    cron_expression: Optional[str] = None
+    enabled: Optional[bool] = None
+    notify_email: Optional[bool] = None
+
+
+# ============================================================
+# Activity Stream Models
+# ============================================================
+
+
+class ActivityEntry(BaseModel):
+    """Activity event for SSE streaming."""
+
+    id: str
+    timestamp: str
+    worker_id: int
+    phase: str  # "amazon" or "ebay"
+    action: str  # "fetching", "found", "error", "rate_limited", "complete"
+    category: Optional[str] = None
+    product_name: Optional[str] = None
+    seller_found: Optional[str] = None
+    new_sellers_count: Optional[int] = None
+    error_message: Optional[str] = None

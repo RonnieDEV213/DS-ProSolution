@@ -1,0 +1,2077 @@
+"""Collection service for managing seller collection runs.
+
+This module handles:
+- Run lifecycle (create, start, pause, cancel)
+- Checkpointing for crash recovery
+- Resume of interrupted runs on startup
+- Amazon collection execution via Oxylabs
+"""
+
+import asyncio
+import logging
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import quote_plus
+from supabase import Client
+
+from app.services.scrapers import OxylabsAmazonScraper, OxylabsEbayScraper
+from app.services.db_utils import (
+    batched_query,
+    batched_delete,
+    batched_insert,
+    batched_update,
+    paginated_fetch,
+    QUERY_BATCH_SIZE,
+    INSERT_BATCH_SIZE,
+    MAX_CONCURRENT,
+)
+from app.services.parallel_runner import (
+    ParallelCollectionRunner,
+    create_activity_event,
+    CollectionPausedException,
+)
+from app.services.activity_stream import get_activity_stream
+from app.services.run_signals import is_paused_or_cancelled, is_cancelled, clear_signal
+
+logger = logging.getLogger(__name__)
+
+
+class CollectionService:
+    """Orchestrates collection runs with checkpointing."""
+
+    def __init__(self, supabase: Client):
+        self.supabase = supabase
+
+    async def get_settings(self, org_id: str) -> dict:
+        """Get or create collection settings for an org."""
+        result = (
+            self.supabase.table("collection_settings")
+            .select("*")
+            .eq("org_id", org_id)
+            .execute()
+        )
+
+        if result.data:
+            return result.data[0]
+
+        # Create default settings
+        default = {
+            "org_id": org_id,
+            "max_concurrent_runs": 3,
+        }
+        insert_result = (
+            self.supabase.table("collection_settings")
+            .insert(default)
+            .execute()
+        )
+        return insert_result.data[0] if insert_result.data else default
+
+    async def update_settings(
+        self,
+        org_id: str,
+        max_concurrent_runs: int | None = None,
+    ) -> dict:
+        """Update collection settings."""
+        settings = await self.get_settings(org_id)
+
+        update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+        if max_concurrent_runs is not None:
+            update_data["max_concurrent_runs"] = max_concurrent_runs
+
+        result = (
+            self.supabase.table("collection_settings")
+            .update(update_data)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        return result.data[0] if result.data else settings
+
+    async def create_run(
+        self,
+        org_id: str,
+        user_id: str,
+        category_ids: list[str],
+        name: str | None = None,
+    ) -> dict:
+        """
+        Create a new collection run in pending state.
+        """
+        # Check concurrent run limit
+        settings = await self.get_settings(org_id)
+        active_runs = (
+            self.supabase.table("collection_runs")
+            .select("id", count="exact")
+            .eq("org_id", org_id)
+            .in_("status", ["pending", "running", "paused"])
+            .execute()
+        )
+
+        if (active_runs.count or 0) >= settings["max_concurrent_runs"]:
+            return {
+                "error": "concurrent_limit",
+                "message": f"Maximum {settings['max_concurrent_runs']} concurrent runs allowed",
+            }
+
+        # Generate name if not provided
+        if not name:
+            name = f"Collection {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
+
+        # Create run
+        now = datetime.now(timezone.utc).isoformat()
+        run_data = {
+            "org_id": org_id,
+            "name": name,
+            "status": "pending",
+            "total_items": 0,
+            "processed_items": 0,
+            "failed_items": 0,
+            "category_ids": category_ids,
+            "created_by": user_id,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+        result = self.supabase.table("collection_runs").insert(run_data).execute()
+
+        if not result.data:
+            return {"error": "insert_failed", "message": "Failed to create run"}
+
+        run = result.data[0]
+        logger.info(f"Created collection run {run['id']} for org {org_id}")
+
+        return {"run": run}
+
+    async def get_run(self, run_id: str, org_id: str) -> dict | None:
+        """Get a collection run by ID."""
+        result = (
+            self.supabase.table("collection_runs")
+            .select("*")
+            .eq("id", run_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    async def list_runs(
+        self,
+        org_id: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """List collection runs for an org."""
+        result = (
+            self.supabase.table("collection_runs")
+            .select("*", count="exact")
+            .eq("org_id", org_id)
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+        return result.data or [], result.count or 0
+
+    async def get_history(
+        self,
+        org_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """
+        Get collection history (completed/failed/cancelled runs) with statistics.
+
+        Returns runs sorted by completed_at descending.
+        """
+        result = (
+            self.supabase.table("collection_runs")
+            .select(
+                "id, name, status, category_ids, "
+                "started_at, completed_at, "
+                "products_total, products_searched, "
+                "sellers_found, sellers_new, "
+                "failed_items, created_by, seller_count_snapshot",
+                count="exact"
+            )
+            .eq("org_id", org_id)
+            .in_("status", ["completed", "failed", "cancelled"])
+            .order("completed_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+
+        # Compute duration for each run
+        runs = []
+        for r in result.data or []:
+            duration = None
+            if r.get("started_at") and r.get("completed_at"):
+                started = datetime.fromisoformat(r["started_at"].replace("Z", "+00:00"))
+                completed = datetime.fromisoformat(r["completed_at"].replace("Z", "+00:00"))
+                duration = int((completed - started).total_seconds())
+
+            runs.append({
+                "id": r["id"],
+                "name": r["name"],
+                "status": r["status"],
+                "started_at": r.get("started_at"),
+                "completed_at": r.get("completed_at"),
+                "duration_seconds": duration,
+                "categories_count": len(r.get("category_ids") or []),
+                "products_total": r.get("products_total") or 0,
+                "products_searched": r.get("products_searched") or 0,
+                "sellers_found": r.get("sellers_found") or 0,
+                "sellers_new": r.get("sellers_new") or 0,
+                "failed_items": r.get("failed_items") or 0,
+                "created_by": r["created_by"],
+                "seller_count_snapshot": r.get("seller_count_snapshot"),
+            })
+
+        return runs, result.count or 0
+
+    async def start_run(self, run_id: str, org_id: str) -> dict:
+        """Start a pending run."""
+        run = await self.get_run(run_id, org_id)
+        if not run:
+            return {"error": "not_found", "message": "Run not found"}
+
+        if run["status"] != "pending":
+            return {"error": "invalid_status", "message": f"Cannot start run in {run['status']} status"}
+
+        now = datetime.now(timezone.utc).isoformat()
+        self.supabase.table("collection_runs").update({
+            "status": "running",
+            "started_at": now,
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        logger.info(f"Started collection run {run_id}")
+        return {"ok": True, "status": "running"}
+
+    async def pause_run(self, run_id: str, org_id: str) -> dict:
+        """Pause a running collection."""
+        run = await self.get_run(run_id, org_id)
+        if not run:
+            print(f"[PAUSE-SVC] Run {run_id} not found")
+            return {"error": "not_found", "message": "Run not found"}
+
+        print(f"[PAUSE-SVC] Run {run_id} current status: {run['status']}")
+        if run["status"] != "running":
+            print(f"[PAUSE-SVC] Cannot pause - status is {run['status']}")
+            return {"error": "invalid_status", "message": f"Cannot pause run in {run['status']} status"}
+
+        now = datetime.now(timezone.utc).isoformat()
+        result = self.supabase.table("collection_runs").update({
+            "status": "paused",
+            "paused_at": now,
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        print(f"[PAUSE-SVC] DB update executed, affected rows: {len(result.data) if result.data else 0}")
+        logger.info(f"Paused collection run {run_id}")
+        return {"ok": True, "status": "paused"}
+
+    async def resume_run(self, run_id: str, org_id: str) -> dict:
+        """Resume a paused collection."""
+        run = await self.get_run(run_id, org_id)
+        if not run:
+            print(f"[RESUME-SVC] Run {run_id} not found")
+            return {"error": "not_found", "message": "Run not found"}
+
+        print(f"[RESUME-SVC] Run {run_id} current status: {run['status']}")
+        if run["status"] != "paused":
+            print(f"[RESUME-SVC] Cannot resume - status is {run['status']}")
+            return {"error": "invalid_status", "message": f"Cannot resume run in {run['status']} status"}
+
+        now = datetime.now(timezone.utc).isoformat()
+        result = self.supabase.table("collection_runs").update({
+            "status": "running",
+            "paused_at": None,
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        print(f"[RESUME-SVC] DB update executed, affected rows: {len(result.data) if result.data else 0}")
+        logger.info(f"Resumed collection run {run_id}")
+        return {"ok": True, "status": "running"}
+
+    async def cancel_run(self, run_id: str, org_id: str) -> dict:
+        """Cancel a collection run."""
+        run = await self.get_run(run_id, org_id)
+        if not run:
+            return {"error": "not_found", "message": "Run not found"}
+
+        if run["status"] in ("completed", "failed", "cancelled"):
+            return {"error": "invalid_status", "message": f"Cannot cancel run in {run['status']} status"}
+
+        now = datetime.now(timezone.utc).isoformat()
+        self.supabase.table("collection_runs").update({
+            "status": "cancelled",
+            "completed_at": now,
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        logger.info(f"Cancelled collection run {run_id}")
+        return {"ok": True, "status": "cancelled"}
+
+    async def checkpoint(
+        self,
+        run_id: str,
+        checkpoint_data: dict,
+        processed_items: int,
+        failed_items: int,
+    ) -> None:
+        """Save checkpoint for crash recovery."""
+        now = datetime.now(timezone.utc).isoformat()
+        self.supabase.table("collection_runs").update({
+            "checkpoint": checkpoint_data,
+            "processed_items": processed_items,
+            "failed_items": failed_items,
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        logger.debug(f"Checkpointed run {run_id}: {processed_items} processed, {failed_items} failed")
+
+    async def get_incomplete_runs(self) -> list[dict]:
+        """Get runs that were interrupted (running/paused status)."""
+        result = (
+            self.supabase.table("collection_runs")
+            .select("*")
+            .in_("status", ["running", "paused"])
+            .execute()
+        )
+        return result.data or []
+
+    async def resume_incomplete_runs(self) -> int:
+        """
+        Called on server startup to find and flag interrupted runs.
+
+        Returns count of runs found. Actual resume handled by collection_manager task.
+        """
+        runs = await self.get_incomplete_runs()
+
+        if runs:
+            logger.info(f"Found {len(runs)} interrupted collection run(s) to resume")
+            for run in runs:
+                logger.info(f"  - Run {run['id']}: {run['name']} (status: {run['status']}, checkpoint: {run.get('checkpoint') is not None})")
+
+        return len(runs)
+
+    # ============================================================
+    # Seller Management
+    # ============================================================
+
+    def _normalize_seller_name(self, name: str) -> str:
+        """Normalize seller name for deduplication."""
+        import re
+        # Lowercase, strip, collapse whitespace
+        normalized = re.sub(r'\s+', ' ', name.lower().strip())
+        return normalized
+
+    async def _get_seller_count_snapshot(self, org_id: str) -> int:
+        """Get current seller count for snapshot storage."""
+        result = (
+            self.supabase.table("sellers")
+            .select("id", count="exact")
+            .eq("org_id", org_id)
+            .execute()
+        )
+        return result.count or 0
+
+    async def _store_run_snapshot(self, run_id: str, org_id: str):
+        """Store seller count snapshot on run completion."""
+        count = await self._get_seller_count_snapshot(org_id)
+        self.supabase.table("collection_runs").update({
+            "seller_count_snapshot": count,
+        }).eq("id", run_id).execute()
+        logger.info(f"Stored seller snapshot {count} for run {run_id}")
+
+    async def get_sellers(
+        self,
+        org_id: str,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Get all sellers for the org, newest first.
+
+        Handles Supabase's 1000 row limit by paginating internally when needed.
+        """
+        # If requesting more than 1000, we need to paginate
+        if limit > 1000:
+            all_sellers = []
+            current_offset = offset
+            remaining = limit
+            total_count = 0
+
+            while remaining > 0:
+                batch_size = min(1000, remaining)
+                result = (
+                    self.supabase.table("sellers")
+                    .select("*", count="exact")
+                    .eq("org_id", org_id)
+                    .order("created_at", desc=True)
+                    .range(current_offset, current_offset + batch_size - 1)
+                    .execute()
+                )
+
+                batch = result.data or []
+                total_count = result.count or 0
+                all_sellers.extend(batch)
+
+                # If we got fewer than requested, we've reached the end
+                if len(batch) < batch_size:
+                    break
+
+                current_offset += batch_size
+                remaining -= batch_size
+
+            return all_sellers, total_count
+
+        # Standard single query for <= 1000
+        result = (
+            self.supabase.table("sellers")
+            .select("*", count="exact")
+            .eq("org_id", org_id)
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+        return result.data or [], result.count or 0
+
+    async def get_sellers_by_run(
+        self,
+        org_id: str,
+        run_id: str,
+    ) -> list[dict]:
+        """Get all sellers discovered in a specific collection run."""
+        result = (
+            self.supabase.table("sellers")
+            .select("*")
+            .eq("org_id", org_id)
+            .eq("first_seen_run_id", run_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return result.data or []
+
+    async def add_seller(
+        self,
+        org_id: str,
+        user_id: str,
+        name: str,
+        source: str = "manual",
+        run_id: str | None = None,
+    ) -> dict:
+        """Add a seller manually or from collection run."""
+        normalized = self._normalize_seller_name(name)
+
+        # Check if already exists
+        existing = (
+            self.supabase.table("sellers")
+            .select("id")
+            .eq("org_id", org_id)
+            .eq("normalized_name", normalized)
+            .eq("platform", "ebay")
+            .execute()
+        )
+        if existing.data:
+            raise ValueError(f"Seller '{name}' already exists")
+
+        # Insert seller
+        seller_data = {
+            "org_id": org_id,
+            "display_name": name,
+            "normalized_name": normalized,
+            "platform": "ebay",
+            "first_seen_run_id": run_id,
+            "last_seen_run_id": run_id,
+            "times_seen": 1,
+        }
+        result = self.supabase.table("sellers").insert(seller_data).execute()
+
+        if not result.data:
+            raise ValueError("Failed to create seller")
+
+        seller = result.data[0]
+
+        # Get current seller count for snapshot
+        seller_count = await self._get_seller_count_snapshot(org_id)
+
+        # Log the addition
+        await self._log_seller_change(
+            org_id=org_id,
+            user_id=user_id,
+            action="add",
+            seller_id=seller["id"],
+            seller_name=name,
+            old_value=None,
+            new_value={"display_name": name},
+            source=source,
+            run_id=run_id,
+            seller_count_snapshot=seller_count,
+        )
+
+        return seller
+
+    async def update_seller(
+        self,
+        org_id: str,
+        user_id: str,
+        seller_id: str,
+        new_name: str,
+    ) -> dict:
+        """Update a seller's name."""
+        # Get current state
+        result = (
+            self.supabase.table("sellers")
+            .select("*")
+            .eq("id", seller_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Seller not found")
+
+        current = result.data[0]
+        old_name = current["display_name"]
+        new_normalized = self._normalize_seller_name(new_name)
+
+        # Check for duplicate
+        dup_check = (
+            self.supabase.table("sellers")
+            .select("id")
+            .eq("org_id", org_id)
+            .eq("normalized_name", new_normalized)
+            .eq("platform", "ebay")
+            .neq("id", seller_id)
+            .execute()
+        )
+        if dup_check.data:
+            raise ValueError(f"Seller '{new_name}' already exists")
+
+        # Update
+        update_result = (
+            self.supabase.table("sellers")
+            .update({
+                "display_name": new_name,
+                "normalized_name": new_normalized,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            })
+            .eq("id", seller_id)
+            .execute()
+        )
+
+        if not update_result.data:
+            raise ValueError("Failed to update seller")
+
+        seller = update_result.data[0]
+
+        # Get current seller count for snapshot
+        seller_count = await self._get_seller_count_snapshot(org_id)
+
+        # Log the edit
+        await self._log_seller_change(
+            org_id=org_id,
+            user_id=user_id,
+            action="edit",
+            seller_id=seller_id,
+            seller_name=new_name,
+            old_value={"display_name": old_name},
+            new_value={"display_name": new_name},
+            source="manual",
+            run_id=None,
+            seller_count_snapshot=seller_count,
+        )
+
+        return seller
+
+    async def remove_seller(
+        self,
+        org_id: str,
+        user_id: str,
+        seller_id: str,
+        source: str = "manual",
+        criteria: dict | None = None,
+    ) -> None:
+        """Remove a seller."""
+        # Get current state
+        result = (
+            self.supabase.table("sellers")
+            .select("display_name")
+            .eq("id", seller_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Seller not found")
+
+        name = result.data[0]["display_name"]
+
+        # Get current seller count and pre-compute post-delete snapshot
+        current_count = await self._get_seller_count_snapshot(org_id)
+        seller_count = current_count - 1 if current_count > 0 else 0
+
+        # Log BEFORE delete (FK constraint requires seller to exist)
+        await self._log_seller_change(
+            org_id=org_id,
+            user_id=user_id,
+            action="remove",
+            seller_id=seller_id,
+            seller_name=name,
+            old_value={"display_name": name},
+            new_value=None,
+            source=source,
+            run_id=None,
+            criteria=criteria,
+            seller_count_snapshot=seller_count,
+        )
+
+        # Delete after logging
+        self.supabase.table("sellers").delete().eq("id", seller_id).execute()
+
+    async def bulk_add_sellers(
+        self,
+        org_id: str,
+        user_id: str,
+        names: list[str],
+        source: str = "manual",
+    ) -> tuple[int, int, list[str]]:
+        """
+        Bulk add sellers.
+        Returns (success_count, failed_count, errors).
+        Logs as a single audit entry.
+
+        Optimized for large imports (millions of sellers):
+        - Concurrent batched lookups
+        - Concurrent batched inserts
+        """
+        import json
+
+        errors: list[str] = []
+        added_names: list[str] = []
+
+        # Prepare all sellers with normalized names
+        sellers_to_check: list[tuple[str, str]] = []  # (display_name, normalized_name)
+        for name in names:
+            name = name.strip()
+            if not name:
+                continue
+            normalized = self._normalize_seller_name(name)
+            sellers_to_check.append((name, normalized))
+
+        if not sellers_to_check:
+            return 0, 0, []
+
+        # Batch check for existing sellers (concurrent)
+        all_normalized = [n for _, n in sellers_to_check]
+        existing_results = batched_query(
+            self.supabase,
+            table="sellers",
+            select="normalized_name",
+            filter_column="normalized_name",
+            filter_values=all_normalized,
+            extra_filters={"org_id": org_id},
+        )
+        existing_normalized = set(r["normalized_name"] for r in existing_results)
+
+        # Filter out duplicates
+        sellers_to_insert = []
+        duplicate_count = 0
+        for display_name, normalized in sellers_to_check:
+            if normalized in existing_normalized:
+                duplicate_count += 1
+                if len(errors) < 10:  # Limit error messages
+                    errors.append(f"{display_name}: already exists")
+            else:
+                sellers_to_insert.append({
+                    "org_id": org_id,
+                    "display_name": display_name,
+                    "normalized_name": normalized,
+                    "platform": "ebay",
+                    "times_seen": 1,
+                })
+                added_names.append(display_name)
+                # Add to existing set to catch duplicates within the import
+                existing_normalized.add(normalized)
+
+        # Batch insert (concurrent)
+        success_count, insert_errors = batched_insert(
+            self.supabase,
+            table="sellers",
+            rows=sellers_to_insert,
+        )
+        errors.extend(insert_errors[:10 - len(errors)] if len(errors) < 10 else [])
+        failed_count = duplicate_count + len(insert_errors)
+
+        # Log as single audit entry if any were added
+        if success_count > 0:
+            # Get current seller count for snapshot (after bulk add)
+            seller_count = await self._get_seller_count_snapshot(org_id)
+
+            summary = f"{added_names[0]}" if success_count == 1 else f"{added_names[0]} (+{success_count - 1} more)"
+            log_data = {
+                "org_id": org_id,
+                "action": "add",
+                "seller_id": None,
+                "seller_name": summary,
+                "old_value": None,
+                "new_value": json.dumps({"names": added_names}),
+                "source": source,
+                "source_run_id": None,
+                "source_criteria": None,
+                "user_id": user_id,
+                "affected_count": success_count,
+                "seller_count_snapshot": seller_count,
+            }
+            self.supabase.table("seller_audit_log").insert(log_data).execute()
+
+        return success_count, failed_count, errors
+
+    async def bulk_remove_sellers(
+        self,
+        org_id: str,
+        user_id: str,
+        seller_ids: list[str],
+        source: str = "manual",
+    ) -> tuple[int, int, list[str]]:
+        """
+        Bulk remove sellers.
+        Returns (success_count, failed_count, errors).
+        Logs as a single audit entry.
+
+        Optimized for large operations (millions of sellers):
+        - Concurrent batched lookups
+        - Concurrent batched deletes
+        """
+        import json
+
+        errors: list[str] = []
+        removed_names: list[str] = []
+
+        # Get all seller names (concurrent batched lookup)
+        lookup_results = batched_query(
+            self.supabase,
+            table="sellers",
+            select="id, display_name",
+            filter_column="id",
+            filter_values=seller_ids,
+            extra_filters={"org_id": org_id},
+        )
+        seller_map = {s["id"]: s["display_name"] for s in lookup_results}
+
+        # Separate valid and invalid IDs
+        valid_ids = []
+        not_found_count = 0
+        for seller_id in seller_ids:
+            if seller_id not in seller_map:
+                not_found_count += 1
+                errors.append(f"{seller_id}: not found")
+            else:
+                valid_ids.append(seller_id)
+                removed_names.append(seller_map[seller_id])
+
+        # Delete valid sellers (concurrent batched delete)
+        success_count, delete_errors = batched_delete(
+            self.supabase,
+            table="sellers",
+            filter_column="id",
+            filter_values=valid_ids,
+        )
+        errors.extend(delete_errors)
+        failed_count = not_found_count + len(delete_errors)
+
+        # Log as single audit entry if any were removed
+        if success_count > 0:
+            # Get current seller count for snapshot (after bulk delete)
+            seller_count = await self._get_seller_count_snapshot(org_id)
+
+            summary = f"{removed_names[0]}" if success_count == 1 else f"{removed_names[0]} (+{success_count - 1} more)"
+            log_data = {
+                "org_id": org_id,
+                "action": "remove",
+                "seller_id": None,
+                "seller_name": summary,
+                "old_value": json.dumps({"names": removed_names}),
+                "new_value": None,
+                "source": source,
+                "source_run_id": None,
+                "source_criteria": None,
+                "user_id": user_id,
+                "affected_count": success_count,
+                "seller_count_snapshot": seller_count,
+            }
+            self.supabase.table("seller_audit_log").insert(log_data).execute()
+
+        return success_count, failed_count, errors
+
+    async def toggle_seller_flag(self, org_id: str, seller_id: str) -> bool:
+        """Toggle the flagged status of a seller. Returns the new flagged state."""
+        # Get current state
+        result = (
+            self.supabase.table("sellers")
+            .select("flagged")
+            .eq("id", seller_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Seller not found")
+
+        current_flagged = result.data[0].get("flagged", False)
+        new_flagged = not current_flagged
+
+        # Update
+        self.supabase.table("sellers").update({
+            "flagged": new_flagged,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", seller_id).execute()
+
+        return new_flagged
+
+    # ============================================================
+    # Audit Logging
+    # ============================================================
+
+    async def _log_seller_change(
+        self,
+        org_id: str,
+        user_id: str,
+        action: str,
+        seller_id: str,
+        seller_name: str,
+        old_value: dict | None,
+        new_value: dict | None,
+        source: str,
+        run_id: str | None,
+        criteria: dict | None = None,
+        affected_count: int = 1,
+        seller_count_snapshot: int | None = None,
+    ) -> None:
+        """Log a seller change to the audit log."""
+        import json
+
+        log_data = {
+            "org_id": org_id,
+            "action": action,
+            "seller_id": seller_id,
+            "seller_name": seller_name,
+            "old_value": json.dumps(old_value) if old_value else None,
+            "new_value": json.dumps(new_value) if new_value else None,
+            "source": source,
+            "source_run_id": run_id,
+            "source_criteria": json.dumps(criteria) if criteria else None,
+            "user_id": user_id,
+            "affected_count": affected_count,
+            "seller_count_snapshot": seller_count_snapshot,
+        }
+        self.supabase.table("seller_audit_log").insert(log_data).execute()
+
+    async def get_audit_log(
+        self,
+        org_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Get audit log entries, newest first."""
+        result = (
+            self.supabase.table("seller_audit_log")
+            .select("id, action, seller_name, source, source_run_id, user_id, created_at, affected_count, seller_count_snapshot", count="exact")
+            .eq("org_id", org_id)
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+        return result.data or [], result.count or 0
+
+    async def get_sellers_at_log(self, org_id: str, log_id: str) -> list[str]:
+        """Get the seller list as it was right after a specific log entry."""
+        import json
+
+        # Get the log entry timestamp
+        log_result = (
+            self.supabase.table("seller_audit_log")
+            .select("created_at")
+            .eq("id", log_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not log_result.data:
+            raise ValueError("Log entry not found")
+
+        timestamp = log_result.data[0]["created_at"]
+
+        # Get all log entries up to that timestamp (include old_value for edits, new_value for bulk adds)
+        entries = (
+            self.supabase.table("seller_audit_log")
+            .select("action, seller_name, old_value, new_value, affected_count")
+            .eq("org_id", org_id)
+            .lte("created_at", timestamp)
+            .order("created_at", desc=False)
+            .execute()
+        )
+
+        # Replay to build seller set at that point
+        sellers: set[str] = set()
+        for entry in entries.data or []:
+            if entry["action"] == "add":
+                affected = entry.get("affected_count", 1) or 1
+                if affected > 1 and entry.get("new_value"):
+                    # Bulk add - parse full names from new_value
+                    try:
+                        data = json.loads(entry["new_value"])
+                        names = data.get("names", [])
+                        for name in names:
+                            sellers.add(name)
+                    except (json.JSONDecodeError, TypeError):
+                        # Fallback to summary name
+                        sellers.add(entry["seller_name"])
+                else:
+                    sellers.add(entry["seller_name"])
+            elif entry["action"] == "remove":
+                affected = entry.get("affected_count", 1) or 1
+                if affected > 1 and entry.get("old_value"):
+                    # Bulk remove - parse full names from old_value
+                    try:
+                        data = json.loads(entry["old_value"])
+                        names = data.get("names", [])
+                        for name in names:
+                            sellers.discard(name)
+                    except (json.JSONDecodeError, TypeError):
+                        # Fallback to summary name
+                        sellers.discard(entry["seller_name"])
+                else:
+                    sellers.discard(entry["seller_name"])
+            elif entry["action"] == "edit":
+                # For edits: remove old name, add new name
+                # old_value is JSON string like {"display_name": "Old Name"}
+                if entry.get("old_value"):
+                    try:
+                        old_data = json.loads(entry["old_value"])
+                        old_name = old_data.get("display_name")
+                        if old_name:
+                            sellers.discard(old_name)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                # seller_name is the new name
+                sellers.add(entry["seller_name"])
+
+        return sorted(list(sellers))
+
+    def compute_entry_diff(self, entry: dict) -> tuple[list[str], list[str]]:
+        """
+        Compute added/removed seller lists from a single audit log entry.
+
+        Args:
+            entry: Audit log entry dict with keys: action, seller_name, old_value, new_value
+
+        Returns:
+            tuple of (added, removed) lists, both sorted alphabetically
+        """
+        import json
+
+        action = entry.get("action")
+        old_value = entry.get("old_value")
+        new_value = entry.get("new_value")
+        seller_name = entry.get("seller_name")
+
+        added: list[str] = []
+        removed: list[str] = []
+
+        if action == "add":
+            if new_value:
+                try:
+                    data = json.loads(new_value) if isinstance(new_value, str) else new_value
+                    if "names" in data:  # Bulk add
+                        added = data["names"]
+                    elif "display_name" in data:  # Single add
+                        added = [data["display_name"]]
+                except (json.JSONDecodeError, TypeError):
+                    added = [seller_name] if seller_name else []
+            else:
+                added = [seller_name] if seller_name else []
+
+        elif action == "remove":
+            if old_value:
+                try:
+                    data = json.loads(old_value) if isinstance(old_value, str) else old_value
+                    if "names" in data:  # Bulk remove
+                        removed = data["names"]
+                    elif "display_name" in data:  # Single remove
+                        removed = [data["display_name"]]
+                except (json.JSONDecodeError, TypeError):
+                    removed = [seller_name] if seller_name else []
+            else:
+                removed = [seller_name] if seller_name else []
+
+        elif action == "edit":
+            # Edit: old name removed, new name added
+            if old_value:
+                try:
+                    old_data = json.loads(old_value) if isinstance(old_value, str) else old_value
+                    old_name = old_data.get("display_name")
+                    if old_name:
+                        removed = [old_name]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            # seller_name is the new name
+            if seller_name:
+                added = [seller_name]
+
+        return sorted(added), sorted(removed)
+
+    async def get_entry_diff(self, org_id: str, log_id: str) -> tuple[list[str], list[str]]:
+        """
+        Fetch a single audit log entry and compute its diff.
+
+        Args:
+            org_id: Organization ID
+            log_id: Audit log entry ID
+
+        Returns:
+            tuple of (added, removed) lists, both sorted alphabetically
+            Returns ([], []) if entry not found
+        """
+        # Fetch the single audit log entry
+        result = (
+            self.supabase.table("seller_audit_log")
+            .select("action, seller_name, old_value, new_value")
+            .eq("id", log_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+
+        if not result.data:
+            return [], []
+
+        entry = result.data[0]
+        return self.compute_entry_diff(entry)
+
+    async def calculate_diff(
+        self,
+        source_sellers: list[str],
+        target_sellers: list[str],
+    ) -> dict:
+        """Calculate diff between two seller lists."""
+        source_set = set(source_sellers)
+        target_set = set(target_sellers)
+
+        added = sorted(target_set - source_set)
+        removed = sorted(source_set - target_set)
+
+        return {
+            "added": added,
+            "removed": removed,
+            "added_count": len(added),
+            "removed_count": len(removed),
+        }
+
+    # ============================================================
+    # Templates
+    # ============================================================
+
+    async def get_templates(self, org_id: str) -> list[dict]:
+        """Get all run templates for the org."""
+        result = (
+            self.supabase.table("run_templates")
+            .select("*")
+            .eq("org_id", org_id)
+            .order("is_default", desc=True)
+            .order("name", desc=False)
+            .execute()
+        )
+        return result.data or []
+
+    async def create_template(
+        self,
+        org_id: str,
+        user_id: str,
+        name: str,
+        description: str | None,
+        department_ids: list[str],
+        concurrency: int,
+        is_default: bool,
+    ) -> dict:
+        """Create a new run template."""
+        # If setting as default, unset other defaults
+        if is_default:
+            self.supabase.table("run_templates").update({
+                "is_default": False,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("org_id", org_id).execute()
+
+        template_data = {
+            "org_id": org_id,
+            "name": name,
+            "description": description,
+            "department_ids": department_ids,
+            "concurrency": concurrency,
+            "is_default": is_default,
+            "created_by": user_id,
+        }
+        result = self.supabase.table("run_templates").insert(template_data).execute()
+
+        if not result.data:
+            raise ValueError("Failed to create template")
+
+        return result.data[0]
+
+    async def update_template(
+        self,
+        org_id: str,
+        template_id: str,
+        updates: dict,
+    ) -> dict:
+        """Update a run template."""
+        # If setting as default, unset other defaults
+        if updates.get("is_default"):
+            self.supabase.table("run_templates").update({
+                "is_default": False,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("org_id", org_id).neq("id", template_id).execute()
+
+        # Filter out None values
+        update_data = {k: v for k, v in updates.items() if v is not None}
+        if not update_data:
+            raise ValueError("No updates provided")
+
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        result = (
+            self.supabase.table("run_templates")
+            .update(update_data)
+            .eq("id", template_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+
+        if not result.data:
+            raise ValueError("Template not found")
+
+        return result.data[0]
+
+    async def delete_template(self, org_id: str, template_id: str) -> None:
+        """Delete a run template."""
+        result = (
+            self.supabase.table("run_templates")
+            .delete()
+            .eq("id", template_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Template not found")
+
+    # ============================================================
+    # Enhanced Progress
+    # ============================================================
+
+    async def get_enhanced_progress(self, org_id: str, run_id: str) -> dict:
+        """Get detailed progress for a collection run."""
+        result = (
+            self.supabase.table("collection_runs")
+            .select(
+                "departments_total, departments_completed, "
+                "categories_total, categories_completed, "
+                "products_total, products_searched, "
+                "sellers_found, sellers_new, "
+                "worker_status, checkpoint, started_at"
+            )
+            .eq("id", run_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+
+        if not result.data:
+            raise ValueError("Run not found")
+
+        data = result.data[0]
+
+        # Determine phase from checkpoint
+        checkpoint = data.get("checkpoint") or {}
+        checkpoint_phase = checkpoint.get("phase", "")
+        if checkpoint_phase == "ebay_search" or checkpoint_phase == "amazon_complete":
+            phase = "ebay"
+        else:
+            phase = "amazon"
+
+        # products_found is products_total during Amazon phase
+        products_found = data.get("products_total") or 0
+
+        return {
+            **data,
+            "phase": phase,
+            "products_found": products_found,
+        }
+
+    # ============================================================
+    # Amazon Collection Execution
+    # ============================================================
+
+    async def run_amazon_collection(
+        self,
+        run_id: str,
+        org_id: str,
+        category_ids: list[str],
+    ) -> dict:
+        """
+        Execute Amazon best sellers collection for selected categories.
+
+        Uses ParallelCollectionRunner with 5 workers for concurrent execution.
+        Emits activity events for SSE streaming.
+
+        Args:
+            run_id: Collection run ID
+            org_id: Organization ID
+            category_ids: List of category IDs to fetch (from amazon_categories.json)
+
+        Returns:
+            dict with status, products_fetched, errors
+        """
+        import json
+        import uuid
+
+        # Load category data to get node IDs
+        categories_path = Path(__file__).parent.parent / "data" / "amazon_categories.json"
+        with open(categories_path) as f:
+            cat_data = json.load(f)
+
+        # Build category ID -> node_id and name lookup
+        node_lookup = {}
+        name_lookup = {}
+        dept_lookup = {}  # category_id -> department_id
+        for dept in cat_data["departments"]:
+            for cat in dept.get("categories", []):
+                node_lookup[cat["id"]] = cat["node_id"]
+                name_lookup[cat["id"]] = f"{dept['name']} > {cat['name']}"
+                dept_lookup[cat["id"]] = dept["id"]
+
+        # Calculate department and category totals
+        selected_dept_ids = set(dept_lookup.get(cid) for cid in category_ids if cid in dept_lookup)
+        departments_total = len(selected_dept_ids)
+        categories_total = len(category_ids)
+
+        # Check for existing checkpoint (resuming)
+        run_data = await self.get_run(run_id, org_id)
+        checkpoint = run_data.get("checkpoint") or {}
+        resume_from_idx = 0
+        products_fetched = 0
+
+        if checkpoint.get("phase") == "amazon" and checkpoint.get("categories_completed"):
+            # Resuming - skip already completed categories
+            resume_from_idx = checkpoint["categories_completed"]
+            products_fetched = checkpoint.get("products_fetched", 0)
+            logger.info(f"Resuming Amazon collection from category {resume_from_idx + 1}/{categories_total}")
+            print(f"\n[COLLECTION] Resuming from category {resume_from_idx + 1}/{categories_total}")
+        else:
+            # Fresh start - reset counters
+            self.supabase.table("collection_runs").update({
+                "departments_total": departments_total,
+                "categories_total": categories_total,
+                "departments_completed": 0,
+                "categories_completed": 0,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", run_id).execute()
+
+        # Initialize scraper
+        try:
+            scraper = OxylabsAmazonScraper()
+        except ValueError as e:
+            logger.error(f"Scraper initialization failed: {e}")
+            return {
+                "status": "failed",
+                "error": "Oxylabs credentials not configured",
+                "products_fetched": 0,
+            }
+
+        # Track errors
+        errors: list[dict] = []
+
+        # Log collection start
+        print(f"\n{'#'*60}")
+        print(f"[COLLECTION] {'Resuming' if resume_from_idx > 0 else 'Starting'} Amazon Best Sellers Collection (PARALLEL)")
+        print(f"[COLLECTION] Run ID: {run_id}")
+        print(f"[COLLECTION] Departments: {departments_total}")
+        print(f"[COLLECTION] Categories: {categories_total} ({resume_from_idx} already done)")
+        print(f"[COLLECTION] Workers: 5")
+        print(f"{'#'*60}")
+
+        # Set up activity streaming
+        activity_manager = get_activity_stream()
+
+        def emit_activity(event):
+            """Push activity event to SSE stream."""
+            asyncio.create_task(activity_manager.push(run_id, event.to_dict()))
+
+        # Create parallel runner
+        runner = ParallelCollectionRunner(
+            max_workers=6,
+            on_activity=emit_activity,
+        )
+
+        # Shared counters for real-time progress
+        shared_categories_completed = 0
+        shared_products_found = 0
+        amazon_progress_lock = asyncio.Lock()
+
+        # Instant cancellation check using in-memory signal registry
+        # No database polling needed - API endpoints set signals directly
+        async def check_cancelled_throttled(context: str) -> None:
+            """Check if run was cancelled/paused. INSTANT - uses in-memory signal registry."""
+            # Check 1: Another worker already detected and set the runner flag
+            if runner.is_cancelled:
+                print(f"[WORKER] Detected runner.is_cancelled=True at {context}")
+                raise CollectionPausedException(f"Run cancelled: {context}")
+
+            # Check 2: Signal registry (set by API endpoints - instant, no DB call)
+            if is_paused_or_cancelled(run_id):
+                print(f"[WORKER] Detected signal for run {run_id} at {context} - stopping")
+                runner.cancel()  # Signal other workers via runner flag
+                raise CollectionPausedException(f"Run signaled to stop: {context}")
+
+        async def update_amazon_progress_in_db():
+            """Write current Amazon phase progress to database for frontend polling."""
+            async with amazon_progress_lock:
+                self.supabase.table("collection_runs").update({
+                    "categories_completed": resume_from_idx + shared_categories_completed,
+                    "products_total": products_fetched + shared_products_found,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", run_id).execute()
+
+        # Define the task processing function
+        async def process_category(task: dict, worker_id: int) -> dict:
+            """Process a single category - called by parallel worker."""
+            nonlocal shared_categories_completed, shared_products_found
+
+            cat_id = task["cat_id"]
+            node_id = task["node_id"]
+            category_name = task["category_name"]
+
+            # FIRST: Check if paused/cancelled BEFORE doing ANY work
+            await check_cancelled_throttled("before category processing")
+
+            # Retry logic (3 attempts)
+            for attempt_num in range(3):
+                # Emit fetching activity with api_params and attempt
+                await runner.emit_activity(create_activity_event(
+                    worker_id=worker_id,
+                    phase="amazon",
+                    action="fetching",
+                    category=category_name,
+                    api_params={"node_id": node_id},
+                    attempt=attempt_num + 1,
+                ))
+                print(f"[W{worker_id}] Fetching: {category_name}" + (f" (attempt {attempt_num + 1})" if attempt_num > 0 else ""))
+
+                # Check before API call (includes DB check for fast cancel detection)
+                await check_cancelled_throttled("before API call")
+
+                # Track request timing
+                request_start = time.time()
+                result = await scraper.fetch_bestsellers(node_id, category_name=category_name)
+                duration_ms = int((time.time() - request_start) * 1000)
+
+                # Check after API call (includes DB check for fast cancel detection)
+                await check_cancelled_throttled("after API call")
+
+                if result.error == "rate_limited":
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=worker_id,
+                        phase="amazon",
+                        action="rate_limited",
+                        category=category_name,
+                        duration_ms=duration_ms,
+                        error_type="rate_limit",
+                        error_stage="api",
+                        attempt=attempt_num + 1,
+                    ))
+                    print(f"[W{worker_id}] Rate limited, waiting 5s...")
+                    # Check during wait - check DB every second for fast cancel response
+                    for i in range(10):
+                        if i % 2 == 0:  # Check DB every 1 second
+                            await check_cancelled_throttled("during rate limit wait")
+                        await asyncio.sleep(0.5)
+                    continue
+
+                if result.error:
+                    # Classify error type
+                    error_type = "timeout" if "timeout" in result.error.lower() else (
+                        "http_500" if "http" in result.error.lower() or "500" in result.error else "api_error"
+                    )
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=worker_id,
+                        phase="amazon",
+                        action="error",
+                        category=category_name,
+                        error_message=result.error,
+                        error_type=error_type,
+                        error_stage="api",
+                        duration_ms=duration_ms,
+                        attempt=attempt_num + 1,
+                    ))
+                    print(f"[W{worker_id}] Error: {result.error}")
+                    raise Exception(result.error)
+
+                # Success - emit found event with duration
+                await runner.emit_activity(create_activity_event(
+                    worker_id=worker_id,
+                    phase="amazon",
+                    action="found",
+                    category=category_name,
+                    new_sellers_count=len(result.products),  # Reusing field for product count
+                    duration_ms=duration_ms,
+                ))
+                print(f"[W{worker_id}] Found {len(result.products)} products in {category_name}")
+
+                # Update shared counters and sync to DB for real-time progress
+                # (skip if cancelled to avoid race conditions)
+                if not runner.is_cancelled:
+                    shared_categories_completed += 1
+                    shared_products_found += len(result.products)
+                    await update_amazon_progress_in_db()
+
+                return {
+                    "cat_id": cat_id,
+                    "products": result.products,
+                    "category_name": category_name,
+                }
+
+            # Max retries reached
+            if not runner.is_cancelled:
+                shared_categories_completed += 1
+                await update_amazon_progress_in_db()
+            return {"cat_id": cat_id, "products": [], "error": "max_retries"}
+
+        # Prepare tasks list (skip already-processed when resuming)
+        tasks = []
+        for idx, cat_id in enumerate(category_ids):
+            if idx < resume_from_idx:
+                continue
+            node_id = node_lookup.get(cat_id)
+            if not node_id:
+                logger.warning(f"Unknown category ID: {cat_id}")
+                errors.append({"category": cat_id, "error": "unknown_category"})
+                continue
+            tasks.append({
+                "cat_id": cat_id,
+                "node_id": node_id,
+                "category_name": name_lookup.get(cat_id, cat_id),
+            })
+
+        # Execute parallel
+        try:
+            results = await runner.run(tasks, process_category, phase="amazon")
+        except CollectionPausedException:
+            action = "CANCELLED" if is_cancelled(run_id) else "PAUSED"
+            print(f"\n[COLLECTION] Run {action} - stopping Amazon collection")
+            return {"status": "paused" if not is_cancelled(run_id) else "cancelled", "products_fetched": products_fetched}
+
+        # Process results and save to database
+        for result in results:
+            if "error" in result:
+                errors.append({"category": result["cat_id"], "error": result["error"]})
+                continue
+
+            cat_id = result["cat_id"]
+            products_fetched += len(result["products"])
+
+            # Save products as collection items (batch for efficiency)
+            items_to_insert = []
+            for product in result["products"]:
+                items_to_insert.append({
+                    "run_id": run_id,
+                    "item_type": "amazon_product",
+                    "external_id": product.asin,
+                    "data": {
+                        "title": product.title,
+                        "price": product.price,
+                        "currency": product.currency,
+                        "rating": product.rating,
+                        "url": product.url,
+                        "position": product.position,
+                        "category_id": cat_id,
+                    },
+                    "status": "pending",
+                })
+
+            if items_to_insert:
+                batched_insert(self.supabase, table="collection_items", rows=items_to_insert)
+                # Emit pipeline event for product batch upload
+                await runner.emit_activity(create_activity_event(
+                    worker_id=0,  # System event
+                    phase="amazon",
+                    action="uploading",
+                    items_count=len(items_to_insert),
+                    operation_type="product_batch",
+                    category=result.get("category_name"),
+                ))
+
+        # Update progress - set to 100% complete for Amazon phase
+        now = datetime.now(timezone.utc).isoformat()
+        self.supabase.table("collection_runs").update({
+            "total_items": products_fetched,
+            "products_total": products_fetched,
+            "departments_completed": departments_total,
+            "categories_completed": categories_total,
+            "checkpoint": {
+                "phase": "amazon_complete",
+                "products_fetched": products_fetched,
+                "departments_completed": departments_total,
+                "categories_completed": categories_total,
+            },
+            "processed_items": products_fetched,
+            "failed_items": len(errors),
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        # Emit phase complete activity
+        await activity_manager.push(run_id, {
+            "id": str(uuid.uuid4()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "worker_id": 0,  # 0 = system message
+            "phase": "amazon",
+            "action": "complete",
+        })
+
+        logger.info(f"Amazon collection complete: {products_fetched} products fetched")
+
+        print(f"\n{'#'*60}")
+        print(f"[COLLECTION] Amazon Phase Complete!")
+        print(f"[COLLECTION] Departments: {departments_total}/{departments_total}")
+        print(f"[COLLECTION] Categories: {categories_total}/{categories_total}")
+        print(f"[COLLECTION] Total Products Fetched: {products_fetched}")
+        print(f"[COLLECTION] Errors: {len(errors)}")
+        print(f"{'#'*60}")
+
+        return {
+            "status": "completed",
+            "products_fetched": products_fetched,
+            "errors": errors if errors else None,
+        }
+
+    # ============================================================
+    # eBay Seller Search Execution
+    # ============================================================
+
+    async def run_ebay_seller_search(
+        self,
+        run_id: str,
+        org_id: str,
+    ) -> dict:
+        """
+        Execute eBay seller search for Amazon products in a collection run.
+
+        Uses ParallelCollectionRunner with 5 workers for concurrent execution.
+        Emits activity events for SSE streaming.
+        Stores seller count snapshot on completion.
+
+        Args:
+            run_id: Collection run ID
+            org_id: Organization ID
+
+        Returns:
+            dict with status, sellers_found, sellers_new
+        """
+        import json
+        import uuid
+
+        # Get Amazon products from collection_items
+        products_result = (
+            self.supabase.table("collection_items")
+            .select("id, external_id, data")
+            .eq("run_id", run_id)
+            .eq("item_type", "amazon_product")
+            .execute()
+        )
+
+        products = products_result.data or []
+        if not products:
+            logger.info(f"No Amazon products to search for run {run_id}")
+            return {
+                "status": "completed",
+                "message": "No Amazon products to search",
+                "sellers_found": 0,
+                "sellers_new": 0,
+            }
+
+        # Load category data for progress tracking
+        categories_path = Path(__file__).parent.parent / "data" / "amazon_categories.json"
+        with open(categories_path) as f:
+            cat_data = json.load(f)
+
+        # Build category -> department mapping and category name lookup
+        cat_to_dept = {}
+        cat_name_lookup = {}
+        for dept in cat_data["departments"]:
+            for cat in dept.get("categories", []):
+                cat_to_dept[cat["id"]] = dept["id"]
+                cat_name_lookup[cat["id"]] = cat.get("name", cat["id"])
+
+        # Group products by category and count totals
+        products_by_category: dict[str, list] = {}
+        for p in products:
+            cat_id = p.get("data", {}).get("category_id", "unknown")
+            if cat_id not in products_by_category:
+                products_by_category[cat_id] = []
+            products_by_category[cat_id].append(p["id"])
+
+        # Calculate totals
+        categories_total = len(products_by_category)
+        dept_ids = set(cat_to_dept.get(cat_id) for cat_id in products_by_category if cat_id in cat_to_dept)
+        departments_total = len(dept_ids)
+
+        # Initialize eBay scraper
+        try:
+            scraper = OxylabsEbayScraper()
+        except ValueError as e:
+            logger.error(f"eBay scraper initialization failed: {e}")
+            return {
+                "status": "failed",
+                "error": "Oxylabs credentials not configured",
+                "sellers_found": 0,
+                "sellers_new": 0,
+            }
+
+        # Constants
+        PAGES_PER_PRODUCT = 3
+        REQUEST_DELAY_MS = 200
+
+        # Check for existing checkpoint (resuming)
+        run_data = await self.get_run(run_id, org_id)
+        checkpoint = run_data.get("checkpoint") or {}
+        resume_from_idx = 0
+        sellers_found = 0
+        sellers_new = 0
+
+        total_products = len(products)
+
+        if checkpoint.get("phase") == "ebay_search" and checkpoint.get("products_processed"):
+            # Resuming - skip already searched products
+            resume_from_idx = checkpoint["products_processed"]
+            sellers_found = run_data.get("sellers_found", 0)
+            sellers_new = run_data.get("sellers_new", 0)
+            logger.info(f"Resuming eBay search from product {resume_from_idx + 1}/{total_products}")
+            print(f"\n[COLLECTION] Resuming from product {resume_from_idx + 1}/{total_products}")
+        else:
+            # Fresh start - reset progress for eBay phase
+            self.supabase.table("collection_runs").update({
+                "departments_total": departments_total,
+                "departments_completed": 0,
+                "categories_total": categories_total,
+                "categories_completed": 0,
+                "products_searched": 0,
+                "checkpoint": {
+                    "phase": "ebay_search",
+                    "products_processed": 0,
+                    "products_total": total_products,
+                },
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", run_id).execute()
+
+        logger.info(f"{'Resuming' if resume_from_idx > 0 else 'Starting'} eBay seller search for {total_products} products")
+
+        print(f"\n{'#'*60}")
+        print(f"[COLLECTION] {'Resuming' if resume_from_idx > 0 else 'Starting'} eBay Seller Search Phase (PARALLEL)")
+        print(f"[COLLECTION] Run ID: {run_id}")
+        print(f"[COLLECTION] Products to Search: {total_products} ({resume_from_idx} already done)")
+        print(f"[COLLECTION] Categories: {categories_total}")
+        print(f"[COLLECTION] Departments: {departments_total}")
+        print(f"[COLLECTION] Workers: 5")
+        print(f"{'#'*60}")
+
+        # Set up activity streaming
+        activity_manager = get_activity_stream()
+
+        def emit_activity(event):
+            """Push activity event to SSE stream."""
+            asyncio.create_task(activity_manager.push(run_id, event.to_dict()))
+
+        # Create parallel runner
+        runner = ParallelCollectionRunner(
+            max_workers=6,
+            on_activity=emit_activity,
+        )
+
+        # Shared counters for real-time tracking (updated by workers)
+        # Using nonlocal to allow workers to update these
+        shared_sellers_found = 0
+        shared_sellers_new = 0
+        shared_products_searched = 0
+        progress_lock = asyncio.Lock()
+
+        # Instant cancellation check using in-memory signal registry
+        # No database polling needed - API endpoints set signals directly
+        async def check_cancelled_throttled(context: str) -> None:
+            """Check if run was cancelled/paused. INSTANT - uses in-memory signal registry."""
+            # Check 1: Another worker already detected and set the runner flag
+            if runner.is_cancelled:
+                print(f"[WORKER] Detected runner.is_cancelled=True at {context}")
+                raise CollectionPausedException(f"Run cancelled: {context}")
+
+            # Check 2: Signal registry (set by API endpoints - instant, no DB call)
+            if is_paused_or_cancelled(run_id):
+                print(f"[WORKER] Detected signal for run {run_id} at {context} - stopping")
+                runner.cancel()  # Signal other workers via runner flag
+                raise CollectionPausedException(f"Run signaled to stop: {context}")
+
+        async def update_progress_in_db():
+            """Write current progress to database for frontend polling."""
+            async with progress_lock:
+                self.supabase.table("collection_runs").update({
+                    "products_searched": resume_from_idx + shared_products_searched,
+                    "sellers_found": sellers_found + shared_sellers_found,
+                    "sellers_new": sellers_new + shared_sellers_new,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", run_id).execute()
+
+        # Define the task processing function
+        async def process_product(task: dict, worker_id: int) -> dict:
+            """Process a single product - search eBay, extract sellers, and INSERT IMMEDIATELY."""
+            nonlocal shared_sellers_found, shared_sellers_new, shared_products_searched
+
+            # FIRST: Check if paused/cancelled BEFORE doing ANY work
+            await check_cancelled_throttled("before product processing")
+
+            product = task["product"]
+            product_data = product.get("data", {})
+            title = product_data.get("title")
+            price = product_data.get("price")
+            cat_id = product_data.get("category_id", "unknown")
+            cat_name = cat_name_lookup.get(cat_id, cat_id.replace("-", " ").title())
+
+            if not title or not price:
+                shared_products_searched += 1
+                await update_progress_in_db()
+                return {"product_id": product["id"], "cat_id": cat_id, "found": 0, "new": 0, "skipped": True}
+
+            # Parse price
+            if isinstance(price, str):
+                try:
+                    price = float(price.replace("$", "").replace(",", ""))
+                except ValueError:
+                    shared_products_searched += 1
+                    await update_progress_in_db()
+                    return {"product_id": product["id"], "cat_id": cat_id, "found": 0, "new": 0, "skipped": True}
+
+            short_title = title[:40] + "..." if len(title) > 40 else title
+            # Price range: 80-120% MARKUP on Amazon price
+            # Markup formula: ebay_price = amazon_price * (1 + markup%)
+            # 80% markup:  price * 1.8 (e.g., $10 -> $18)
+            # 120% markup: price * 2.2 (e.g., $10 -> $22)
+            price_min_dollars = round(price * 1.8, 2)
+            price_max_dollars = round(price * 2.2, 2)
+            # Store in cents for frontend display
+            price_min_cents = int(price_min_dollars * 100)
+            price_max_cents = int(price_max_dollars * 100)
+            amazon_price_cents = int(price * 100)
+
+            all_sellers = []
+            total_duration_ms = 0
+
+            # Search 3 pages per product
+            for page in range(1, PAGES_PER_PRODUCT + 1):
+                # Build URL for display (same logic as scraper)
+                ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(title)}&LH_ItemCondition=1000&LH_Free=1&LH_PrefLoc=1&_udlo={price_min_dollars}&_udhi={price_max_dollars}&_ipg=60&_pgn={page}"
+
+                # Retry logic (3 attempts) - same as Amazon phase
+                page_success = False
+                for attempt_num in range(3):
+                    # Emit fetching activity with api_params, URL, and attempt
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=worker_id,
+                        phase="ebay",
+                        action="fetching",
+                        category=cat_name,
+                        product_name=short_title,
+                        api_params={
+                            "query": title[:50],  # Truncate for readability
+                            "amazon_price": amazon_price_cents,  # Amazon price in cents
+                            "price_min": price_min_cents,  # eBay min price in cents (80% markup)
+                            "price_max": price_max_cents,  # eBay max price in cents (120% markup)
+                            "page": page,
+                        },
+                        attempt=attempt_num + 1,
+                        url=ebay_url,
+                    ))
+                    print(f"[W{worker_id}] Searching: {short_title} (page {page})" + (f" (attempt {attempt_num + 1})" if attempt_num > 0 else ""))
+
+                    # Check before API call
+                    await check_cancelled_throttled("before API call")
+
+                    # Track request timing
+                    request_start = time.time()
+                    result = await scraper.search_sellers(title, price, page)
+                    duration_ms = int((time.time() - request_start) * 1000)
+                    total_duration_ms += duration_ms
+
+                    # Check after API call (which can take 10-90 seconds)
+                    await check_cancelled_throttled("after API call")
+
+                    if result.error == "rate_limited":
+                        await runner.emit_activity(create_activity_event(
+                            worker_id=worker_id,
+                            phase="ebay",
+                            action="rate_limited",
+                            product_name=short_title,
+                            duration_ms=duration_ms,
+                            error_type="rate_limit",
+                            error_stage="api",
+                            attempt=attempt_num + 1,
+                        ))
+                        print(f"[W{worker_id}] Rate limited, waiting 5s...")
+                        # Check during wait - check DB every second for fast cancel response
+                        for i in range(10):
+                            if i % 2 == 0:  # Check DB every 1 second (every 2 iterations)
+                                await check_cancelled_throttled("during rate limit wait")
+                            await asyncio.sleep(0.5)
+                        continue  # Retry this page
+
+                    if result.error:
+                        # Classify error type
+                        error_type = "timeout" if "timeout" in result.error.lower() else (
+                            "http_500" if "http" in result.error.lower() or "500" in result.error else "api_error"
+                        )
+                        await runner.emit_activity(create_activity_event(
+                            worker_id=worker_id,
+                            phase="ebay",
+                            action="error",
+                            product_name=short_title,
+                            error_message=result.error,
+                            error_type=error_type,
+                            error_stage="api",
+                            duration_ms=duration_ms,
+                            attempt=attempt_num + 1,
+                        ))
+                        print(f"[W{worker_id}] Error: {result.error}" + (f" (attempt {attempt_num + 1})" if attempt_num > 0 else ""))
+                        raise Exception(result.error)
+
+                    # Success - break out of retry loop
+                    all_sellers.extend(result.sellers)
+                    page_success = True
+                    break
+
+                # If all retries failed (only happens with rate limits), skip remaining pages
+                if not page_success:
+                    print(f"[W{worker_id}] Max retries reached for page {page}, skipping remaining pages")
+                    break
+
+                if not result.has_more:
+                    break
+
+                await asyncio.sleep(REQUEST_DELAY_MS / 1000)
+
+            # Emit found activity with total duration
+            found_count = len(all_sellers)
+            if all_sellers:
+                await runner.emit_activity(create_activity_event(
+                    worker_id=worker_id,
+                    phase="ebay",
+                    action="found",
+                    category=cat_name,
+                    product_name=short_title,
+                    new_sellers_count=found_count,
+                    duration_ms=total_duration_ms,
+                ))
+                print(f"[W{worker_id}] Found {found_count} sellers for {short_title}")
+
+            # INSERT SELLERS IMMEDIATELY (don't wait until end)
+            # NOTE: We intentionally save sellers BEFORE checking cancellation
+            # to avoid wasting API calls - if we found sellers, save them!
+            new_count = 0
+            if all_sellers:
+                # Prepare seller data
+                seller_info = []
+                for seller in all_sellers:
+                    normalized = self._normalize_seller_name(seller.username)
+                    seller_info.append({
+                        "username": seller.username,
+                        "normalized": normalized,
+                        "feedback_count": seller.feedback_count,
+                    })
+
+                # Check which already exist in DB
+                normalized_names = [s["normalized"] for s in seller_info]
+                existing_results = batched_query(
+                    self.supabase,
+                    table="sellers",
+                    select="id, normalized_name",
+                    filter_column="normalized_name",
+                    filter_values=normalized_names,
+                    extra_filters={"org_id": org_id, "platform": "ebay"},
+                )
+                existing_map = {r["normalized_name"]: r["id"] for r in existing_results}
+
+                # Separate new vs existing (dedupe by normalized name)
+                seen_normalized = set()
+                new_sellers = []
+                existing_ids = []
+                duplicates_within = 0
+                for info in seller_info:
+                    if info["normalized"] in seen_normalized:
+                        duplicates_within += 1
+                        continue  # Skip duplicates within this product's results
+                    seen_normalized.add(info["normalized"])
+
+                    if info["normalized"] in existing_map:
+                        existing_ids.append(existing_map[info["normalized"]])
+                    else:
+                        new_sellers.append({
+                            "org_id": org_id,
+                            "display_name": info["username"],
+                            "normalized_name": info["normalized"],
+                            "platform": "ebay",
+                            "platform_id": info["username"],
+                            "feedback_score": info["feedback_count"],
+                            "first_seen_run_id": run_id,
+                            "last_seen_run_id": run_id,
+                            "times_seen": 1,
+                        })
+
+                # Emit deduplication event if duplicates were found
+                total_deduped = duplicates_within + len(existing_ids)
+                if total_deduped > 0:
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=0,  # System event
+                        phase="ebay",
+                        action="deduped",
+                        items_count=total_deduped,
+                        operation_type="seller_dedupe",
+                        source_worker_id=worker_id,
+                    ))
+
+                # Update existing sellers
+                if existing_ids:
+                    batched_update(
+                        self.supabase,
+                        table="sellers",
+                        filter_column="id",
+                        filter_values=existing_ids,
+                        update_data={
+                            "last_seen_run_id": run_id,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        },
+                    )
+                    # Emit update event
+                    await runner.emit_activity(create_activity_event(
+                        worker_id=0,  # System event
+                        phase="ebay",
+                        action="updated",
+                        items_count=len(existing_ids),
+                        operation_type="seller_update",
+                        source_worker_id=worker_id,
+                    ))
+
+                # Insert new sellers
+                if new_sellers:
+                    inserted, _ = batched_insert(
+                        self.supabase,
+                        table="sellers",
+                        rows=new_sellers,
+                    )
+                    new_count = inserted
+                    if inserted > 0:
+                        print(f"[W{worker_id}] +{inserted} NEW SELLERS")
+                        # Emit insert event
+                        await runner.emit_activity(create_activity_event(
+                            worker_id=0,  # System event
+                            phase="ebay",
+                            action="inserted",
+                            items_count=inserted,
+                            operation_type="seller_insert",
+                            source_worker_id=worker_id,
+                        ))
+
+            # Update shared counters and sync to DB for real-time progress
+            # Always update (sellers were saved, we want accurate counts)
+            shared_sellers_found += found_count
+            shared_sellers_new += new_count
+            shared_products_searched += 1
+
+            # Update database periodically for frontend polling (every product)
+            await update_progress_in_db()
+
+            # Check cancellation AFTER saving sellers - data is preserved, now we can exit
+            if runner.is_cancelled:
+                raise CollectionPausedException("Run cancelled after seller save")
+
+            return {
+                "product_id": product["id"],
+                "cat_id": cat_id,
+                "found": found_count,
+                "new": new_count,
+            }
+
+        # Prepare tasks (skip already-processed when resuming)
+        tasks = []
+        for idx, p in enumerate(products):
+            if idx < resume_from_idx:
+                continue
+            tasks.append({"product": p})
+
+        # Execute parallel - sellers are inserted immediately per-product
+        try:
+            results = await runner.run(tasks, process_product, phase="ebay")
+        except CollectionPausedException:
+            was_cancelled = is_cancelled(run_id)
+            action = "CANCELLED" if was_cancelled else "PAUSED"
+            print(f"\n[COLLECTION] Run {action} - stopping eBay search")
+            print(f"[COLLECTION] Sellers saved so far: {shared_sellers_found} found, {shared_sellers_new} new")
+            # Update run with partial results before returning
+            now = datetime.now(timezone.utc).isoformat()
+            self.supabase.table("collection_runs").update({
+                "sellers_found": sellers_found + shared_sellers_found,
+                "sellers_new": sellers_new + shared_sellers_new,
+                "updated_at": now,
+            }).eq("id", run_id).execute()
+            return {"status": "cancelled" if was_cancelled else "paused", "sellers_found": sellers_found + shared_sellers_found, "sellers_new": sellers_new + shared_sellers_new}
+
+        # Update totals from shared counters (sellers already inserted per-product)
+        sellers_found += shared_sellers_found
+        sellers_new += shared_sellers_new
+
+        print(f"\n[EBAY] Total: {sellers_found} sellers found, {sellers_new} NEW")
+
+        # Mark run as completed
+        now = datetime.now(timezone.utc).isoformat()
+        products_processed = resume_from_idx + len(tasks)
+        self.supabase.table("collection_runs").update({
+            "status": "completed",
+            "completed_at": now,
+            "products_searched": products_processed,
+            "sellers_found": sellers_found,
+            "sellers_new": sellers_new,
+            "updated_at": now,
+        }).eq("id", run_id).execute()
+
+        # Store seller count snapshot
+        await self._store_run_snapshot(run_id, org_id)
+
+        # Clean up signal registry (run is done)
+        await clear_signal(run_id)
+
+        # Emit complete activity
+        await activity_manager.push(run_id, {
+            "id": str(uuid.uuid4()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "worker_id": 0,
+            "phase": "ebay",
+            "action": "complete",
+            "new_sellers_count": sellers_new,
+        })
+
+        # Cleanup activity stream
+        await activity_manager.cleanup(run_id)
+
+        logger.info(
+            f"eBay seller search completed for run {run_id}: "
+            f"{sellers_found} sellers found, {sellers_new} new"
+        )
+
+        print(f"\n{'#'*60}")
+        print(f"[COLLECTION] eBay Phase Complete!")
+        print(f"[COLLECTION] Products Searched: {products_processed}")
+        print(f"[COLLECTION] Total Sellers Found: {sellers_found}")
+        print(f"[COLLECTION] New Sellers Added: {sellers_new}")
+        print(f"{'#'*60}")
+        print(f"\n[COLLECTION] COLLECTION RUN COMPLETED")
+
+        return {
+            "status": "completed",
+            "sellers_found": sellers_found,
+            "sellers_new": sellers_new,
+        }
