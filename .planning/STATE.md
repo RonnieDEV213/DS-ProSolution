@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 14 of 14 (History & Snapshot Simplification)
-Plan: 2 of 3 (Frontend Changes Panel)
-Status: In progress
-Last activity: 2026-01-23 - Completed 14-02-PLAN.md
+Plan: 3 of 3 (Component Cleanup)
+Status: Phase complete
+Last activity: 2026-01-23 - Completed 14-03-PLAN.md
 
-Progress: [██████████████████████████████████████] 36/37 plans complete
-**Phase 14 Plan 02 Complete** - History Entry modal with Changes panel
+Progress: [███████████████████████████████████████] 37/37 plans complete
+**Phase 14 Complete** - History & Snapshot Simplification fully implemented
 
 ## Shipped Milestones
 
@@ -140,6 +140,8 @@ Recent for v2:
 - Blue ring highlight (bg-blue-500/20 ring-1 ring-blue-500/50) for selected entry in history list
 - Conditional section rendering: only show Added/Removed sections when array length > 0
 - Alternating row tints using index modulo: i % 2 === 0 ? 'bg-X/10' : 'bg-X/5'
+- Keep calculate_diff method in CollectionService for potential future use even after removing /diff endpoint
+- Delete rather than deprecate components that have no active usage and are fully replaced
 
 ### Pending Todos
 
@@ -160,9 +162,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 14-02-PLAN.md (Frontend Changes Panel)
+Stopped at: Completed 14-03-PLAN.md (Component Cleanup)
 Resume file: None
-Next action: Execute 14-03-PLAN.md (Component Cleanup)
+Next action: v2 milestone complete - all 14 phases shipped
 
 ## Roadmap Evolution
 
