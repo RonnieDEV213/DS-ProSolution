@@ -1510,9 +1510,16 @@ class CollectionService:
             on_activity=emit_activity,
         )
 
+        # Shared counters for real-time tracking (updated by workers)
+        # Using nonlocal to allow workers to update these
+        shared_sellers_found = 0
+        shared_sellers_new = 0
+
         # Define the task processing function
         async def process_product(task: dict, worker_id: int) -> dict:
-            """Process a single product - search eBay and extract sellers."""
+            """Process a single product - search eBay, extract sellers, and INSERT IMMEDIATELY."""
+            nonlocal shared_sellers_found, shared_sellers_new
+
             product = task["product"]
             product_data = product.get("data", {})
             title = product_data.get("title")
@@ -1521,14 +1528,14 @@ class CollectionService:
             cat_name = cat_name_lookup.get(cat_id, cat_id.replace("-", " ").title())
 
             if not title or not price:
-                return {"product_id": product["id"], "cat_id": cat_id, "sellers": [], "skipped": True}
+                return {"product_id": product["id"], "cat_id": cat_id, "found": 0, "new": 0, "skipped": True}
 
             # Parse price
             if isinstance(price, str):
                 try:
                     price = float(price.replace("$", "").replace(",", ""))
                 except ValueError:
-                    return {"product_id": product["id"], "cat_id": cat_id, "sellers": [], "skipped": True}
+                    return {"product_id": product["id"], "cat_id": cat_id, "found": 0, "new": 0, "skipped": True}
 
             short_title = title[:40] + "..." if len(title) > 40 else title
 
@@ -1575,6 +1582,7 @@ class CollectionService:
                 await asyncio.sleep(REQUEST_DELAY_MS / 1000)
 
             # Emit found activity
+            found_count = len(all_sellers)
             if all_sellers:
                 await runner.emit_activity(create_activity_event(
                     worker_id=worker_id,
@@ -1582,14 +1590,92 @@ class CollectionService:
                     action="found",
                     category=cat_name,
                     product_name=short_title,
-                    new_sellers_count=len(all_sellers),
+                    new_sellers_count=found_count,
                 ))
-                print(f"[W{worker_id}] Found {len(all_sellers)} sellers for {short_title}")
+                print(f"[W{worker_id}] Found {found_count} sellers for {short_title}")
+
+            # INSERT SELLERS IMMEDIATELY (don't wait until end)
+            new_count = 0
+            if all_sellers:
+                # Prepare seller data
+                seller_info = []
+                for seller in all_sellers:
+                    normalized = self._normalize_seller_name(seller.username)
+                    seller_info.append({
+                        "username": seller.username,
+                        "normalized": normalized,
+                        "feedback_count": seller.feedback_count,
+                    })
+
+                # Check which already exist in DB
+                normalized_names = [s["normalized"] for s in seller_info]
+                existing_results = batched_query(
+                    self.supabase,
+                    table="sellers",
+                    select="id, normalized_name",
+                    filter_column="normalized_name",
+                    filter_values=normalized_names,
+                    extra_filters={"org_id": org_id, "platform": "ebay"},
+                )
+                existing_map = {r["normalized_name"]: r["id"] for r in existing_results}
+
+                # Separate new vs existing (dedupe by normalized name)
+                seen_normalized = set()
+                new_sellers = []
+                existing_ids = []
+                for info in seller_info:
+                    if info["normalized"] in seen_normalized:
+                        continue  # Skip duplicates within this product's results
+                    seen_normalized.add(info["normalized"])
+
+                    if info["normalized"] in existing_map:
+                        existing_ids.append(existing_map[info["normalized"]])
+                    else:
+                        new_sellers.append({
+                            "org_id": org_id,
+                            "display_name": info["username"],
+                            "normalized_name": info["normalized"],
+                            "platform": "ebay",
+                            "platform_id": info["username"],
+                            "feedback_score": info["feedback_count"],
+                            "first_seen_run_id": run_id,
+                            "last_seen_run_id": run_id,
+                            "times_seen": 1,
+                        })
+
+                # Update existing sellers
+                if existing_ids:
+                    batched_update(
+                        self.supabase,
+                        table="sellers",
+                        filter_column="id",
+                        filter_values=existing_ids,
+                        update_data={
+                            "last_seen_run_id": run_id,
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        },
+                    )
+
+                # Insert new sellers
+                if new_sellers:
+                    inserted, _ = batched_insert(
+                        self.supabase,
+                        table="sellers",
+                        rows=new_sellers,
+                    )
+                    new_count = inserted
+                    if inserted > 0:
+                        print(f"[W{worker_id}] +{inserted} NEW SELLERS")
+
+            # Update shared counters
+            shared_sellers_found += found_count
+            shared_sellers_new += new_count
 
             return {
                 "product_id": product["id"],
                 "cat_id": cat_id,
-                "sellers": all_sellers,
+                "found": found_count,
+                "new": new_count,
             }
 
         # Prepare tasks (skip already-processed when resuming)
@@ -1599,97 +1685,26 @@ class CollectionService:
                 continue
             tasks.append({"product": p})
 
-        # Execute parallel
+        # Execute parallel - sellers are inserted immediately per-product
         try:
             results = await runner.run(tasks, process_product, phase="ebay")
         except CollectionPausedException:
             print(f"\n[COLLECTION] Run paused/cancelled - stopping eBay search")
-            return {"status": "paused", "sellers_found": sellers_found, "sellers_new": sellers_new}
+            print(f"[COLLECTION] Sellers saved so far: {shared_sellers_found} found, {shared_sellers_new} new")
+            # Update run with partial results before returning
+            now = datetime.now(timezone.utc).isoformat()
+            self.supabase.table("collection_runs").update({
+                "sellers_found": sellers_found + shared_sellers_found,
+                "sellers_new": sellers_new + shared_sellers_new,
+                "updated_at": now,
+            }).eq("id", run_id).execute()
+            return {"status": "paused", "sellers_found": sellers_found + shared_sellers_found, "sellers_new": sellers_new + shared_sellers_new}
 
-        # Collect all sellers from results and batch process
-        all_found_sellers = []
-        for result in results:
-            if result.get("skipped"):
-                continue
-            all_found_sellers.extend(result.get("sellers", []))
+        # Update totals from shared counters (sellers already inserted per-product)
+        sellers_found += shared_sellers_found
+        sellers_new += shared_sellers_new
 
-        sellers_found += len(all_found_sellers)
-
-        # Batch process all sellers
-        if all_found_sellers:
-            # Prepare seller data
-            seller_info = []
-            for seller in all_found_sellers:
-                normalized = self._normalize_seller_name(seller.username)
-                seller_info.append({
-                    "username": seller.username,
-                    "normalized": normalized,
-                    "feedback_count": seller.feedback_count,
-                })
-
-            # Batch lookup existing sellers
-            normalized_names = [s["normalized"] for s in seller_info]
-            existing_results = batched_query(
-                self.supabase,
-                table="sellers",
-                select="id, normalized_name",
-                filter_column="normalized_name",
-                filter_values=normalized_names,
-                extra_filters={"org_id": org_id, "platform": "ebay"},
-            )
-            existing_map = {r["normalized_name"]: r["id"] for r in existing_results}
-
-            # Separate new vs existing (dedupe by normalized name)
-            seen_normalized = set()
-            new_sellers = []
-            existing_ids = []
-            for info in seller_info:
-                if info["normalized"] in seen_normalized:
-                    continue  # Skip duplicates within batch
-                seen_normalized.add(info["normalized"])
-
-                if info["normalized"] in existing_map:
-                    existing_ids.append(existing_map[info["normalized"]])
-                else:
-                    new_sellers.append({
-                        "org_id": org_id,
-                        "display_name": info["username"],
-                        "normalized_name": info["normalized"],
-                        "platform": "ebay",
-                        "platform_id": info["username"],
-                        "feedback_score": info["feedback_count"],
-                        "first_seen_run_id": run_id,
-                        "last_seen_run_id": run_id,
-                        "times_seen": 1,
-                    })
-
-            # Batch update existing sellers
-            if existing_ids:
-                batched_update(
-                    self.supabase,
-                    table="sellers",
-                    filter_column="id",
-                    filter_values=existing_ids,
-                    update_data={
-                        "last_seen_run_id": run_id,
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    },
-                )
-
-            # Batch insert new sellers
-            if new_sellers:
-                inserted, _ = batched_insert(
-                    self.supabase,
-                    table="sellers",
-                    rows=new_sellers,
-                )
-                sellers_new += inserted
-                if inserted > 0:
-                    print(f"[EBAY] Total NEW SELLERS: {inserted}")
-                    for s in new_sellers[:5]:
-                        print(f"         {s['display_name']}")
-                    if len(new_sellers) > 5:
-                        print(f"         (+{len(new_sellers) - 5} more)")
+        print(f"\n[EBAY] Total: {sellers_found} sellers found, {sellers_new} NEW")
 
         # Mark run as completed
         now = datetime.now(timezone.utc).isoformat()
