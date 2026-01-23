@@ -140,6 +140,7 @@ class OxylabsEbayScraper(EbayScraperService):
                     page=page,
                     has_more=False,
                     error="rate_limited",
+                    url=url,
                 )
 
             response.raise_for_status()
@@ -152,6 +153,7 @@ class OxylabsEbayScraper(EbayScraperService):
                     page=page,
                     has_more=False,
                     error="empty_response",
+                    url=url,
                 )
 
             content = results[0].get("content", "")
@@ -231,6 +233,7 @@ class OxylabsEbayScraper(EbayScraperService):
                 page=page,
                 has_more=has_more,
                 error=None,
+                url=url,
             )
 
         except httpx.TimeoutException:
@@ -241,6 +244,7 @@ class OxylabsEbayScraper(EbayScraperService):
                 page=page,
                 has_more=False,
                 error="timeout",
+                url=url,
             )
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error on eBay search: {e}")
@@ -250,6 +254,7 @@ class OxylabsEbayScraper(EbayScraperService):
                 page=page,
                 has_more=False,
                 error=f"http_error:{e.response.status_code}",
+                url=url,
             )
         except Exception as e:
             logger.error(f"Unexpected error on eBay search: {type(e).__name__}: {e}")
@@ -259,4 +264,5 @@ class OxylabsEbayScraper(EbayScraperService):
                 page=page,
                 has_more=False,
                 error=f"{type(e).__name__}: {e}",
+                url=url,
             )

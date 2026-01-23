@@ -29,6 +29,7 @@ class EbaySearchResult:
     page: int
     has_more: bool
     error: str | None = None
+    url: str | None = None  # The search URL used
 
 
 class EbayScraperService(ABC):

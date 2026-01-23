@@ -210,12 +210,18 @@ export function WorkerCard({
         </div>
       )}
 
-      {/* URL (truncated) */}
+      {/* URL (truncated, clickable) */}
       {!isIdle && lastActivity?.url && (
-        <div className="mt-2 flex items-center gap-1 text-[10px] text-gray-500 truncate">
+        <a
+          href={lastActivity.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="mt-2 flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 truncate"
+        >
           <ExternalLink className="h-3 w-3 flex-shrink-0" />
-          <span className="truncate">{truncateUrl(lastActivity.url)}</span>
-        </div>
+          <span className="truncate hover:underline">{truncateUrl(lastActivity.url)}</span>
+        </a>
       )}
 
       {/* Result summary (when found/error) */}

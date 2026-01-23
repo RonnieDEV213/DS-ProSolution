@@ -12,6 +12,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote_plus
 from supabase import Client
 
 from app.services.scrapers import OxylabsAmazonScraper, OxylabsEbayScraper
@@ -1667,7 +1668,10 @@ class CollectionService:
 
             # Search 3 pages per product
             for page in range(1, PAGES_PER_PRODUCT + 1):
-                # Emit fetching activity with api_params
+                # Build URL for display (same logic as scraper)
+                ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(title)}&LH_ItemCondition=1000&LH_Free=1&LH_PrefLoc=1&_udlo={price_min/100:.2f}&_udhi={price_max/100:.2f}&_ipg=60&_pgn={page}"
+
+                # Emit fetching activity with api_params and URL
                 await runner.emit_activity(create_activity_event(
                     worker_id=worker_id,
                     phase="ebay",
@@ -1681,6 +1685,7 @@ class CollectionService:
                         "page": page,
                     },
                     attempt=1,
+                    url=ebay_url,
                 ))
                 print(f"[W{worker_id}] Searching: {short_title} (page {page})")
 
