@@ -23,9 +23,7 @@ from app.models import (
     BulkOperationResponse,
     BulkSellerCreate,
     BulkSellerDelete,
-    DiffRequest,
     SellerCreate,
-    SellerDiff,
     SellerListResponse,
     SellerResponse,
     SellerUpdate,
@@ -315,56 +313,6 @@ async def get_sellers_at_log(
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-
-
-# ============================================================
-# Diff
-# ============================================================
-
-
-@router.post("/diff", response_model=SellerDiff)
-async def calculate_diff(
-    request: DiffRequest,
-    user: dict = Depends(require_permission_key("admin.automation")),
-    service: CollectionService = Depends(get_collection_service),
-):
-    """
-    Calculate diff between two seller snapshots.
-
-    Requires admin.automation permission.
-    """
-    org_id = user["membership"]["org_id"]
-
-    # Get source sellers
-    if request.source == "current":
-        source_sellers_data, _ = await service.get_sellers(org_id, limit=100000)
-        source_sellers = [s["display_name"] for s in source_sellers_data]
-    else:
-        if not request.source_id:
-            raise HTTPException(
-                status_code=400, detail="source_id required when source is 'log'"
-            )
-        try:
-            source_sellers = await service.get_sellers_at_log(org_id, request.source_id)
-        except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-
-    # Get target sellers
-    if request.target == "current":
-        target_sellers_data, _ = await service.get_sellers(org_id, limit=100000)
-        target_sellers = [s["display_name"] for s in target_sellers_data]
-    else:
-        if not request.target_id:
-            raise HTTPException(
-                status_code=400, detail="target_id required when target is 'log'"
-            )
-        try:
-            target_sellers = await service.get_sellers_at_log(org_id, request.target_id)
-        except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-
-    diff = await service.calculate_diff(source_sellers, target_sellers)
-    return SellerDiff(**diff)
 
 
 # ============================================================

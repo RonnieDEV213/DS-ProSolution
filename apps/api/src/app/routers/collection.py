@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 
 from app.auth import require_permission_key, require_permission_key_flexible
 from app.services.activity_stream import get_activity_stream
+from app.services.run_signals import signal_run, clear_signal, RunSignal
 from app.database import get_supabase
 from app.models import (
     CollectionHistoryEntry,
@@ -262,61 +263,6 @@ async def get_run(
     )
 
 
-@router.get("/runs/{run_id}/breakdown")
-async def get_run_breakdown(
-    run_id: str,
-    user: dict = Depends(require_permission_key("admin.automation")),
-):
-    """
-    Get per-category breakdown for a completed run.
-
-    Returns products and sellers counts grouped by category.
-
-    Requires admin.automation permission.
-    """
-    org_id = user["membership"]["org_id"]
-    supabase = get_supabase()
-
-    # Verify run exists and belongs to org
-    run_result = (
-        supabase.table("collection_runs")
-        .select("id, status")
-        .eq("id", run_id)
-        .eq("org_id", org_id)
-        .execute()
-    )
-    if not run_result.data:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    # Get all items for this run, extract category_id from data JSONB
-    items_result = (
-        supabase.table("collection_items")
-        .select("data")
-        .eq("run_id", run_id)
-        .execute()
-    )
-
-    # Aggregate by category
-    category_stats: dict[str, dict] = {}
-    for item in items_result.data or []:
-        data = item.get("data", {}) or {}
-        cat_id = data.get("category_id", "unknown")
-        if cat_id not in category_stats:
-            category_stats[cat_id] = {
-                "category_id": cat_id,
-                "products_count": 0,
-                "sellers_found": 0,
-            }
-        category_stats[cat_id]["products_count"] += 1
-        # If item has sellers_found in data, add it
-        category_stats[cat_id]["sellers_found"] += data.get("sellers_found", 0)
-
-    return {
-        "run_id": run_id,
-        "categories": list(category_stats.values()),
-    }
-
-
 @router.post("/runs/{run_id}/start")
 async def start_run(
     run_id: str,
@@ -450,17 +396,48 @@ async def pause_run(
     """
     Pause a running collection.
 
+    Idempotent - if already paused, returns success without error.
     Requires admin.automation permission.
     """
     org_id = user["membership"]["org_id"]
+    print(f"\n[PAUSE] Pause requested for run {run_id}")
+
+    # First check the current status
+    run = await service.get_run(run_id, org_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    current_status = run.get("status")
+    print(f"[PAUSE] Current DB status: {current_status}")
+
+    # Already paused - idempotent success, keep signal set
+    if current_status == "paused":
+        print(f"[PAUSE] Already paused, ensuring signal is set")
+        await signal_run(run_id, RunSignal.PAUSE)  # Ensure signal stays set
+        return {"ok": True, "status": "paused", "message": "Already paused"}
+
+    # Not running - can't pause
+    if current_status != "running":
+        print(f"[PAUSE] Cannot pause - status is {current_status}")
+        raise HTTPException(status_code=400, detail=f"Cannot pause run in {current_status} status")
+
+    # Signal workers IMMEDIATELY (in-memory, instant)
+    await signal_run(run_id, RunSignal.PAUSE)
+    print(f"[PAUSE] Signal set for run {run_id}")
+
+    # Then update database status
     result = await service.pause_run(run_id, org_id)
+    print(f"[PAUSE] DB update result: {result}")
 
     if "error" in result:
+        # Only clear signal if run not found - otherwise keep it set
         if result["error"] == "not_found":
+            await clear_signal(run_id)
             raise HTTPException(status_code=404, detail=result["message"])
-        else:
-            raise HTTPException(status_code=400, detail=result["message"])
+        # For other errors (like race condition), keep signal set and return error
+        raise HTTPException(status_code=400, detail=result["message"])
 
+    print(f"[PAUSE] Pause complete for run {run_id}")
     return result
 
 
@@ -474,14 +451,43 @@ async def resume_run(
     """
     Resume a paused collection.
 
+    Idempotent - if already running, returns success without error.
     This restarts the background task from where it left off using checkpoint data.
 
     Requires admin.automation permission.
     """
     org_id = user["membership"]["org_id"]
+    print(f"\n[RESUME] Resume requested for run {run_id}")
 
-    # First update the status
+    # First check DB status
+    run = await service.get_run(run_id, org_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    current_status = run.get("status")
+    print(f"[RESUME] Current DB status: {current_status}")
+
+    # Already running - idempotent success, just clear signal
+    if current_status == "running":
+        print(f"[RESUME] Already running, clearing signal just in case")
+        await clear_signal(run_id)
+        return {"ok": True, "status": "running", "message": "Already running"}
+
+    # Not paused - can't resume
+    if current_status != "paused":
+        print(f"[RESUME] Cannot resume - status is {current_status}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot resume run in {current_status} status"
+        )
+
+    # Clear any pause/cancel signal IMMEDIATELY (in-memory, instant)
+    await clear_signal(run_id)
+    print(f"[RESUME] Signal cleared for run {run_id}")
+
+    # Update the database status
     result = await service.resume_run(run_id, org_id)
+    print(f"[RESUME] DB update result: {result}")
 
     if "error" in result:
         if result["error"] == "not_found":
@@ -551,9 +557,16 @@ async def cancel_run(
     Requires admin.automation permission.
     """
     org_id = user["membership"]["org_id"]
+
+    # Signal workers IMMEDIATELY (in-memory, instant)
+    await signal_run(run_id, RunSignal.CANCEL)
+
+    # Then update database status
     result = await service.cancel_run(run_id, org_id)
 
     if "error" in result:
+        # Clear signal if DB update failed
+        await clear_signal(run_id)
         if result["error"] == "not_found":
             raise HTTPException(status_code=404, detail=result["message"])
         else:
@@ -716,6 +729,16 @@ async def stream_activity(
 
     async def event_generator():
         """Generate SSE events from activity queue."""
+        # Send initial "connected" event so frontend knows stream is working
+        connected_event = {
+            "id": f"connected-{run_id}",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "worker_id": 0,
+            "phase": run.get("checkpoint", {}).get("phase", "amazon") if isinstance(run, dict) else "amazon",
+            "action": "connected",
+        }
+        yield f"data: {json.dumps(connected_event)}\n\n"
+
         while True:
             try:
                 # Wait for event with timeout for keepalive

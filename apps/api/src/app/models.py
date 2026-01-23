@@ -978,29 +978,6 @@ class AuditLogResponse(BaseModel):
 
 
 # ============================================================
-# Seller Diff Models
-# ============================================================
-
-
-class SellerDiff(BaseModel):
-    """Diff between two seller snapshots."""
-
-    added: list[str]  # Seller names added
-    removed: list[str]  # Seller names removed
-    added_count: int
-    removed_count: int
-
-
-class DiffRequest(BaseModel):
-    """Request body for calculating diff between seller snapshots."""
-
-    source: Literal["log", "current"]
-    source_id: Optional[str] = None  # Log ID if source is "log"
-    target: Literal["log", "current"]
-    target_id: Optional[str] = None  # Log ID if target is "log"
-
-
-# ============================================================
 # Run Template Models
 # ============================================================
 
