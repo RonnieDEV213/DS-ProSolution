@@ -1188,6 +1188,116 @@ class CursorPage(BaseModel, Generic[T]):
 
 
 # ============================================================
+# Sync Response Models
+# ============================================================
+
+
+class RecordSyncItem(BaseModel):
+    """Record data for sync (subset of RecordResponse for efficiency)."""
+    id: str
+    account_id: str
+    ebay_order_id: str
+    sale_date: date
+    item_name: str
+    qty: int
+    sale_price_cents: int
+    ebay_fees_cents: Optional[int] = None
+    amazon_price_cents: Optional[int] = None
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
+    amazon_order_id: Optional[str] = None
+    status: BookkeepingStatus
+    return_label_cost_cents: Optional[int] = None
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None  # For sync: null = active, set = deleted
+
+    @classmethod
+    def from_db(cls, data: dict) -> "RecordSyncItem":
+        """Create RecordSyncItem from database row."""
+        return cls(
+            id=data["id"],
+            account_id=data["account_id"],
+            ebay_order_id=data["ebay_order_id"],
+            sale_date=data["sale_date"],
+            item_name=data["item_name"],
+            qty=data["qty"],
+            sale_price_cents=data["sale_price_cents"],
+            ebay_fees_cents=data.get("ebay_fees_cents"),
+            amazon_price_cents=data.get("amazon_price_cents"),
+            amazon_tax_cents=data.get("amazon_tax_cents"),
+            amazon_shipping_cents=data.get("amazon_shipping_cents"),
+            amazon_order_id=data.get("amazon_order_id"),
+            status=data["status"],
+            return_label_cost_cents=data.get("return_label_cost_cents"),
+            updated_at=data["updated_at"],
+            deleted_at=data.get("deleted_at"),
+        )
+
+
+class RecordSyncResponse(CursorPage[RecordSyncItem]):
+    """Paginated records for sync."""
+    pass
+
+
+class AccountSyncItem(BaseModel):
+    """Account data for sync."""
+    id: str
+    account_code: str
+    name: Optional[str] = None
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+    @classmethod
+    def from_db(cls, data: dict) -> "AccountSyncItem":
+        """Create AccountSyncItem from database row."""
+        return cls(
+            id=data["id"],
+            account_code=data["account_code"],
+            name=data.get("name"),
+            updated_at=data["updated_at"],
+            deleted_at=data.get("deleted_at"),
+        )
+
+
+class AccountSyncResponse(CursorPage[AccountSyncItem]):
+    """Paginated accounts for sync."""
+    pass
+
+
+class SellerSyncItem(BaseModel):
+    """Seller data for sync."""
+    id: str
+    display_name: str
+    normalized_name: str
+    platform: str
+    platform_id: Optional[str] = None
+    times_seen: int
+    flagged: bool = False
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+    @classmethod
+    def from_db(cls, data: dict) -> "SellerSyncItem":
+        """Create SellerSyncItem from database row."""
+        return cls(
+            id=data["id"],
+            display_name=data["display_name"],
+            normalized_name=data["normalized_name"],
+            platform=data["platform"],
+            platform_id=data.get("platform_id"),
+            times_seen=data["times_seen"],
+            flagged=data.get("flagged", False),
+            updated_at=data["updated_at"],
+            deleted_at=data.get("deleted_at"),
+        )
+
+
+class SellerSyncResponse(CursorPage[SellerSyncItem]):
+    """Paginated sellers for sync."""
+    pass
+
+
+# ============================================================
 # Activity Stream Models
 # ============================================================
 
