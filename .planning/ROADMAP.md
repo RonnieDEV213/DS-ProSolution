@@ -32,7 +32,7 @@ See commit history for v2 implementation details.
 
 - [x] **Phase 15: Server Storage Foundation** - Database indexes, updated_at triggers, soft deletes
 - [x] **Phase 16: Transport Layer** - Cursor-based pagination APIs with server-side filtering/sorting
-- [ ] **Phase 17: Client Query Caching** - TanStack Query integration with stale-while-revalidate
+- [x] **Phase 17: Client Query Caching** - TanStack Query integration with stale-while-revalidate
 - [ ] **Phase 18: Client Persistence** - IndexedDB schema with sync state tracking
 - [ ] **Phase 19: Sync Protocol** - Sync status UI, optimistic updates, error handling, offline queue
 - [ ] **Phase 20: Virtualized Rendering** - Virtual scroll, infinite scroll, keyboard navigation, filter UX
@@ -82,8 +82,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 17-01-PLAN.md - TanStack Query setup and query hooks
-- [ ] 17-02-PLAN.md - Mutation hooks and bookkeeping migration
+- [x] 17-01-PLAN.md - TanStack Query setup and query hooks
+- [x] 17-02-PLAN.md - Mutation hooks and bookkeeping migration
 
 ### Phase 18: Client Persistence
 **Goal**: Client caches data in IndexedDB for instant loads and incremental sync
@@ -168,7 +168,7 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 |-------|-----------|----------------|--------|-----------|
 | 15. Server Storage Foundation | v3 | 1/1 | Complete | 2026-01-24 |
 | 16. Transport Layer | v3 | 2/2 | Complete | 2026-01-24 |
-| 17. Client Query Caching | v3 | 0/2 | Planned | - |
+| 17. Client Query Caching | v3 | 2/2 | Complete | 2026-01-24 |
 | 18. Client Persistence | v3 | 0/2 | Not started | - |
 | 19. Sync Protocol | v3 | 0/3 | Not started | - |
 | 20. Virtualized Rendering | v3 | 0/3 | Not started | - |
@@ -176,4 +176,4 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 — Phase 17 planned*
+*Last updated: 2026-01-24 — Phase 17 complete*

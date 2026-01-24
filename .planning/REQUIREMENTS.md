@@ -22,9 +22,9 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 
 ### Client Caching
 
-- [ ] **CACH-01**: TanStack Query provides query caching and stale-while-revalidate
-- [ ] **CACH-02**: Cache invalidates automatically after create/update/delete mutations
-- [ ] **CACH-03**: Cache persists in memory for session duration
+- [x] **CACH-01**: TanStack Query provides query caching and stale-while-revalidate
+- [x] **CACH-02**: Cache invalidates automatically after create/update/delete mutations
+- [x] **CACH-03**: Cache persists in memory for session duration
 - [ ] **CACH-04**: Cache persists to IndexedDB (survives browser restart)
 - [ ] **CACH-05**: Incremental sync fetches only changed records since last sync
 - [ ] **CACH-06**: Next page prefetches while user views current page
@@ -98,9 +98,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PAGI-01 | Phase 16 | Complete |
 | PAGI-02 | Phase 16 | Complete |
 | PAGI-03 | Phase 16 | Complete |
-| CACH-01 | Phase 17 | Pending |
-| CACH-02 | Phase 17 | Pending |
-| CACH-03 | Phase 17 | Pending |
+| CACH-01 | Phase 17 | Complete |
+| CACH-02 | Phase 17 | Complete |
+| CACH-03 | Phase 17 | Complete |
 | INFR-04 | Phase 18 | Pending |
 | INFR-05 | Phase 18 | Pending |
 | CACH-04 | Phase 18 | Pending |
@@ -136,4 +136,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-23*
-*Last updated: 2026-01-24 — Phase 16 complete*
+*Last updated: 2026-01-24 — Phase 17 complete*
