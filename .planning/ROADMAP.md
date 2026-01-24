@@ -64,11 +64,11 @@ Plans:
   3. API supports sort parameters that use indexed ORDER BY
   4. API returns consistent results when underlying data changes between pages
   5. API response includes total count (or estimate) for result summary
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 16-01: Cursor pagination endpoint implementation
-- [ ] 16-02: Server-side filtering and sorting
+- [ ] 16-01-PLAN.md - Cursor pagination utilities and generic models
+- [ ] 16-02-PLAN.md - Sync router with cursor-paginated endpoints
 
 ### Phase 17: Client Query Caching
 **Goal**: Client uses TanStack Query for efficient server state management with automatic cache invalidation
@@ -167,7 +167,7 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 15. Server Storage Foundation | v3 | 1/1 | Complete | 2026-01-24 |
-| 16. Transport Layer | v3 | 0/2 | Not started | - |
+| 16. Transport Layer | v3 | 0/2 | Planned | - |
 | 17. Client Query Caching | v3 | 0/2 | Not started | - |
 | 18. Client Persistence | v3 | 0/2 | Not started | - |
 | 19. Sync Protocol | v3 | 0/3 | Not started | - |
@@ -176,4 +176,4 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-23*
+*Last updated: 2026-01-24*
