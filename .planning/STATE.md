@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 18 of 21 (Client Persistence)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-24 — Completed 18-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-24 — Completed 18-02-PLAN.md
 
-Progress: [██████░░░░] 37% (6/16 plans)
+Progress: [███████░░░] 44% (7/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [██████░░░░] 37% (6/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 3.0 min
-- Total execution time: 18 min
+- Total execution time: 21 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -60,6 +60,9 @@ Recent decisions affecting current work:
 | SCHEMA_VERSION increment triggers full resync | 18-01 | Simpler than migration handlers |
 | Compound index [account_id+sale_date] | 18-01 | Primary query pattern for records |
 | _sync_meta table for checkpoints | 18-01 | Per-table cursor tracking |
+| Incremental sync via updated_since | 18-02 | Delta sync using _sync_meta timestamps |
+| Client-side computed fields | 18-02 | Server sends raw data, client computes profit/earnings/COGS |
+| useLiveQuery for reactive IndexedDB | 18-02 | Auto-updates UI when IndexedDB changes |
 
 ### Pending Todos
 
@@ -72,6 +75,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 18-01-PLAN.md
+Stopped at: Completed 18-02-PLAN.md (Phase 18 complete)
 Resume file: None
-Next action: Execute 18-02-PLAN.md (Sync Engine)
+Next action: Plan Phase 19 (Offline UX)
