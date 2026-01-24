@@ -122,27 +122,27 @@ Plans:
 - [x] 19-02-PLAN.md - Optimistic updates and retry logic for mutation hooks
 - [x] 19-03-PLAN.md - Offline mutation queue and row-level sync badges
 - [x] 19-04-PLAN.md - Conflict detection and resolution modal
-- [ ] 19-05-PLAN.md - Wire offline queueing into mutation hooks (gap closure: SYNC-07)
-- [ ] 19-06-PLAN.md - Fix conflict detection data source (gap closure: SYNC-06)
+- [x] 19-05-PLAN.md - Wire offline queueing into mutation hooks (gap closure: SYNC-07)
+- [x] 19-06-PLAN.md - Fix conflict detection data source (gap closure: SYNC-06)
 
 ### Phase 20: Virtualized Rendering
 **Goal**: Lists render millions of records smoothly with full UX features
 **Depends on**: Phase 18 (requires IndexedDB data source for infinite scroll)
-**Requirements**: PAGI-04, PAGI-05, PAGI-06, PAGI-07, PAGI-08, PAGI-09, PAGI-10
+**Requirements**: PAGI-04, PAGI-05, PAGI-06, PAGI-07, PAGI-09, PAGI-10
+**Note**: PAGI-08 (filter presets with backend persistence) is OUT OF SCOPE per CONTEXT.md
 **Success Criteria** (what must be TRUE):
   1. Lists render using virtual scrolling with constant DOM elements (~50 visible rows)
   2. Lists display row count and result summary ("Showing 1-50 of 2,340,567")
   3. Lists show loading states during pagination and filtering (skeleton rows)
   4. Infinite scroll integrates with virtual scroll (seamless pagination trigger)
-  5. User can save and load filter/view presets (persisted to backend)
-  6. Common filters available as one-click quick filter chips
-  7. Lists support keyboard navigation (j/k for rows, Enter to select)
-**Plans**: TBD
+  5. Common filters available as one-click quick filter chips
+  6. Lists support keyboard navigation (j/k for rows, Enter to select)
+**Plans**: 3 plans
 
 Plans:
-- [ ] 20-01: Virtualized table component (react-window)
-- [ ] 20-02: Infinite scroll integration
-- [ ] 20-03: Filter UX (presets, quick filters, keyboard nav)
+- [ ] 20-01-PLAN.md - Virtualized table core (react-window v2, row density, skeleton rows)
+- [ ] 20-02-PLAN.md - Infinite scroll integration and keyboard navigation
+- [ ] 20-03-PLAN.md - Quick filter chips and scroll restoration
 
 ### Phase 21: Export/Import
 **Goal**: Users can export large datasets without browser crashes and import with validation
@@ -180,4 +180,4 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 - Phase 19 complete (6 plans including gap closure)*
+*Last updated: 2026-01-24 - Phase 20 planned (3 plans in 2 waves)*
