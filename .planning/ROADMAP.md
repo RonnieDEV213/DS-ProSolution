@@ -115,13 +115,15 @@ Plans:
   6. Conflicts show both versions for user resolution (not silent overwrite)
   7. Mutations queue when offline and sync when back online
   8. Each row displays individual sync status (synced/pending/error badge)
-**Plans**: 4 plans
+**Plans**: 6 plans (4 core + 2 gap closure)
 
 Plans:
-- [ ] 19-01-PLAN.md - Global sync status indicator (useOnlineStatus, useSyncStatus, SyncStatusIndicator)
-- [ ] 19-02-PLAN.md - Optimistic updates and retry logic for mutation hooks
-- [ ] 19-03-PLAN.md - Offline mutation queue and row-level sync badges
-- [ ] 19-04-PLAN.md - Conflict detection and resolution modal
+- [x] 19-01-PLAN.md - Global sync status indicator (useOnlineStatus, useSyncStatus, SyncStatusIndicator)
+- [x] 19-02-PLAN.md - Optimistic updates and retry logic for mutation hooks
+- [x] 19-03-PLAN.md - Offline mutation queue and row-level sync badges
+- [x] 19-04-PLAN.md - Conflict detection and resolution modal
+- [ ] 19-05-PLAN.md - Wire offline queueing into mutation hooks (gap closure: SYNC-07)
+- [ ] 19-06-PLAN.md - Fix conflict detection data source (gap closure: SYNC-06)
 
 ### Phase 20: Virtualized Rendering
 **Goal**: Lists render millions of records smoothly with full UX features
@@ -172,10 +174,10 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | 16. Transport Layer | v3 | 2/2 | Complete | 2026-01-24 |
 | 17. Client Query Caching | v3 | 2/2 | Complete | 2026-01-24 |
 | 18. Client Persistence | v3 | 3/3 | Complete | 2026-01-24 |
-| 19. Sync Protocol | v3 | 0/4 | Not started | - |
+| 19. Sync Protocol | v3 | 4/6 | Gap closure | - |
 | 20. Virtualized Rendering | v3 | 0/3 | Not started | - |
 | 21. Export/Import | v3 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 - Phase 19 planned (4 plans)*
+*Last updated: 2026-01-24 - Phase 19 gap closure plans added (19-05, 19-06)*
