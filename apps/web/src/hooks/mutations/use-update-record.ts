@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { api, type RecordUpdate, type BookkeepingRecord } from "@/lib/api";
 import { db } from "@/lib/db";
+import { useOnlineStatus } from "@/hooks/sync/use-online-status";
+import { queueMutation } from "@/lib/db/pending-mutations";
 
 interface UpdateRecordVariables {
   id: string;
@@ -42,10 +44,24 @@ interface UpdateRecordContext {
 export function useUpdateRecord(orgId: string, accountId: string) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.records.infinite(orgId, accountId);
+  const isOnline = useOnlineStatus();
 
   return useMutation<BookkeepingRecord, Error, UpdateRecordVariables, UpdateRecordContext>({
-    mutationFn: ({ id, data }: UpdateRecordVariables) =>
-      api.updateRecord(id, data),
+    mutationFn: async ({ id, data }: UpdateRecordVariables) => {
+      if (!isOnline) {
+        // Queue mutation for later sync
+        await queueMutation({
+          record_id: id,
+          table: 'records',
+          operation: 'update',
+          data: data as Record<string, unknown>,
+        });
+        // Return optimistic data shape - onMutate already updated cache/IndexedDB
+        return { id, ...data } as BookkeepingRecord;
+      }
+      // Online: call API directly
+      return api.updateRecord(id, data);
+    },
 
     onMutate: async ({ id, data }) => {
       // Cancel in-flight queries to prevent overwrite
