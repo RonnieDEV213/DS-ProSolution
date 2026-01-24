@@ -14,6 +14,7 @@ import { AddRecordDialog } from "@/components/bookkeeping/add-record-dialog";
 import { useUserRole } from "@/hooks/use-user-role";
 import { useAccounts } from "@/hooks/queries/use-accounts";
 import { useSyncRecords } from "@/hooks/sync/use-sync-records";
+import { usePrefetchOnScroll } from "@/hooks/sync/use-prefetch-on-scroll";
 import { exportToCSV, type Account, type BookkeepingStatus } from "@/lib/api";
 
 // TODO: Get orgId from user context when multi-org support added
@@ -69,6 +70,13 @@ export function BookkeepingContent() {
       cogs_total_cents: cogsTotalCents,
       profit_cents: profitCents,
     };
+  });
+
+  // Prefetch hook - triggers sync check when user scrolls near bottom
+  const { prefetchSentinelRef } = usePrefetchOnScroll({
+    hasNextPage: false, // useSyncRecords loads all records, no pagination
+    isFetching: recordsFetching,
+    fetchNextPage: syncResult.refetch, // Trigger resync when sentinel visible
   });
 
   // Apply persisted account selection after accounts load (once)
@@ -209,6 +217,7 @@ export function BookkeepingContent() {
                 userRole={userRole}
                 orgId={DEFAULT_ORG_ID}
                 accountId={selectedAccountId}
+                prefetchSentinelRef={prefetchSentinelRef}
               />
             </>
           )}

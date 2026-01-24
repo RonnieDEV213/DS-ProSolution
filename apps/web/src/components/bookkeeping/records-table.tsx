@@ -91,6 +91,7 @@ interface RecordsTableProps {
   userRole: UserRole;
   orgId: string;
   accountId: string;
+  prefetchSentinelRef?: (node?: Element | null) => void;
 }
 
 export function RecordsTable({
@@ -98,6 +99,7 @@ export function RecordsTable({
   userRole,
   orgId,
   accountId,
+  prefetchSentinelRef,
 }: RecordsTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -730,6 +732,15 @@ export function RecordsTable({
           })}
         </TableBody>
       </Table>
+
+      {/* Prefetch sentinel - triggers sync when scrolled into view */}
+      {prefetchSentinelRef && (
+        <div
+          ref={prefetchSentinelRef}
+          style={{ height: 1 }}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!recordToDelete} onOpenChange={(open) => !open && handleCancelDelete()}>
