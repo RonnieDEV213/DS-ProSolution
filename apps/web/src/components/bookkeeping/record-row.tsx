@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { RowComponentProps } from "react-window";
 import { Check, X, RotateCcw, PackageX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -113,12 +113,6 @@ interface RecordRowProps {
   focusedIndex?: number;
 }
 
-type RecordRowComponentProps = {
-  ariaAttributes?: { "aria-rowindex": number; role: "row" };
-  index: number;
-  style: CSSProperties;
-} & RecordRowProps;
-
 export function RecordRow({
   ariaAttributes,
   index,
@@ -140,7 +134,7 @@ export function RecordRow({
   onStatusChange,
   onDeleteClick,
   focusedIndex,
-}: RecordRowComponentProps) {
+}: RowComponentProps<RecordRowProps>) {
   const row = records[index];
   if (!row) return null;
 
