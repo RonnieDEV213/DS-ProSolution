@@ -49,6 +49,8 @@ import {
 } from "@/lib/api";
 import { useUpdateRecord } from "@/hooks/mutations/use-update-record";
 import { useDeleteRecord } from "@/hooks/mutations/use-delete-record";
+import { usePendingMutations } from "@/hooks/sync/use-pending-mutations";
+import { SyncRowBadge } from "@/components/sync/sync-row-badge";
 
 const STATUS_OPTIONS: { value: BookkeepingStatus; label: string }[] = [
   { value: "SUCCESSFUL", label: "Successful" },
@@ -116,6 +118,9 @@ export function RecordsTable({
   // Mutation hooks
   const updateMutation = useUpdateRecord(orgId, accountId);
   const deleteMutation = useDeleteRecord(orgId, accountId);
+
+  // Track pending mutations for row-level sync badges
+  const pendingMutations = usePendingMutations('records');
 
   const toggleExpanded = (id: string) => {
     const next = new Set(expandedIds);
@@ -394,31 +399,34 @@ export function RecordsTable({
                 <TableRow
                   className="border-gray-800 hover:bg-gray-900"
                 >
-                  {/* Expand Toggle */}
+                  {/* Expand Toggle + Sync Badge */}
                   <TableCell className="p-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-gray-400"
-                      onClick={() => toggleExpanded(record.id)}
-                      aria-label={isExpanded ? "Collapse row details" : "Expand row details"}
-                      aria-expanded={isExpanded}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                    <div className="flex items-center gap-1">
+                      <SyncRowBadge mutation={pendingMutations.get(record.id)} />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-gray-400"
+                        onClick={() => toggleExpanded(record.id)}
+                        aria-label={isExpanded ? "Collapse row details" : "Expand row details"}
+                        aria-expanded={isExpanded}
                       >
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </Button>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                        >
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </Button>
+                    </div>
                   </TableCell>
 
                   {/* Date */}
