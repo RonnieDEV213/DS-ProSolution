@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog";
+import { SyncStatusIndicator } from "@/components/sync/sync-status-indicator";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: "home" },
@@ -178,6 +179,7 @@ export function AdminSidebar() {
       </nav>
 
       <div className="p-4 border-t border-gray-800">
+        <SyncStatusIndicator />
         <button
           onClick={() => setProfileOpen(true)}
           className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
