@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 18 of 21 (Client Persistence)
-Plan: 2 of 2 in current phase
+Plan: 3 of 3 in current phase (gap closure plan)
 Status: Phase complete
-Last activity: 2026-01-24 — Completed 18-02-PLAN.md
+Last activity: 2026-01-24 - Completed 18-03-PLAN.md (gap closure)
 
-Progress: [███████░░░] 44% (7/16 plans)
+Progress: [████████░░] 50% (8/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [███████░░░] 44% (7/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 7
-- Average duration: 3.0 min
-- Total execution time: 21 min
+- Total plans completed: 8
+- Average duration: 3.1 min
+- Total execution time: 25 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -63,6 +63,8 @@ Recent decisions affecting current work:
 | Incremental sync via updated_since | 18-02 | Delta sync using _sync_meta timestamps |
 | Client-side computed fields | 18-02 | Server sends raw data, client computes profit/earnings/COGS |
 | useLiveQuery for reactive IndexedDB | 18-02 | Auto-updates UI when IndexedDB changes |
+| Cast IndexedDB status to BookkeepingStatus | 18-03 | IndexedDB stores string, API type expects enum |
+| Client-side computed fields in UI | 18-03 | Reuse pattern from 18-02 in bookkeeping component |
 
 ### Pending Todos
 
@@ -75,6 +77,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 18-02-PLAN.md (Phase 18 complete)
+Stopped at: Completed 18-03-PLAN.md (Phase 18 gaps closed)
 Resume file: None
 Next action: Plan Phase 19 (Offline UX)
