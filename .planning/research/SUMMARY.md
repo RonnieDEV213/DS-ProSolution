@@ -1,158 +1,209 @@
 # Project Research Summary
 
-**Project:** DS-ProSolution v2 SellerCollection
-**Domain:** Amazon-to-eBay dropshipper discovery automation
-**Researched:** 2026-01-20
+**Project:** DS-ProSolution v3 Large-Scale Data Infrastructure
+**Domain:** eBay account management platform with multi-million record data pipeline
+**Researched:** 2026-01-23
 **Confidence:** HIGH
 
 ## Executive Summary
 
-SellerCollection is a narrowly scoped automation feature: scrape Amazon Best Sellers via third-party API, search matching products on eBay with dropshipper-indicator filters (Brand New, free shipping, 80-120% price markup), extract seller names, deduplicate against existing database, and export as JSON/CSV. This is the simplest architecture case from the project's scraping paradigm — purely public data via centralized APIs, no browser automation, no account risk.
+DS-ProSolution v3 addresses a fundamental scaling problem: the current "full-fetch" pattern crashes when handling millions of records across hundreds of eBay accounts. The research converges on a 4-layer architecture: PostgreSQL with keyset pagination at the server, REST API with cursor-based endpoints, IndexedDB (via Dexie.js) for client-side caching, and virtualized rendering for the UI. This is not a novel architecture but rather a well-established pattern for large-scale data applications, with extensive documentation and production-proven libraries available.
 
-The recommended approach uses **Oxylabs E-Commerce Scraper API** ($49/month Micro plan) for both Amazon and eBay scraping. This provides a single integration point, 100% success rate in independent testing, and 98,000 results/month — roughly 10x headroom for the estimated 5,000-10,000 requests/month baseline. The existing FastAPI backend handles orchestration; the existing Supabase/PostgreSQL database handles storage and deduplication. No new infrastructure is required.
+The recommended approach prioritizes incremental adoption. Start with cursor-based pagination at the API layer (replacing offset pagination), add TanStack Query for server state management, then layer in IndexedDB for offline-capable caching, and finally implement virtualization for smooth UI performance. Each layer can be added independently, allowing the team to ship value incrementally while building toward the full architecture.
 
-Critical risks center on cost control and job reliability, not technical complexity. Unbounded API costs can silently accumulate ($20-50/run without caps), long-running jobs (90+ minutes for 10K products) can timeout without progress persistence, and seller name deduplication requires normalization to avoid inflated counts. All risks have straightforward mitigations that should be implemented in the foundation phase before any real collection runs.
+The critical risks are well-understood and preventable. Non-unique cursor columns cause duplicate/missing records (use compound cursors). IndexedDB transactions auto-commit during async operations (fetch data before opening transactions). Safari evicts storage after 7 days of inactivity (design for re-sync, not permanent cache). These are not exotic edge cases but documented pitfalls with established prevention patterns.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Use **Oxylabs E-Commerce Scraper API** for both Amazon Best Sellers and eBay product search. Single vendor simplifies integration and billing. At the MVP volume (~10K requests/month), the $49/month Micro plan provides significant headroom. Free trial (2,000 results) allows validation before commitment.
+The stack recommendation prioritizes technologies that integrate cleanly with the existing Supabase/PostgreSQL backend and Next.js 14+ frontend. All recommendations are verified against official documentation and production usage.
 
 **Core technologies:**
-- **Oxylabs API**: Amazon Best Sellers + eBay search — best price/performance at our scale ($0.40-0.50/1K requests), 100% success rate, single integration
-- **httpx**: Async HTTP client — already in use, no new dependencies
-- **Existing FastAPI backend**: Orchestration + background workers — follows established patterns in `apps/api/src/app/background.py`
-- **Existing Supabase/PostgreSQL**: Storage + deduplication — row-level security already configured
 
-**What NOT to add:**
-- Custom proxies or browser automation (unnecessary for public data)
-- Rainforest + ScraperAPI separately (use single vendor unless quality insufficient)
-- Real-time eBay search (batch processing is sufficient)
+| Technology | Version | Purpose | Rationale |
+|------------|---------|---------|-----------|
+| Keyset Pagination | PostgreSQL native | Navigate large datasets | Offset pagination degrades 17x at scale; keyset maintains constant O(log n) performance |
+| Dexie.js | 4.2.x | IndexedDB wrapper | Best developer experience, excellent React hooks (`useLiveQuery`), handles browser-specific bugs, 100K+ production sites |
+| TanStack Query | 5.x | Server state management | De facto React standard for caching, deduplication, background refetch, optimistic updates |
+| Supabase Cache Helpers | 1.x | TanStack + Supabase integration | Auto-generates cache keys, handles mutations, cursor pagination hooks built-in |
+| Custom Incremental Sync | Custom | Client-server sync | Full control, no vendor lock-in, works within existing Supabase ecosystem |
 
-**Alternative path:** If Oxylabs data quality proves insufficient during trial, switch to Rainforest API for Amazon (higher accuracy, premium pricing) + ScraperAPI for eBay (structured JSON output).
+**Why NOT alternatives:**
+- RxDB: Overkill complexity, larger bundle, unnecessary CRDT features
+- PowerSync/Electric SQL: Adds infrastructure; Supabase already handles what we need
+- Offset pagination: Performance degrades linearly with page depth
+- Raw IndexedDB: Verbose, callback-based, no schema migrations
 
 ### Expected Features
 
 **Must have (table stakes):**
-- Amazon Best Sellers scraping with category selection
-- eBay search with filters (Brand New, free shipping, price markup range)
-- Seller name extraction and deduplication
-- Progress indication during collection
-- Export: JSON, CSV, copy to clipboard
-- Admin-only access (existing RBAC)
+- Cursor-based pagination API (foundation for scale)
+- Server-side filtering and sorting (cannot do client-side at millions of records)
+- Virtual scrolling (prevent DOM crashes with 10K+ rows)
+- TanStack Query caching with stale-while-revalidate
+- Loading states with determinate progress for long operations
+- Sync status indicator with last-synced timestamp
+- Cache invalidation on mutations (lists must update after create/edit/delete)
 
 **Should have (competitive):**
-- Scheduled monthly collection (cron job)
-- Seller metadata capture (feedback score, item count)
-- Collection history/past runs list
+- Optimistic updates for sub-second mutation feedback
+- Streaming CSV export for large datasets
+- Saved views/filters for VA productivity
+- Quick filters (one-click common filter presets)
 
-**Defer (v2.1+):**
-- Multi-category batch processing
-- Pause/resume for long collections
-- Collection presets
-- Profit margin calculator (explicitly anti-feature — output goes to third-party software)
-- Seller quality scoring (reverse image search, hero detection — future milestone)
+**Defer (v2+):**
+- IndexedDB persistence across browser restarts (session cache sufficient initially)
+- Full incremental sync protocol (paginated full refresh acceptable for MVP)
+- Infinite scroll + virtual scroll hybrid
+- Conflict resolution UI (last-write-wins acceptable for internal tool)
+- Offline mutation queue (users have reliable connectivity)
 
 ### Architecture Approach
 
-SellerCollection follows the **Centralized paradigm** from EXISTING-ARCHITECTURE.md: all data is public, uses third-party APIs, runs entirely on FastAPI backend. No browser automation, no PC agents, no account risk. The pipeline is linear: Admin triggers -> Fetch Amazon Best Sellers -> For each product, search eBay with filters -> Extract seller names -> Deduplicate and store -> Export.
+The architecture follows a 4-layer pattern where each layer has clear responsibilities and data flows downward through well-defined interfaces. Server storage (PostgreSQL) is authoritative with optimized indexes for cursor queries. The transport layer (FastAPI) provides cursor-based pagination and delta sync endpoints. Client storage (IndexedDB via Dexie.js) caches synced data locally with mutation queue for offline resilience. The rendering layer (React with virtualization) displays only visible rows while integrating with pagination triggers.
 
 **Major components:**
-1. **CollectionService** — Orchestrates pipeline, manages background worker state, coordinates AmazonService and EbayService
-2. **AmazonApiService** — Oxylabs client for Best Sellers scraping, returns product list with ASINs/titles/prices
-3. **EbayApiService** — Oxylabs client for eBay search, extracts seller names from results
-4. **Collection Router** — REST endpoints: POST /start, POST /stop, GET /status, GET /sellers, GET /export
-5. **Database tables** — `sellers` (deduped master list), `collection_runs` (job tracking), `collection_items` (audit trail)
+
+1. **Server Storage (PostgreSQL/Supabase)** -- Authoritative data store with `updated_at` tracking, soft deletes, composite indexes for cursor pagination, RLS for multi-tenant security
+2. **Transport API (FastAPI)** -- `GET /records/paginated` with opaque cursor, `GET /records/sync` for delta fetch, `POST /records/bulk` for batched mutations
+3. **Client Storage (Dexie.js IndexedDB)** -- `records` table mirroring server, `syncState` for checkpoint tracking, `pendingMutations` for offline queue
+4. **Sync Engine** -- State machine: IDLE -> CHECK_STATE -> INITIAL_SYNC or DELTA_SYNC -> PUSH_MUTATIONS -> IDLE
+5. **Rendering Layer (React + react-window)** -- Virtualized table with `useLiveQuery()` for reactive updates, `InfiniteLoader` for pagination triggers
 
 ### Critical Pitfalls
 
-1. **Unbounded API Cost Explosion** — Display estimated cost before trigger, implement hard budget cap per run ($25 max), track cumulative monthly spend, alert at 50%/75%/90% of budget
-2. **Long-Running Job Timeout** — Implement checkpointing every 100 products, store progress in `collection_runs`, enable resume from checkpoint on restart
-3. **Amazon Parent ASIN Confusion** — Detect parent ASINs (no price, "Select options"), skip or extract child ASIN; validate price exists before eBay search
-4. **eBay Zero Results Silent Failure** — Track three states: `sellers_found`, `no_sellers_exist`, `search_failed`; alert if zero-result rate exceeds baseline by >20%
-5. **Seller Name Deduplication** — Normalize names (lowercase, strip special chars) before comparison; store both `display_name` and `normalized_name`
+The research identified 5 critical pitfalls that cause rewrites or major architectural issues if not addressed early:
+
+1. **Non-Unique Cursor Columns (CP-01)** -- Using `updated_at` alone causes duplicates when rows share timestamps. Prevention: Always use compound cursors `(updated_at, id)` with matching compound index.
+
+2. **IndexedDB Transaction Auto-Commit (CP-02)** -- Any `await` to external API inside a transaction causes `TransactionInactiveError`. Prevention: Fetch all data BEFORE opening transaction, then write in single transaction.
+
+3. **Safari 7-Day Storage Eviction (CP-03)** -- Safari deletes all IndexedDB after 7 days of inactivity. Prevention: Design for re-sync from server; cache is performance optimization, not permanent storage.
+
+4. **Optimistic Update Rollback Races (CP-04)** -- Overlapping optimistic updates create inconsistent UI on rollback. Prevention: Sequence mutations, use mutation queue, cancel in-flight requests before applying new changes.
+
+5. **IndexedDB Schema Migration Conflicts (CP-05)** -- Multi-tab scenario blocks database upgrades. Prevention: Handle `onversionchange` to close database, handle `onblocked` with user prompt.
 
 ## Implications for Roadmap
 
-Based on research, suggested 4-phase structure:
+Based on research, suggested 4-phase structure following the layer dependencies:
 
-### Phase 1: Collection Infrastructure
-**Rationale:** Foundation must exist before any API calls — database schema, job management, cost controls
-**Delivers:** Database migrations, background job framework with progress tracking, budget controls
-**Addresses:** Progress indication, admin-only access
-**Avoids:** Unbounded API costs (Pitfall 1), job timeout without persistence (Pitfall 2), no visibility into job progress (Pitfall 10)
+### Phase 1: Pagination Infrastructure (Server Foundation)
 
-### Phase 2: Amazon Best Sellers Integration
-**Rationale:** Input data source must work before eBay search can be built
-**Delivers:** Oxylabs Amazon client, category selection UI, product list extraction
-**Addresses:** Amazon Best Sellers scraping, category selection
-**Avoids:** Parent ASIN confusion (Pitfall 3), category structure changes breaking scraper (Pitfall 6)
+**Rationale:** Everything else depends on efficient server-side data access. Cannot add client caching or sync until the API supports cursor-based pagination. This phase has zero dependencies.
 
-### Phase 3: eBay Seller Search
-**Rationale:** Depends on Amazon data; search filters define dropshipper identification logic
-**Delivers:** Oxylabs eBay client, filter implementation (Brand New, free shipping, price range), seller extraction
-**Addresses:** eBay search with filters, seller name extraction
-**Avoids:** Zero results silent failure (Pitfall 4), geographic restrictions hiding sellers (Pitfall 9)
+**Delivers:**
+- `updated_at` and `deleted_at` columns on syncable tables
+- Composite indexes for cursor pagination `(account_id, sale_date DESC, id DESC)`
+- Auto-update trigger for `updated_at`
+- `GET /records/paginated` endpoint with opaque cursor
+- `GET /records/sync` endpoint for delta fetch
 
-### Phase 4: Storage, Export, and UI
-**Rationale:** Output layer depends on working pipeline; UI can be built in parallel with Phase 3
-**Delivers:** Deduplication logic, export endpoints (JSON/CSV/clipboard), admin UI (trigger, progress, results table)
-**Addresses:** Deduplication, export formats, collection history
-**Avoids:** Seller name deduplication inconsistency (Pitfall 5), duplicate products across categories (Pitfall 11)
+**Features addressed:** Cursor-based pagination, server-side filtering, server-side sorting
+**Pitfalls avoided:** CP-01 (compound cursors), PT-01 (missing index), PT-05 (DESC performance), SP-03 (Supabase client tuple comparison)
+
+### Phase 2: Client Caching Layer (IndexedDB Foundation)
+
+**Rationale:** With server endpoints ready, can now build client-side caching. This enables offline reads and instant subsequent loads. Requires Phase 1 endpoints to sync with.
+
+**Delivers:**
+- Dexie.js database schema mirroring key tables
+- Sync state tracking (checkpoints, cursors)
+- Pending mutation queue for offline writes
+- TanStack Query integration for server state
+- Basic sync engine (initial sync + delta sync)
+
+**Uses:** Dexie.js 4.2.x, TanStack Query 5.x, Supabase Cache Helpers
+**Pitfalls avoided:** CP-02 (transaction auto-commit), CP-03 (Safari eviction), CP-05 (schema migration), PT-03 (write bottleneck via batching)
+
+### Phase 3: Sync Protocol (Data Consistency)
+
+**Rationale:** With storage layers complete, can now implement the sync protocol that ties them together. Handles the complex state machine of initial sync, delta sync, and mutation push.
+
+**Delivers:**
+- Complete sync engine state machine
+- Optimistic update handling with rollback
+- Conflict resolution (last-write-wins with timestamp)
+- Error recovery and retry logic
+- Sync status UI indicators
+
+**Features addressed:** Sync status indicator, optimistic updates, retry on failure, error states
+**Pitfalls avoided:** CP-04 (optimistic rollback races), TD-02 (offline strategy), TD-04 (version vectors), SP-02 (realtime subscription overhead)
+
+### Phase 4: Virtualized Rendering (UI Performance)
+
+**Rationale:** Final layer brings efficient rendering. Requires IndexedDB data source to read from. This phase transforms the UI to handle millions of records smoothly.
+
+**Delivers:**
+- Virtualized table component with react-window
+- Infinite loader integration for seamless pagination
+- Focus/accessibility management for virtualized content
+- Complete integration replacing existing RecordsTable
+- Memory management with maxPages configuration
+
+**Features addressed:** Virtual scrolling, loading states, configurable page size
+**Pitfalls avoided:** PT-02 (unbounded memory growth), PT-04 (focus/accessibility), TD-03 (virtualization integration)
 
 ### Phase Ordering Rationale
 
-- **Infrastructure first:** Budget controls and progress tracking must exist before API integration to prevent cost overruns and lost work
-- **Amazon before eBay:** Linear dependency — cannot search eBay without Amazon product data
-- **Storage/UI last:** Can be developed in parallel with Phase 3; depends on working data pipeline
-- **Scheduling deferred:** Optional feature, can be added after core pipeline works
+1. **Layer dependencies are strict:** API must exist before client can sync; IndexedDB must exist before virtualization can read from it. Violating this order creates blocking dependencies mid-phase.
+
+2. **Each phase delivers standalone value:** Phase 1 immediately improves API performance. Phase 2 adds caching benefits. Phase 3 adds reliability. Phase 4 adds UI smoothness. No wasted work if scope changes.
+
+3. **Pitfall distribution guides complexity:** Critical pitfalls cluster in Phase 1 (pagination) and Phase 2 (IndexedDB). Addressing these early prevents architectural rework. Phase 3-4 pitfalls are more recoverable.
+
+4. **Testing strategy aligns:** Each phase can be tested independently. Server endpoints can be verified before client work begins. Sync engine can be tested with mock endpoints.
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 2:** Amazon category structure may have changed; validate category list discovery during implementation
-- **Phase 3:** eBay search filter parameters need API documentation review; may need to adjust ScraperAPI fallback if Oxylabs eBay parsing insufficient
+**Phases likely needing deeper research during planning:**
+- **Phase 3 (Sync Protocol):** Optimistic update rollback handling is complex; may need spike to validate TanStack Query's built-in optimistic update patterns work for our mutation patterns
+- **Phase 4 (Virtualization):** Accessibility with virtualized lists is tricky; may need prototype to validate focus management approach
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1:** Standard FastAPI background jobs, PostgreSQL migrations — well-documented patterns already in codebase
-- **Phase 4:** Standard CRUD UI, file export — established patterns in apps/web
+**Phases with standard patterns (skip research-phase):**
+- **Phase 1 (Pagination):** Well-documented PostgreSQL patterns, FastAPI pagination library exists, Supabase examples available
+- **Phase 2 (IndexedDB):** Dexie.js documentation is comprehensive, patterns are established
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Oxylabs pricing/features verified from official docs; multiple comparison sources confirm recommendation |
-| Features | HIGH | Features derived from explicit PROJECT.md requirements; anti-features explicitly marked as out-of-scope |
-| Architecture | HIGH | Builds directly on existing codebase patterns; follows established EXISTING-ARCHITECTURE.md paradigm |
-| Pitfalls | HIGH | Verified against official API documentation and multiple scraping service providers |
+| Stack | HIGH | All technologies verified with official docs, production usage confirmed, versions pinned |
+| Features | MEDIUM-HIGH | Table stakes well-documented; differentiator complexity estimates are experience-based |
+| Architecture | HIGH | 4-layer pattern is established for offline-capable apps; multiple reference implementations |
+| Pitfalls | HIGH | All critical pitfalls documented with multiple authoritative sources; prevention patterns are clear |
 
 **Overall confidence:** HIGH
 
+The v3 data infrastructure is not novel technology. The patterns are well-established, the libraries are mature, and the pitfalls are documented. Risk comes from implementation complexity, not from uncertainty about the approach.
+
 ### Gaps to Address
 
-- **Oxylabs trial validation:** Must test with real Amazon Best Sellers and eBay search before committing to Micro plan
-- **eBay seller name field availability:** Verify Oxylabs eBay response includes seller_name in parsed output; fallback to raw HTML parsing if needed
-- **Category list completeness:** Amazon may have more/fewer than 40 Best Sellers categories; validate during Phase 2
-- **Price markup calculation edge cases:** Amazon price may be unavailable or in different currencies; define handling rules
+- **Performance targets validation:** The research cites targets (<1s initial load, <5s for 10K record sync) but these should be validated with production data volumes during Phase 1
+- **Chrome extension specifics:** The research notes MV3 service workers support IndexedDB but the extension's sync requirements need clarification during planning
+- **Multi-account sync orchestration:** The sync engine handles single-account sync but orchestrating across hundreds of accounts needs design work
+- **Export at scale:** Streaming CSV export is recommended but the exact implementation (server-side vs client-side) needs decision during Phase 3/4
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Oxylabs Web Scraper API Pricing](https://oxylabs.io/products/scraper-api/web/pricing) — tier details, rate limits, pricing structure
-- [Oxylabs Amazon Scraper](https://oxylabs.io/products/scraper-api/ecommerce/amazon) — Amazon-specific features and endpoints
-- [Oxylabs eBay Scraper](https://oxylabs.io/products/scraper-api/ecommerce/ebay) — eBay-specific features and endpoints
-- [Rainforest API Bestsellers](https://docs.trajectdata.com/rainforestapi/product-data-api/parameters/bestsellers) — dedicated endpoint documentation
+- [Dexie.js Official Documentation](https://dexie.org/) -- IndexedDB wrapper, React hooks, schema migrations
+- [TanStack Query v5 Docs](https://tanstack.com/query/latest) -- Server state, infinite queries, optimistic updates
+- [Supabase Cache Helpers](https://supabase-cache-helpers.vercel.app/) -- TanStack + Supabase integration
+- [PostgreSQL Keyset Pagination](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/) -- Cursor pagination patterns
+- [MDN IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB) -- Browser storage API
 
 ### Secondary (MEDIUM confidence)
-- [Scrapingdog: Best Amazon Scraping APIs 2026](https://www.scrapingdog.com/blog/best-amazon-scraping-apis/) — independent testing, success rate comparison
-- [Bright Data: Top 10 Amazon Scrapers 2026](https://brightdata.com/blog/web-data/best-amazon-scrapers) — feature comparison across providers
-- [ZIK Analytics Features](https://www.zikanalytics.com/ebay/competitor-research) — competitive landscape reference
+- [Sentry Pagination at Scale](https://blog.sentry.io/paginating-large-datasets-in-production-why-offset-fails-and-cursors-win/) -- Production experience with cursor pagination
+- [RxDB IndexedDB Limits](https://rxdb.info/articles/indexeddb-max-storage-limit.html) -- Storage eviction, Safari 7-day limit
+- [TkDodo Optimistic Updates](https://tkdodo.eu/blog/concurrent-optimistic-updates-in-react-query) -- Concurrent optimistic update handling
+- [Citus Data Pagination](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/) -- PostgreSQL pagination patterns
 
-### Tertiary (LOW confidence)
-- Pricing estimates for high-volume scenarios — may vary based on negotiated contracts
-- Category count estimates — based on manual observation, subject to Amazon changes
+### Tertiary (LOW confidence - verify before implementation)
+- 40-60% faster perceived load with offline-first (survey data, not independently verified)
+- IndexedDB sharding provides 28% faster reads (single benchmark source)
 
 ---
-*Research completed: 2026-01-20*
+*Research completed: 2026-01-23*
 *Ready for roadmap: yes*
