@@ -79,11 +79,11 @@ Plans:
   2. Create/update/delete mutations automatically invalidate related list queries
   3. Cache persists in memory for session duration (no re-fetch on navigation)
   4. Duplicate requests within dedup window are merged (no redundant API calls)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 17-01: TanStack Query setup and query patterns
-- [ ] 17-02: Mutation invalidation patterns
+- [ ] 17-01-PLAN.md - TanStack Query setup and query hooks
+- [ ] 17-02-PLAN.md - Mutation hooks and bookkeeping migration
 
 ### Phase 18: Client Persistence
 **Goal**: Client caches data in IndexedDB for instant loads and incremental sync
@@ -168,7 +168,7 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 |-------|-----------|----------------|--------|-----------|
 | 15. Server Storage Foundation | v3 | 1/1 | Complete | 2026-01-24 |
 | 16. Transport Layer | v3 | 2/2 | Complete | 2026-01-24 |
-| 17. Client Query Caching | v3 | 0/2 | Not started | - |
+| 17. Client Query Caching | v3 | 0/2 | Planned | - |
 | 18. Client Persistence | v3 | 0/2 | Not started | - |
 | 19. Sync Protocol | v3 | 0/3 | Not started | - |
 | 20. Virtualized Rendering | v3 | 0/3 | Not started | - |
@@ -176,4 +176,4 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 — Phase 16 complete*
+*Last updated: 2026-01-24 — Phase 17 planned*
