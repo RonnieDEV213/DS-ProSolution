@@ -92,48 +92,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFR-01 | Phase 1 | Pending |
-| INFR-02 | Phase 1 | Pending |
-| INFR-03 | Phase 1 | Pending |
-| PAGI-01 | Phase 2 | Pending |
-| PAGI-02 | Phase 2 | Pending |
-| PAGI-03 | Phase 2 | Pending |
-| CACH-01 | Phase 3 | Pending |
-| CACH-02 | Phase 3 | Pending |
-| CACH-03 | Phase 3 | Pending |
-| INFR-04 | Phase 4 | Pending |
-| INFR-05 | Phase 4 | Pending |
-| CACH-04 | Phase 4 | Pending |
-| CACH-05 | Phase 5 | Pending |
-| SYNC-01 | Phase 5 | Pending |
-| SYNC-02 | Phase 5 | Pending |
-| SYNC-03 | Phase 5 | Pending |
-| SYNC-04 | Phase 5 | Pending |
-| SYNC-05 | Phase 5 | Pending |
-| SYNC-06 | Phase 5 | Pending |
-| SYNC-07 | Phase 5 | Pending |
-| SYNC-08 | Phase 5 | Pending |
-| CACH-06 | Phase 5 | Pending |
-| PAGI-04 | Phase 6 | Pending |
-| PAGI-05 | Phase 6 | Pending |
-| PAGI-06 | Phase 6 | Pending |
-| PAGI-07 | Phase 6 | Pending |
-| PAGI-08 | Phase 6 | Pending |
-| PAGI-09 | Phase 6 | Pending |
-| PAGI-10 | Phase 6 | Pending |
-| EXPO-01 | Phase 7 | Pending |
-| EXPO-02 | Phase 7 | Pending |
-| EXPO-03 | Phase 7 | Pending |
-| EXPO-04 | Phase 7 | Pending |
-| EXPO-05 | Phase 7 | Pending |
-| EXPO-06 | Phase 7 | Pending |
-| EXPO-07 | Phase 7 | Pending |
+| INFR-01 | Phase 15 | Pending |
+| INFR-02 | Phase 15 | Pending |
+| INFR-03 | Phase 15 | Pending |
+| PAGI-01 | Phase 16 | Pending |
+| PAGI-02 | Phase 16 | Pending |
+| PAGI-03 | Phase 16 | Pending |
+| CACH-01 | Phase 17 | Pending |
+| CACH-02 | Phase 17 | Pending |
+| CACH-03 | Phase 17 | Pending |
+| INFR-04 | Phase 18 | Pending |
+| INFR-05 | Phase 18 | Pending |
+| CACH-04 | Phase 18 | Pending |
+| CACH-05 | Phase 18 | Pending |
+| CACH-06 | Phase 18 | Pending |
+| SYNC-01 | Phase 19 | Pending |
+| SYNC-02 | Phase 19 | Pending |
+| SYNC-03 | Phase 19 | Pending |
+| SYNC-04 | Phase 19 | Pending |
+| SYNC-05 | Phase 19 | Pending |
+| SYNC-06 | Phase 19 | Pending |
+| SYNC-07 | Phase 19 | Pending |
+| SYNC-08 | Phase 19 | Pending |
+| PAGI-04 | Phase 20 | Pending |
+| PAGI-05 | Phase 20 | Pending |
+| PAGI-06 | Phase 20 | Pending |
+| PAGI-07 | Phase 20 | Pending |
+| PAGI-08 | Phase 20 | Pending |
+| PAGI-09 | Phase 20 | Pending |
+| PAGI-10 | Phase 20 | Pending |
+| EXPO-01 | Phase 21 | Pending |
+| EXPO-02 | Phase 21 | Pending |
+| EXPO-03 | Phase 21 | Pending |
+| EXPO-04 | Phase 21 | Pending |
+| EXPO-05 | Phase 21 | Pending |
+| EXPO-06 | Phase 21 | Pending |
+| EXPO-07 | Phase 21 | Pending |
 
 **Coverage:**
-- v3 requirements: 32 total
-- Mapped to phases: 32
-- Unmapped: 0 ✓
+- v3 requirements: 36 total
+- Mapped to phases: 36
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-23*
-*Last updated: 2026-01-23 after initial definition*
+*Last updated: 2026-01-23 after roadmap creation*
