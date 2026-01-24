@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 16 of 21 (Transport Layer)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-24 — Completed 16-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-24 — Completed 16-02-PLAN.md
 
-Progress: [██░░░░░░░░] 12% (2/16 plans)
+Progress: [███░░░░░░░] 19% (3/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [██░░░░░░░░] 12% (2/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 2
-- Average duration: 2.5 min
-- Total execution time: 5 min
+- Total plans completed: 3
+- Average duration: 2.7 min
+- Total execution time: 8 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -49,6 +49,9 @@ Recent decisions affecting current work:
 | 30-day soft delete retention | 15-01 | Per CONTEXT.md, daily purge at 3 AM UTC |
 | URL-safe base64 cursors with stripped padding | 16-01 | Short cursors for query parameters, URL-safe characters |
 | Short JSON keys (u, i) in cursor payload | 16-01 | Minimize cursor length in URLs |
+| OR pattern for compound cursor filter | 16-02 | Supabase-py lacks tuple comparison support |
+| include_deleted parameter for sync | 16-02 | Sync clients need to detect deletions |
+| Lightweight sync items without computed fields | 16-02 | Client computes if needed, minimizes payload |
 
 ### Pending Todos
 
@@ -61,6 +64,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 16-01-PLAN.md
+Stopped at: Completed 16-02-PLAN.md (Phase 16 complete)
 Resume file: None
-Next action: Execute 16-02-PLAN.md for sync endpoints
+Next action: Execute Phase 17 (Client Storage)
