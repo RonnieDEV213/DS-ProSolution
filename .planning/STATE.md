@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 16 of 21 (Transport Layer)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-01-24 — Phase 15 verified and complete
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-24 — Completed 16-01-PLAN.md
 
-Progress: [█░░░░░░░░░] 6% (1/16 plans)
+Progress: [██░░░░░░░░] 12% (2/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [█░░░░░░░░░] 6% (1/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 1
-- Average duration: 3 min
-- Total execution time: 3 min
+- Total plans completed: 2
+- Average duration: 2.5 min
+- Total execution time: 5 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -47,6 +47,8 @@ Recent decisions affecting current work:
 | Reuse public.update_updated_at() | 15-01 | Existing function from 001_auth_schema.sql, consistent with profiles/memberships |
 | Removed CONCURRENTLY from index migration | 15-01 | Supabase SQL Editor runs in transaction block |
 | 30-day soft delete retention | 15-01 | Per CONTEXT.md, daily purge at 3 AM UTC |
+| URL-safe base64 cursors with stripped padding | 16-01 | Short cursors for query parameters, URL-safe characters |
+| Short JSON keys (u, i) in cursor payload | 16-01 | Minimize cursor length in URLs |
 
 ### Pending Todos
 
@@ -59,6 +61,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Phase 15 verified and complete
+Stopped at: Completed 16-01-PLAN.md
 Resume file: None
-Next action: `/gsd:discuss-phase 16` to plan Transport Layer
+Next action: Execute 16-02-PLAN.md for sync endpoints
