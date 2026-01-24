@@ -13,23 +13,24 @@
 --   ORDER BY updated_at DESC, id DESC
 --   LIMIT 50;
 --
--- Note: CONCURRENTLY prevents write locks during index creation.
--- IF NOT EXISTS is supported with CONCURRENTLY in PostgreSQL 14+.
+-- Note: Using regular CREATE INDEX (not CONCURRENTLY) because Supabase SQL Editor
+-- runs statements in a transaction block. For initial setup this is fine.
+-- For production tables with heavy traffic, run CONCURRENTLY via psql instead.
 
 -- ============================================================
 -- 1. Cursor indexes for sync queries (ordered by updated_at)
 -- ============================================================
 
 -- bookkeeping_records: account-scoped cursor pagination
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_bookkeeping_records_cursor
+CREATE INDEX IF NOT EXISTS idx_bookkeeping_records_cursor
   ON public.bookkeeping_records (account_id, updated_at DESC, id DESC);
 
 -- accounts: org-scoped cursor pagination
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_accounts_cursor
+CREATE INDEX IF NOT EXISTS idx_accounts_cursor
   ON public.accounts (org_id, updated_at DESC, id DESC);
 
 -- sellers: org-scoped cursor pagination
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sellers_cursor
+CREATE INDEX IF NOT EXISTS idx_sellers_cursor
   ON public.sellers (org_id, updated_at DESC, id DESC);
 
 -- ============================================================
