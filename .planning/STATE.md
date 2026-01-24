@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-23)
 
 **Core value:** Handle millions of records with fast read/write across server storage, transport, client storage, and rendering
-**Current focus:** Phase 19 - Sync Protocol
+**Current focus:** Phase 20 - Virtualized Rendering
 
 ## Current Position
 
-Phase: 19 of 21 (Sync Protocol)
-Plan: 6 of 6 in current phase
-Status: Phase complete, goal verified ✓
-Last activity: 2026-01-24 — Phase 19 complete (8/8 SYNC requirements verified)
+Phase: 20 of 21 (Virtualized Rendering)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-24 - Completed 20-01-PLAN.md
 
-Progress: [██████████████] 82% (14/17 plans)
+Progress: [███████████████░░] 88% (15/17 plans)
 
 ## Shipped Milestones
 
@@ -80,6 +80,8 @@ Recent decisions affecting current work:
 | Temp ID in mutationFn for creates | 19-05 | Queue tracking separate from onMutate temp ID |
 | Use syncRecords for single record fetch | 19-06 | No GET /records/{id} endpoint, use bulk sync with client filter |
 | RecordSyncItem for conflict detection | 19-06 | Enforces server data source with updated_at |
+| Expanded rows as fixed-height virtual rows | 20-01 | Avoid variable height measurement while supporting expansion |
+| Persist row density in localStorage | 20-01 | Maintain compact/comfortable preference across sessions |
 
 ### Pending Todos
 
@@ -91,7 +93,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-24
-Stopped at: Phase 19 verified
+Last session: 2026-01-24 22:19 UTC
+Stopped at: Completed 20-01-PLAN.md
 Resume file: None
 Next action: Ready for Phase 20 (Virtualized Rendering)
