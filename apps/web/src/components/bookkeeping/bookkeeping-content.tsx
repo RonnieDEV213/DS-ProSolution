@@ -13,8 +13,8 @@ import { RecordsTable } from "@/components/bookkeeping/records-table";
 import { AddRecordDialog } from "@/components/bookkeeping/add-record-dialog";
 import { useUserRole } from "@/hooks/use-user-role";
 import { useAccounts } from "@/hooks/queries/use-accounts";
-import { useRecordsInfinite } from "@/hooks/queries/use-records-infinite";
-import { exportToCSV, type Account } from "@/lib/api";
+import { useSyncRecords } from "@/hooks/sync/use-sync-records";
+import { exportToCSV, type Account, type BookkeepingStatus } from "@/lib/api";
 
 // TODO: Get orgId from user context when multi-org support added
 const DEFAULT_ORG_ID = "default";
@@ -37,20 +37,39 @@ export function BookkeepingContent() {
     error: accountsError,
   } = useAccounts(DEFAULT_ORG_ID);
 
-  // Fetch records using TanStack Query infinite query
-  const {
-    data: recordsData,
-    isPending: recordsLoading,
-    isFetching: recordsFetching,
-    error: recordsError,
-  } = useRecordsInfinite(
-    DEFAULT_ORG_ID,
-    selectedAccountId ?? "",
-    undefined // No filters for now
-  );
+  // Fetch records using cache-first sync hook (IndexedDB first, then server sync)
+  const syncResult = useSyncRecords({
+    accountId: selectedAccountId ?? "",
+    filters: undefined,
+  });
 
-  // Extract records from pages
-  const records = recordsData?.pages?.flatMap((page) => page.items) ?? [];
+  // Destructure only when account selected
+  const rawRecords = selectedAccountId ? syncResult.records : [];
+  const recordsLoading = selectedAccountId ? syncResult.isLoading : false;
+  const recordsFetching = selectedAccountId ? syncResult.isSyncing : false;
+  const recordsError = selectedAccountId ? syncResult.error : null;
+
+  // Compute derived fields (profit, earnings, COGS) - same logic as use-records-infinite.ts
+  const records = rawRecords.map((item) => {
+    const salePriceCents = item.sale_price_cents ?? 0;
+    const ebayFeesCents = item.ebay_fees_cents ?? 0;
+    const amazonPriceCents = item.amazon_price_cents ?? 0;
+    const amazonTaxCents = item.amazon_tax_cents ?? 0;
+    const amazonShippingCents = item.amazon_shipping_cents ?? 0;
+    const returnLabelCostCents = item.return_label_cost_cents ?? 0;
+
+    const earningsNetCents = salePriceCents - ebayFeesCents;
+    const cogsTotalCents = amazonPriceCents + amazonTaxCents + amazonShippingCents;
+    const profitCents = earningsNetCents - cogsTotalCents - returnLabelCostCents;
+
+    return {
+      ...item,
+      status: item.status as BookkeepingStatus, // Cast from string to typed status
+      earnings_net_cents: earningsNetCents,
+      cogs_total_cents: cogsTotalCents,
+      profit_cents: profitCents,
+    };
+  });
 
   // Apply persisted account selection after accounts load (once)
   useEffect(() => {
@@ -119,8 +138,8 @@ export function BookkeepingContent() {
     (a: Account) => a.id === selectedAccountId
   );
 
-  // Error display
-  const error = accountsError?.message || recordsError?.message;
+  // Error display (handle both null and undefined from different hooks)
+  const error = accountsError?.message || recordsError?.message || null;
 
   return (
     <motion.div
