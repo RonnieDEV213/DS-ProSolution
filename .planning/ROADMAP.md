@@ -95,11 +95,11 @@ Plans:
   3. Cache survives browser restart (data loads from IndexedDB before server)
   4. Incremental sync fetches only records changed since last sync (using updated_at)
   5. Next page prefetches while user views current page (predictive loading)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 18-01: IndexedDB schema and Dexie.js setup
-- [ ] 18-02: Sync engine and incremental sync
+- [ ] 18-01-PLAN.md - IndexedDB schema and Dexie.js setup
+- [ ] 18-02-PLAN.md - Sync engine and cache-first hooks
 
 ### Phase 19: Sync Protocol
 **Goal**: User has clear visibility into sync status with reliable error handling and offline resilience
@@ -169,11 +169,11 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | 15. Server Storage Foundation | v3 | 1/1 | Complete | 2026-01-24 |
 | 16. Transport Layer | v3 | 2/2 | Complete | 2026-01-24 |
 | 17. Client Query Caching | v3 | 2/2 | Complete | 2026-01-24 |
-| 18. Client Persistence | v3 | 0/2 | Not started | - |
+| 18. Client Persistence | v3 | 0/2 | Planned | - |
 | 19. Sync Protocol | v3 | 0/3 | Not started | - |
 | 20. Virtualized Rendering | v3 | 0/3 | Not started | - |
 | 21. Export/Import | v3 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 — Phase 17 complete*
+*Last updated: 2026-01-24 — Phase 18 planned*
