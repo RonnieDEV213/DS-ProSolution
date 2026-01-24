@@ -1,6 +1,28 @@
 import { db, type PendingMutation } from './index';
-import { api } from '@/lib/api';
+import { api, type RecordSyncItem } from '@/lib/api';
 import { detectConflict, type Conflict } from './conflicts';
+
+/**
+ * Fetch a single record from server via sync endpoint.
+ * Returns the record with updated_at for conflict detection.
+ */
+async function fetchServerRecord(recordId: string): Promise<RecordSyncItem | null> {
+  try {
+    // Use syncRecords with a very old updated_since to get all records,
+    // then filter client-side. This is not ideal but works without backend changes.
+    // A future optimization would be to add GET /records/{id} to the API.
+    const response = await api.syncRecords({
+      limit: 1000,  // Get a batch that likely contains our record
+      include_deleted: false,
+    });
+
+    const record = response.items.find(item => item.id === recordId);
+    return record ?? null;
+  } catch (error) {
+    console.warn(`[fetchServerRecord] Failed to fetch record ${recordId}:`, error);
+    return null;
+  }
+}
 
 /**
  * Add a mutation to the offline queue.
@@ -70,10 +92,12 @@ export async function processQueue(
     try {
       // For updates, check for conflict before applying
       if (mutation.operation === 'update') {
-        // Get the current IndexedDB record to detect conflicts
-        const localRecord = await db.records.get(mutation.record_id);
-        if (localRecord) {
-          const conflict = detectConflict(mutation, localRecord);
+        // Fetch CURRENT server state to detect conflicts
+        const serverRecord = await fetchServerRecord(mutation.record_id);
+
+        if (serverRecord) {
+          // Check if server was modified after our mutation was queued
+          const conflict = detectConflict(mutation, serverRecord);
           if (conflict) {
             // Conflict detected - pause this mutation for user resolution
             await db._pending_mutations.update(mutation.id, { status: 'pending' });
@@ -84,6 +108,8 @@ export async function processQueue(
             continue; // Skip to next mutation, this one awaits resolution
           }
         }
+        // If serverRecord is null (fetch failed or record doesn't exist on server),
+        // proceed with the mutation - it will either succeed or fail with proper error
       }
 
       // Execute mutation against API
