@@ -49,10 +49,10 @@ See commit history for v2 implementation details.
   2. All syncable tables have `updated_at` column that auto-updates on row modification
   3. All syncable tables use soft deletes (`deleted_at`) instead of hard deletes
   4. Cursor queries execute in constant time regardless of page depth (verified via EXPLAIN ANALYZE)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 15-01: Database schema migrations and index creation
+- [ ] 15-01-PLAN.md - Sync infrastructure migrations (columns, indexes, purge job)
 
 ### Phase 16: Transport Layer
 **Goal**: API endpoints support cursor-based pagination with server-side filtering and sorting
@@ -166,7 +166,7 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 15. Server Storage Foundation | v3 | 0/1 | Not started | - |
+| 15. Server Storage Foundation | v3 | 0/1 | Planned | - |
 | 16. Transport Layer | v3 | 0/2 | Not started | - |
 | 17. Client Query Caching | v3 | 0/2 | Not started | - |
 | 18. Client Persistence | v3 | 0/2 | Not started | - |
