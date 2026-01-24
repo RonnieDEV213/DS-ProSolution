@@ -1,4 +1,5 @@
 import { db, type BookkeepingRecord, type PendingMutation } from './index';
+import type { RecordSyncItem } from '@/lib/api';
 
 export interface Conflict {
   id: string;                    // Unique conflict ID
@@ -12,12 +13,14 @@ export interface Conflict {
 
 /**
  * Detect if a conflict exists between local pending mutation and server state.
- * Called from processQueue (pending-mutations.ts) when server returns record
- * with updated_at > mutation timestamp.
+ * Called from processQueue when comparing against fresh server data.
+ *
+ * @param pendingMutation - The queued local mutation
+ * @param serverRecord - Fresh record from api.syncRecords (has updated_at)
  */
 export function detectConflict(
   pendingMutation: PendingMutation,
-  serverRecord: BookkeepingRecord
+  serverRecord: RecordSyncItem
 ): Conflict | null {
   // Only updates can conflict (creates are new, deletes are binary)
   if (pendingMutation.operation !== 'update') return null;
@@ -35,7 +38,7 @@ export function detectConflict(
 
   for (const field of mutatedFields) {
     const localValue = pendingMutation.data[field];
-    const serverValue = serverRecord[field as keyof BookkeepingRecord];
+    const serverValue = serverRecord[field as keyof RecordSyncItem];
 
     // Only conflict if values actually differ
     if (!deepEqual(localValue, serverValue)) {
