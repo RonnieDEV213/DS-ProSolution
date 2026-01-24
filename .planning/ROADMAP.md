@@ -100,7 +100,7 @@ Plans:
 Plans:
 - [x] 18-01-PLAN.md - IndexedDB schema and Dexie.js setup
 - [x] 18-02-PLAN.md - Sync engine and cache-first hooks
-- [ ] 18-03-PLAN.md - Wire cache-first and prefetch hooks to UI (gap closure)
+- [x] 18-03-PLAN.md - Wire cache-first and prefetch hooks to UI
 
 ### Phase 19: Sync Protocol
 **Goal**: User has clear visibility into sync status with reliable error handling and offline resilience
@@ -115,12 +115,13 @@ Plans:
   6. Conflicts show both versions for user resolution (not silent overwrite)
   7. Mutations queue when offline and sync when back online
   8. Each row displays individual sync status (synced/pending/error badge)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 19-01: Sync status UI components
-- [ ] 19-02: Optimistic updates and error handling
-- [ ] 19-03: Offline queue and conflict resolution
+- [ ] 19-01-PLAN.md - Global sync status indicator (useOnlineStatus, useSyncStatus, SyncStatusIndicator)
+- [ ] 19-02-PLAN.md - Optimistic updates and retry logic for mutation hooks
+- [ ] 19-03-PLAN.md - Offline mutation queue and row-level sync badges
+- [ ] 19-04-PLAN.md - Conflict detection and resolution modal
 
 ### Phase 20: Virtualized Rendering
 **Goal**: Lists render millions of records smoothly with full UX features
@@ -171,10 +172,10 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | 16. Transport Layer | v3 | 2/2 | Complete | 2026-01-24 |
 | 17. Client Query Caching | v3 | 2/2 | Complete | 2026-01-24 |
 | 18. Client Persistence | v3 | 3/3 | Complete | 2026-01-24 |
-| 19. Sync Protocol | v3 | 0/3 | Not started | - |
+| 19. Sync Protocol | v3 | 0/4 | Not started | - |
 | 20. Virtualized Rendering | v3 | 0/3 | Not started | - |
 | 21. Export/Import | v3 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 — Phase 18 complete*
+*Last updated: 2026-01-24 - Phase 19 planned (4 plans)*
