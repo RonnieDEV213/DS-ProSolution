@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import { List, type ListImperativeAPI } from "react-window";
+import { useInfiniteLoader } from "react-window-infinite-loader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +14,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   api,
   STATUS_LABELS,
@@ -26,9 +31,12 @@ import {
 import { useUpdateRecord } from "@/hooks/mutations/use-update-record";
 import { useDeleteRecord } from "@/hooks/mutations/use-delete-record";
 import { usePendingMutations } from "@/hooks/sync/use-pending-mutations";
-import { useRowDensity } from "@/hooks/use-row-density";
+import type { RowDensity } from "@/hooks/use-row-density";
+import { useKeyboardNavigation } from "@/hooks/use-keyboard-navigation";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { RecordRow } from "@/components/bookkeeping/record-row";
 import { SkeletonRow } from "@/components/bookkeeping/skeleton-row";
+import { ResultSummary } from "@/components/bookkeeping/result-summary";
 
 type FieldType = "text" | "date" | "number" | "cents";
 
@@ -48,7 +56,12 @@ const FIELD_CONFIG: Record<string, { type: FieldType; width: string }> = {
   service_remark: { type: "text", width: "w-full" },
 };
 
-type VirtualRow = { type: "record" | "expanded"; record: BookkeepingRecord };
+type VirtualRow = {
+  type: "record" | "expanded";
+  record: BookkeepingRecord;
+  recordIndex: number;
+};
+
 
 interface VirtualizedRecordsListProps {
   records: BookkeepingRecord[];
@@ -56,7 +69,14 @@ interface VirtualizedRecordsListProps {
   orgId: string;
   accountId: string;
   height: number;
-  isLoading?: boolean;
+  density: RowDensity;
+  rowHeight: number;
+  isFiltered: boolean;
+  hasMore: boolean;
+  loadMore: () => Promise<void> | void;
+  isLoading: boolean;
+  listRef?: RefObject<ListImperativeAPI | null>;
+  prefetchSentinelRef?: (node?: Element | null) => void;
 }
 
 const flattenRecords = (
@@ -64,12 +84,12 @@ const flattenRecords = (
   expandedIds: Set<string>
 ): VirtualRow[] => {
   const rows: VirtualRow[] = [];
-  for (const record of records) {
-    rows.push({ type: "record", record });
+  records.forEach((record, index) => {
+    rows.push({ type: "record", record, recordIndex: index });
     if (expandedIds.has(record.id)) {
-      rows.push({ type: "expanded", record });
+      rows.push({ type: "expanded", record, recordIndex: index });
     }
-  }
+  });
   return rows;
 };
 
@@ -79,10 +99,18 @@ export function VirtualizedRecordsList({
   orgId,
   accountId,
   height,
-  isLoading = false,
+  density,
+  rowHeight,
+  isFiltered,
+  hasMore,
+  loadMore,
+  isLoading,
+  listRef: listRefProp,
+  prefetchSentinelRef,
 }: VirtualizedRecordsListProps) {
-  const listRef = useRef<ListImperativeAPI | null>(null);
-  const { density, toggleDensity, rowHeight } = useRowDensity();
+  const internalListRef = useRef<ListImperativeAPI | null>(null);
+  const listRef = listRefProp ?? internalListRef;
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -94,11 +122,14 @@ export function VirtualizedRecordsList({
     status: BookkeepingStatus;
   } | null>(null);
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
-  const [focusedIndex] = useState<number | undefined>(undefined);
+  const [visibleStartIndex, setVisibleStartIndex] = useState(0);
+  const [visibleStopIndex, setVisibleStopIndex] = useState(0);
 
   const updateMutation = useUpdateRecord(orgId, accountId);
   const deleteMutation = useDeleteRecord(orgId, accountId);
   const pendingMutations = usePendingMutations("records");
+
+  useScrollRestoration(listRef, accountId);
 
   const toggleExpanded = (id: string) => {
     const next = new Set(expandedIds);
@@ -252,6 +283,51 @@ export function VirtualizedRecordsList({
     [records, expandedIds]
   );
 
+  const handleSelect = useCallback(
+    (index: number) => {
+      const row = virtualRows[index];
+      if (!row) return;
+      toggleExpanded(row.record.id);
+    },
+    [virtualRows, toggleExpanded]
+  );
+
+  const { focusedIndex, setFocusedIndex } = useKeyboardNavigation(
+    listRef,
+    virtualRows.length,
+    handleSelect,
+    containerRef
+  );
+
+  const itemCount = hasMore ? virtualRows.length + 1 : virtualRows.length;
+  const loadMoreRows = useCallback(
+    (_startIndex: number, _stopIndex: number) => {
+      if (isLoading) return Promise.resolve();
+      return Promise.resolve(loadMore());
+    },
+    [isLoading, loadMore]
+  );
+
+  const onRowsRendered = useInfiniteLoader({
+    isRowLoaded: (index) => index < virtualRows.length,
+    loadMoreRows,
+    rowCount: itemCount,
+    minimumBatchSize: 50,
+    threshold: 15,
+  });
+
+  const handleRowsRendered = useCallback(
+    (
+      visibleRows: { startIndex: number; stopIndex: number },
+      _allRows: { startIndex: number; stopIndex: number }
+    ) => {
+      onRowsRendered(visibleRows);
+      setVisibleStartIndex(visibleRows.startIndex);
+      setVisibleStopIndex(visibleRows.stopIndex);
+    },
+    [onRowsRendered]
+  );
+
   const getRowHeight = useCallback(
     (index: number) => {
       const row = virtualRows[index];
@@ -260,6 +336,12 @@ export function VirtualizedRecordsList({
     },
     [virtualRows, rowHeight]
   );
+
+  const totalRecords = records.length;
+  const startRecordIndex = virtualRows[visibleStartIndex]?.recordIndex ?? 0;
+  const endRecordIndex = virtualRows[visibleStopIndex]?.recordIndex ?? startRecordIndex;
+  const summaryStart = totalRecords > 0 ? Math.min(startRecordIndex, totalRecords - 1) : 0;
+  const summaryEnd = totalRecords > 0 ? Math.min(endRecordIndex + 1, totalRecords) : 0;
 
   if (isLoading) {
     return (
@@ -286,72 +368,90 @@ export function VirtualizedRecordsList({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-400">
-          {records.length.toLocaleString()} records
-        </div>
-        <Button variant="outline" size="sm" onClick={toggleDensity}>
-          Density: {density === "compact" ? "Compact" : "Comfortable"}
-        </Button>
-      </div>
-
-      <div className="rounded-md border border-gray-800 overflow-hidden">
-        <div className="flex items-center border-b border-gray-800 bg-gray-900/60 text-gray-400 text-xs uppercase tracking-wide px-2 py-2">
-          <div className="w-10 shrink-0">
-            <span className="sr-only">Expand</span>
-          </div>
-          <div className="w-32 shrink-0">Date</div>
-          <div className="w-32 shrink-0">eBay Order</div>
-          <div className="w-48 shrink-0">Item</div>
-          <div className="w-16 shrink-0 text-center">Qty</div>
-          <div className="w-24 shrink-0 text-right">Earnings</div>
-          <div className="w-24 shrink-0 text-right">COGS</div>
-          <div className="w-24 shrink-0 text-right">Profit</div>
-          <div className="w-32 shrink-0">Amazon Order</div>
-          <div className="w-40 shrink-0">Status</div>
-          <div className="w-12 shrink-0">
-            <span className="sr-only">Actions</span>
-          </div>
-        </div>
-
-        <List
-          listRef={listRef}
-          rowCount={virtualRows.length}
-          rowHeight={getRowHeight}
-          rowComponent={RecordRow}
-          rowProps={{
-            records: virtualRows,
-            expandedIds,
-            onToggleExpand: toggleExpanded,
-            density,
-            userRole,
-            orgId,
-            accountId,
-            editingState: {
-              id: editingId,
-              field: editingField,
-              value: editValue,
-              saving,
-            },
-            onEditStart: handleEditStart,
-            onEditSave: handleEditSave,
-            onEditCancel: handleEditCancel,
-            onEditValueChange: setEditValue,
-            pendingMutations,
-            pendingStatus,
-            isUpdating: updateMutation.isPending || saving,
-            deleteState: {
-              id: recordToDelete,
-              isPending: deleteMutation.isPending,
-            },
-            onStatusChange: handleStatusChange,
-            onDeleteClick: handleDeleteClick,
-            focusedIndex,
-          }}
-          defaultHeight={height}
-          overscanCount={5}
-          style={{ width: "100%", height }}
+        <ResultSummary
+          visibleStart={summaryStart}
+          visibleEnd={summaryEnd}
+          total={totalRecords}
+          isFiltered={isFiltered}
         />
       </div>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            ref={containerRef}
+            tabIndex={0}
+            className="rounded-md border border-gray-800 overflow-hidden focus:outline-none"
+            aria-label="Records list"
+            onFocus={() => setFocusedIndex((prev) => (prev < 0 ? 0 : prev))}
+          >
+            <div className="flex items-center border-b border-gray-800 bg-gray-900/60 text-gray-400 text-xs uppercase tracking-wide px-2 py-2">
+              <div className="w-10 shrink-0">
+                <span className="sr-only">Expand</span>
+              </div>
+              <div className="w-32 shrink-0">Date</div>
+              <div className="w-32 shrink-0">eBay Order</div>
+              <div className="w-48 shrink-0">Item</div>
+              <div className="w-16 shrink-0 text-center">Qty</div>
+              <div className="w-24 shrink-0 text-right">Earnings</div>
+              <div className="w-24 shrink-0 text-right">COGS</div>
+              <div className="w-24 shrink-0 text-right">Profit</div>
+              <div className="w-32 shrink-0">Amazon Order</div>
+              <div className="w-40 shrink-0">Status</div>
+              <div className="w-12 shrink-0">
+                <span className="sr-only">Actions</span>
+              </div>
+            </div>
+
+            <List
+              listRef={listRef}
+              rowCount={itemCount}
+              rowHeight={getRowHeight}
+              rowComponent={RecordRow}
+              rowProps={{
+                records: virtualRows,
+                expandedIds,
+                onToggleExpand: toggleExpanded,
+                density,
+                userRole,
+                orgId,
+                accountId,
+                editingState: {
+                  id: editingId,
+                  field: editingField,
+                  value: editValue,
+                  saving,
+                },
+                onEditStart: handleEditStart,
+                onEditSave: handleEditSave,
+                onEditCancel: handleEditCancel,
+                onEditValueChange: setEditValue,
+                pendingMutations,
+                pendingStatus,
+                isUpdating: updateMutation.isPending || saving,
+                deleteState: {
+                  id: recordToDelete,
+                  isPending: deleteMutation.isPending,
+                },
+                onStatusChange: handleStatusChange,
+                onDeleteClick: handleDeleteClick,
+                focusedIndex,
+              }}
+              defaultHeight={height}
+              overscanCount={5}
+              style={{ width: "100%", height }}
+              onRowsRendered={handleRowsRendered}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          Press j/k to navigate, Enter to expand, ? for help
+        </TooltipContent>
+      </Tooltip>
+
+      {prefetchSentinelRef && (
+        <div ref={prefetchSentinelRef} style={{ height: 1 }} aria-hidden="true" />
+      )}
 
       <AlertDialog
         open={!!recordToDelete}

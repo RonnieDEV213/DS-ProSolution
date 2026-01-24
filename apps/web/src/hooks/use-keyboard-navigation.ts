@@ -3,11 +3,6 @@
 import { useEffect, useState, type RefObject } from "react";
 import type { ListImperativeAPI } from "react-window";
 
-type ScrollAlignment = "auto" | "smart" | "center" | "start" | "end";
-type ListWithScroll = ListImperativeAPI & {
-  scrollToItem?: (index: number, align?: ScrollAlignment) => void;
-};
-
 const isEditableElement = (element: Element | null) => {
   if (!element) return false;
   if (element instanceof HTMLInputElement) return true;
@@ -17,7 +12,7 @@ const isEditableElement = (element: Element | null) => {
 };
 
 const isContainerFocused = (
-  containerRef: RefObject<HTMLElement>
+  containerRef: RefObject<HTMLElement | null>
 ): boolean => {
   const container = containerRef.current;
   const activeElement = document.activeElement;
@@ -27,10 +22,10 @@ const isContainerFocused = (
 };
 
 export function useKeyboardNavigation(
-  listRef: RefObject<ListWithScroll>,
+  listRef: RefObject<ListImperativeAPI | null>,
   rowCount: number,
   onSelect: (index: number) => void,
-  containerRef: RefObject<HTMLElement>
+  containerRef: RefObject<HTMLElement | null>
 ) {
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
@@ -84,7 +79,7 @@ export function useKeyboardNavigation(
 
   useEffect(() => {
     if (focusedIndex >= 0) {
-      listRef.current?.scrollToItem?.(focusedIndex, "smart");
+      listRef.current?.scrollToRow({ index: focusedIndex, align: "smart" });
     }
   }, [focusedIndex, listRef]);
 

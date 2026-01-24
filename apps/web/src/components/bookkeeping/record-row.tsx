@@ -349,7 +349,7 @@ export function RecordRow({
       className={cn(
         "flex items-center border-b border-gray-800 text-sm text-gray-200 px-2",
         rowPadding,
-        isFocused && "ring-1 ring-blue-500"
+        isFocused && "ring-2 ring-blue-500"
       )}
     >
       <div className="flex items-center gap-1 w-10 shrink-0">
