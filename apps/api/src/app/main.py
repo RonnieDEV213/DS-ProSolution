@@ -15,6 +15,7 @@ from app.routers import (
     presence_router,
     records_router,
     sellers_router,
+    sync_router,
 )
 from app.background import (
     cleanup_worker,
@@ -74,6 +75,7 @@ app.include_router(collection_router)
 app.include_router(presence_router)
 app.include_router(records_router)
 app.include_router(sellers_router)
+app.include_router(sync_router)
 
 
 @app.get("/health")

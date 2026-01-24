@@ -8,6 +8,7 @@ from .collection import router as collection_router
 from .presence import router as presence_router
 from .records import router as records_router
 from .sellers import router as sellers_router
+from .sync import router as sync_router
 
 __all__ = [
     "access_codes_router",
@@ -20,4 +21,5 @@ __all__ = [
     "presence_router",
     "records_router",
     "sellers_router",
+    "sync_router",
 ]
