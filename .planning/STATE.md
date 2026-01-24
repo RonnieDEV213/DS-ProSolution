@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 17 of 21 (Client Query Caching)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-01-24 — Phase 16 verified and complete
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-24 — Completed 17-01-PLAN.md
 
-Progress: [███░░░░░░░] 19% (3/16 plans)
+Progress: [████░░░░░░] 25% (4/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [███░░░░░░░] 19% (3/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 3
-- Average duration: 2.7 min
-- Total execution time: 8 min
+- Total plans completed: 4
+- Average duration: 2.8 min
+- Total execution time: 11 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -52,6 +52,8 @@ Recent decisions affecting current work:
 | OR pattern for compound cursor filter | 16-02 | Supabase-py lacks tuple comparison support |
 | include_deleted parameter for sync | 16-02 | Sync clients need to detect deletions |
 | Lightweight sync items without computed fields | 16-02 | Client computes if needed, minimizes payload |
+| 30s default staleTime, 5min for accounts | 17-01 | Records change frequently, accounts rarely |
+| useState pattern for SSR-safe QueryClient | 17-01 | Avoid sharing state between server requests |
 
 ### Pending Todos
 
@@ -64,6 +66,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Phase 16 verified and complete
+Stopped at: Completed 17-01-PLAN.md
 Resume file: None
-Next action: `/gsd:discuss-phase 17` to plan Client Query Caching
+Next action: Execute 17-02-PLAN.md (mutation hooks)
