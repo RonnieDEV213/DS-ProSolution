@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-23)
 
 **Core value:** Handle millions of records with fast read/write across server storage, transport, client storage, and rendering
-**Current focus:** Phase 18 - Client Persistence
+**Current focus:** Phase 19 - Sync Protocol
 
 ## Current Position
 
-Phase: 18 of 21 (Client Persistence)
-Plan: 3 of 3 in current phase (gap closure plan)
-Status: Phase verified ✓
-Last activity: 2026-01-24 — Phase 18 verified, all gaps closed
+Phase: 19 of 21 (Sync Protocol)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-01-24 — Completed 19-01-PLAN.md (Sync Status Indicator)
 
-Progress: [████████░░] 50% (8/16 plans)
+Progress: [█████████░] 56% (9/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [████████░░] 50% (8/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: 3.1 min
-- Total execution time: 25 min
+- Total execution time: 28 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 | useLiveQuery for reactive IndexedDB | 18-02 | Auto-updates UI when IndexedDB changes |
 | Cast IndexedDB status to BookkeepingStatus | 18-03 | IndexedDB stores string, API type expects enum |
 | Client-side computed fields in UI | 18-03 | Reuse pattern from 18-02 in bookkeeping component |
+| useSyncExternalStore for online/offline | 19-01 | Proper cleanup, SSR-safe browser event subscription |
+| Status priority: offline > syncing > error > idle | 19-01 | Most important state always shown |
 
 ### Pending Todos
 
@@ -77,6 +79,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Phase 18 verified complete
+Stopped at: Completed 19-01-PLAN.md
 Resume file: None
-Next action: Plan Phase 19 (Sync Protocol)
+Next action: Execute 19-02-PLAN.md (Row-level sync badges)
