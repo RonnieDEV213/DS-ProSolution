@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import type { ListImperativeAPI } from "react-window";
 
 const STORAGE_KEY = "dspro:last_order_tracking_account_id";
 import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/bookkeeping/account-selector";
-import { RecordsTable } from "@/components/bookkeeping/records-table";
+import { RecordsToolbar } from "@/components/bookkeeping/records-toolbar";
+import { VirtualizedRecordsList } from "@/components/bookkeeping/virtualized-records-list";
 import { AddRecordDialog } from "@/components/bookkeeping/add-record-dialog";
+import { useRowDensity } from "@/hooks/use-row-density";
 import { useUserRole } from "@/hooks/use-user-role";
 import { useAccounts } from "@/hooks/queries/use-accounts";
 import { useSyncRecords } from "@/hooks/sync/use-sync-records";
-import { usePrefetchOnScroll } from "@/hooks/sync/use-prefetch-on-scroll";
 import { exportToCSV, type Account, type BookkeepingStatus } from "@/lib/api";
 
 // TODO: Get orgId from user context when multi-org support added
@@ -25,7 +27,12 @@ export function BookkeepingContent() {
     null
   );
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const persistenceApplied = useRef(false);
+  const listRef = useRef<ListImperativeAPI | null>(null);
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  const [listHeight, setListHeight] = useState(600);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -49,6 +56,7 @@ export function BookkeepingContent() {
   const recordsLoading = selectedAccountId ? syncResult.isLoading : false;
   const recordsFetching = selectedAccountId ? syncResult.isSyncing : false;
   const recordsError = selectedAccountId ? syncResult.error : null;
+  const { density, toggleDensity, rowHeight } = useRowDensity();
 
   // Compute derived fields (profit, earnings, COGS) - same logic as use-records-infinite.ts
   const records = rawRecords.map((item) => {
@@ -72,12 +80,22 @@ export function BookkeepingContent() {
     };
   });
 
-  // Prefetch hook - triggers sync check when user scrolls near bottom
-  const { prefetchSentinelRef } = usePrefetchOnScroll({
-    hasNextPage: false, // useSyncRecords loads all records, no pagination
-    isFetching: recordsFetching,
-    fetchNextPage: syncResult.refetch, // Trigger resync when sentinel visible
-  });
+  useLayoutEffect(() => {
+    const updateHeight = () => {
+      if (!listContainerRef.current) {
+        setListHeight(600);
+        return;
+      }
+
+      const { top } = listContainerRef.current.getBoundingClientRect();
+      const available = window.innerHeight - top - 32;
+      setListHeight(Math.max(600, available));
+    };
+
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   // Apply persisted account selection after accounts load (once)
   useEffect(() => {
@@ -115,6 +133,7 @@ export function BookkeepingContent() {
   const handleAccountSelect = (accountId: string) => {
     setSelectedAccountId(accountId);
     setAddDialogOpen(false);
+    setActiveFilter("all");
 
     // Persist to URL
     const params = new URLSearchParams(searchParams.toString());
@@ -145,6 +164,50 @@ export function BookkeepingContent() {
   const selectedAccount = accounts.find(
     (a: Account) => a.id === selectedAccountId
   );
+
+  const filteredRecords = useMemo(() => {
+    if (activeFilter === "all") return records;
+    if (activeFilter === "successful") {
+      return records.filter((record) => record.status === "SUCCESSFUL");
+    }
+    if (activeFilter === "returns") {
+      return records.filter(
+        (record) =>
+          record.status === "RETURN_LABEL_PROVIDED" ||
+          record.status === "RETURN_CLOSED"
+      );
+    }
+    if (activeFilter === "refunds") {
+      return records.filter((record) => record.status === "REFUND_NO_RETURN");
+    }
+    return records;
+  }, [records, activeFilter]);
+
+  const isFiltered = activeFilter !== "all";
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "?") return;
+
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tagName = target.tagName;
+        if (
+          tagName === "INPUT" ||
+          tagName === "TEXTAREA" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+
+      event.preventDefault();
+      setHelpModalOpen(true);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Error display (handle both null and undefined from different hooks)
   const error = accountsError?.message || recordsError?.message || null;
@@ -202,25 +265,41 @@ export function BookkeepingContent() {
         </div>
       ) : (
         <>
-          {recordsLoading ? (
-            <div className="text-center py-12 text-gray-400">
-              Loading records...
+          <div className="space-y-4" ref={listContainerRef}>
+            <div className="text-sm text-gray-400">
+              {selectedAccount?.account_code} - {filteredRecords.length} record
+              {filteredRecords.length !== 1 ? "s" : ""}
+              {isFiltered ? " (filtered)" : ""}
             </div>
-          ) : (
-            <>
-              <div className="text-sm text-gray-400 mb-4">
-                {selectedAccount?.account_code} - {records.length} record
-                {records.length !== 1 ? "s" : ""}
-              </div>
-              <RecordsTable
-                records={records}
-                userRole={userRole}
-                orgId={DEFAULT_ORG_ID}
-                accountId={selectedAccountId}
-                prefetchSentinelRef={prefetchSentinelRef}
-              />
-            </>
-          )}
+
+            <RecordsToolbar
+              activeFilter={activeFilter}
+              onFilterChange={setActiveFilter}
+              density={density}
+              onToggleDensity={toggleDensity}
+              recordCount={filteredRecords.length}
+              isFiltered={isFiltered}
+              helpOpen={helpModalOpen}
+              onHelpOpenChange={setHelpModalOpen}
+            />
+
+            <VirtualizedRecordsList
+              records={filteredRecords}
+              userRole={userRole}
+              orgId={DEFAULT_ORG_ID}
+              accountId={selectedAccountId}
+              height={listHeight}
+              density={density}
+              rowHeight={rowHeight}
+              isFiltered={isFiltered}
+              hasMore={false}
+              loadMore={async () => {
+                await Promise.resolve(syncResult.refetch());
+              }}
+              isLoading={recordsFetching}
+              listRef={listRef}
+            />
+          </div>
         </>
       )}
 
