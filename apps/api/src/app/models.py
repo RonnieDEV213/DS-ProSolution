@@ -1,9 +1,12 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import Literal, Optional
+from typing import Generic, Literal, Optional, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, field_validator
+
+
+T = TypeVar("T")
 
 
 # ============================================================
@@ -1163,6 +1166,25 @@ class CollectionScheduleUpdate(BaseModel):
     cron_expression: Optional[str] = None
     enabled: Optional[bool] = None
     notify_email: Optional[bool] = None
+
+
+# ============================================================
+# Cursor Pagination Models
+# ============================================================
+
+
+class CursorPage(BaseModel, Generic[T]):
+    """
+    Standard cursor-based pagination response.
+
+    Usage:
+        class RecordSyncResponse(CursorPage[RecordResponse]):
+            pass
+    """
+    items: list[T]
+    next_cursor: Optional[str] = None  # None when no more pages
+    has_more: bool
+    total_estimate: Optional[int] = None  # Approximate count for UI display
 
 
 # ============================================================
