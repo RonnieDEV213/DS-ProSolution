@@ -140,8 +140,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 20-01-PLAN.md - Virtualized table core (react-window v2, row density, skeleton rows)
-- [ ] 20-02-PLAN.md - Infinite scroll integration and keyboard navigation
+- [x] 20-01-PLAN.md - Virtualized table core (react-window v2, row density, skeleton rows)
+- [x] 20-02-PLAN.md - Infinite scroll integration and keyboard navigation
 - [ ] 20-03-PLAN.md - Quick filter chips and scroll restoration
 
 ### Phase 21: Export/Import
@@ -175,9 +175,9 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | 17. Client Query Caching | v3 | 2/2 | Complete | 2026-01-24 |
 | 18. Client Persistence | v3 | 3/3 | Complete | 2026-01-24 |
 | 19. Sync Protocol | v3 | 6/6 | Complete | 2026-01-24 |
-| 20. Virtualized Rendering | v3 | 1/3 | In progress | 2026-01-24 |
+| 20. Virtualized Rendering | v3 | 2/3 | In progress | 2026-01-24 |
 | 21. Export/Import | v3 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 - Phase 20 planned (3 plans in 2 waves)*
+*Last updated: 2026-01-24 - Phase 20 plan 02 complete (2/3)*

@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 20 of 21 (Virtualized Rendering)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-24 - Completed 20-01-PLAN.md
+Last activity: 2026-01-24 - Completed 20-02-PLAN.md
 
-Progress: [███████████████░░] 88% (15/17 plans)
+Progress: [████████████████░] 94% (16/17 plans)
 
 ## Shipped Milestones
 
@@ -82,6 +82,7 @@ Recent decisions affecting current work:
 | RecordSyncItem for conflict detection | 19-06 | Enforces server data source with updated_at |
 | Expanded rows as fixed-height virtual rows | 20-01 | Avoid variable height measurement while supporting expansion |
 | Persist row density in localStorage | 20-01 | Maintain compact/comfortable preference across sessions |
+| Use List.scrollToRow with smart alignment | 20-02 | Keep focused rows visible without over-scrolling |
 
 ### Pending Todos
 
@@ -93,7 +94,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-24 22:19 UTC
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-01-24 22:38 UTC
+Stopped at: Completed 20-02-PLAN.md
 Resume file: None
-Next action: Ready for Phase 20 (Virtualized Rendering)
+Next action: Ready for 20-03-PLAN.md
