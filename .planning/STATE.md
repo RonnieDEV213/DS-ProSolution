@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 18 of 21 (Client Persistence)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-01-24 — Phase 17 verified and complete
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-24 — Completed 18-01-PLAN.md
 
-Progress: [█████░░░░░] 31% (5/16 plans)
+Progress: [██████░░░░] 37% (6/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [█████░░░░░] 31% (5/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 5
-- Average duration: 2.8 min
-- Total execution time: 14 min
+- Total plans completed: 6
+- Average duration: 3.0 min
+- Total execution time: 18 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -57,6 +57,9 @@ Recent decisions affecting current work:
 | Optimistic delete with rollback | 17-02 | Instant UI feedback, rollback on API failure |
 | Remarks use direct API calls | 17-02 | Separate endpoints, still trigger UI updates |
 | DEFAULT_ORG_ID placeholder | 17-02 | Until multi-org support added |
+| SCHEMA_VERSION increment triggers full resync | 18-01 | Simpler than migration handlers |
+| Compound index [account_id+sale_date] | 18-01 | Primary query pattern for records |
+| _sync_meta table for checkpoints | 18-01 | Per-table cursor tracking |
 
 ### Pending Todos
 
@@ -69,6 +72,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Phase 17 verified and complete
+Stopped at: Completed 18-01-PLAN.md
 Resume file: None
-Next action: `/gsd:discuss-phase 18` to plan Client Persistence
+Next action: Execute 18-02-PLAN.md (Sync Engine)
