@@ -31,7 +31,7 @@ See commit history for v2 implementation details.
 **Milestone Goal:** Handle millions of records with fast read/write across server storage, transport, client storage, and rendering
 
 - [x] **Phase 15: Server Storage Foundation** - Database indexes, updated_at triggers, soft deletes
-- [ ] **Phase 16: Transport Layer** - Cursor-based pagination APIs with server-side filtering/sorting
+- [x] **Phase 16: Transport Layer** - Cursor-based pagination APIs with server-side filtering/sorting
 - [ ] **Phase 17: Client Query Caching** - TanStack Query integration with stale-while-revalidate
 - [ ] **Phase 18: Client Persistence** - IndexedDB schema with sync state tracking
 - [ ] **Phase 19: Sync Protocol** - Sync status UI, optimistic updates, error handling, offline queue
@@ -67,8 +67,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 16-01-PLAN.md - Cursor pagination utilities and generic models
-- [ ] 16-02-PLAN.md - Sync router with cursor-paginated endpoints
+- [x] 16-01-PLAN.md - Cursor pagination utilities and generic models
+- [x] 16-02-PLAN.md - Sync router with cursor-paginated endpoints
 
 ### Phase 17: Client Query Caching
 **Goal**: Client uses TanStack Query for efficient server state management with automatic cache invalidation
@@ -167,7 +167,7 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 15. Server Storage Foundation | v3 | 1/1 | Complete | 2026-01-24 |
-| 16. Transport Layer | v3 | 0/2 | Planned | - |
+| 16. Transport Layer | v3 | 2/2 | Complete | 2026-01-24 |
 | 17. Client Query Caching | v3 | 0/2 | Not started | - |
 | 18. Client Persistence | v3 | 0/2 | Not started | - |
 | 19. Sync Protocol | v3 | 0/3 | Not started | - |
@@ -176,4 +176,4 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24*
+*Last updated: 2026-01-24 — Phase 16 complete*

@@ -9,9 +9,9 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 
 ### Pagination & Browsing
 
-- [ ] **PAGI-01**: API endpoints use cursor-based pagination (not offset)
-- [ ] **PAGI-02**: API supports server-side filtering with indexed queries
-- [ ] **PAGI-03**: API supports server-side sorting with indexed queries
+- [x] **PAGI-01**: API endpoints use cursor-based pagination (not offset)
+- [x] **PAGI-02**: API supports server-side filtering with indexed queries
+- [x] **PAGI-03**: API supports server-side sorting with indexed queries
 - [ ] **PAGI-04**: Lists render using virtual scrolling (constant DOM elements)
 - [ ] **PAGI-05**: Lists display row count and result summary ("Showing 1-50 of 2,340,567")
 - [ ] **PAGI-06**: Lists show loading states during pagination and filtering
@@ -95,9 +95,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFR-01 | Phase 15 | Complete |
 | INFR-02 | Phase 15 | Complete |
 | INFR-03 | Phase 15 | Complete |
-| PAGI-01 | Phase 16 | Pending |
-| PAGI-02 | Phase 16 | Pending |
-| PAGI-03 | Phase 16 | Pending |
+| PAGI-01 | Phase 16 | Complete |
+| PAGI-02 | Phase 16 | Complete |
+| PAGI-03 | Phase 16 | Complete |
 | CACH-01 | Phase 17 | Pending |
 | CACH-02 | Phase 17 | Pending |
 | CACH-03 | Phase 17 | Pending |
@@ -136,4 +136,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-23*
-*Last updated: 2026-01-23 after roadmap creation*
+*Last updated: 2026-01-24 — Phase 16 complete*
