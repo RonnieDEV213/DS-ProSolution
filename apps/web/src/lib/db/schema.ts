@@ -48,3 +48,16 @@ export interface SyncMeta {
   last_sync_at: string; // ISO timestamp of last successful sync
   cursor: string | null; // Opaque cursor for resuming partial sync
 }
+
+// Pending mutations queue for offline changes
+export interface PendingMutation {
+  id: string;              // UUID for the mutation
+  record_id: string;       // ID of the record being mutated
+  table: 'records' | 'accounts' | 'sellers';
+  operation: 'create' | 'update' | 'delete';
+  data: Record<string, unknown>;
+  timestamp: string;       // ISO timestamp for ordering
+  retry_count: number;
+  last_error: string | null;
+  status: 'pending' | 'in-flight' | 'failed';
+}
