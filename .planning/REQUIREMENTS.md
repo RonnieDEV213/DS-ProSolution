@@ -31,14 +31,14 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 
 ### Sync UX
 
-- [ ] **SYNC-01**: UI displays sync status indicator (syncing, synced, error)
-- [ ] **SYNC-02**: UI shows "last synced X ago" timestamp
-- [ ] **SYNC-03**: Failed requests retry automatically with exponential backoff
-- [ ] **SYNC-04**: Errors display with clear message and retry action
-- [ ] **SYNC-05**: Mutations update UI optimistically, rollback on error
-- [ ] **SYNC-06**: Conflicts show both versions for user resolution
-- [ ] **SYNC-07**: Mutations queue when offline, sync when online
-- [ ] **SYNC-08**: Each row displays its individual sync status (synced/pending/error)
+- [x] **SYNC-01**: UI displays sync status indicator (syncing, synced, error)
+- [x] **SYNC-02**: UI shows "last synced X ago" timestamp
+- [x] **SYNC-03**: Failed requests retry automatically with exponential backoff
+- [x] **SYNC-04**: Errors display with clear message and retry action
+- [x] **SYNC-05**: Mutations update UI optimistically, rollback on error
+- [x] **SYNC-06**: Conflicts show both versions for user resolution
+- [x] **SYNC-07**: Mutations queue when offline, sync when online
+- [x] **SYNC-08**: Each row displays its individual sync status (synced/pending/error)
 
 ### Export/Import
 
@@ -106,14 +106,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CACH-04 | Phase 18 | Complete |
 | CACH-05 | Phase 18 | Complete |
 | CACH-06 | Phase 18 | Complete |
-| SYNC-01 | Phase 19 | Pending |
-| SYNC-02 | Phase 19 | Pending |
-| SYNC-03 | Phase 19 | Pending |
-| SYNC-04 | Phase 19 | Pending |
-| SYNC-05 | Phase 19 | Pending |
-| SYNC-06 | Phase 19 | Pending |
-| SYNC-07 | Phase 19 | Pending |
-| SYNC-08 | Phase 19 | Pending |
+| SYNC-01 | Phase 19 | Complete |
+| SYNC-02 | Phase 19 | Complete |
+| SYNC-03 | Phase 19 | Complete |
+| SYNC-04 | Phase 19 | Complete |
+| SYNC-05 | Phase 19 | Complete |
+| SYNC-06 | Phase 19 | Complete |
+| SYNC-07 | Phase 19 | Complete |
+| SYNC-08 | Phase 19 | Complete |
 | PAGI-04 | Phase 20 | Pending |
 | PAGI-05 | Phase 20 | Pending |
 | PAGI-06 | Phase 20 | Pending |
@@ -136,4 +136,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-23*
-*Last updated: 2026-01-24 — Phase 18 complete*
+*Last updated: 2026-01-24 — Phase 19 complete*
