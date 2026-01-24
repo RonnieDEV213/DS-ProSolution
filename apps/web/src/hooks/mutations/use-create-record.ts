@@ -3,6 +3,8 @@ import { queryKeys } from "@/lib/query-keys";
 import { api, type RecordCreate, type BookkeepingRecord } from "@/lib/api";
 import { db } from "@/lib/db";
 import type { BookkeepingRecord as IndexedDBRecord } from "@/lib/db/schema";
+import { useOnlineStatus } from "@/hooks/sync/use-online-status";
+import { queueMutation } from "@/lib/db/pending-mutations";
 
 /**
  * Response shape for infinite query pages.
@@ -39,9 +41,45 @@ interface CreateRecordContext {
 export function useCreateRecord(orgId: string, accountId: string) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.records.infinite(orgId, accountId);
+  const isOnline = useOnlineStatus();
 
   return useMutation<BookkeepingRecord, Error, RecordCreate, CreateRecordContext>({
-    mutationFn: (data: RecordCreate) => api.createRecord(data),
+    mutationFn: async (data: RecordCreate) => {
+      if (!isOnline) {
+        // Generate temp ID for the queued mutation
+        const tempId = `temp-${crypto.randomUUID()}`;
+
+        // Queue mutation for later sync - processQueue will call api.createRecord
+        await queueMutation({
+          record_id: tempId,
+          table: 'records',
+          operation: 'create',
+          data: data as unknown as Record<string, unknown>,
+        });
+
+        // Return optimistic record shape for cache
+        // Note: onMutate will also create a temp record - that's OK, they'll have
+        // different IDs but both will be replaced when sync completes
+        return {
+          ...data,
+          id: tempId,
+          ebay_fees_cents: data.ebay_fees_cents ?? null,
+          amazon_price_cents: data.amazon_price_cents ?? null,
+          amazon_tax_cents: data.amazon_tax_cents ?? null,
+          amazon_shipping_cents: data.amazon_shipping_cents ?? null,
+          amazon_order_id: data.amazon_order_id ?? null,
+          status: data.status ?? "SUCCESSFUL",
+          return_label_cost_cents: null,
+          order_remark: data.order_remark ?? null,
+          service_remark: null,
+          profit_cents: 0,
+          earnings_net_cents: 0,
+          cogs_total_cents: 0,
+        } as BookkeepingRecord;
+      }
+      // Online: call API directly
+      return api.createRecord(data);
+    },
 
     onMutate: async (newRecord) => {
       // Cancel in-flight queries to prevent overwrite
