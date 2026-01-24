@@ -52,9 +52,9 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 
 ### Infrastructure
 
-- [ ] **INFR-01**: Database tables have composite indexes for cursor queries
-- [ ] **INFR-02**: Database tables have updated_at column with trigger
-- [ ] **INFR-03**: Database uses soft deletes (deleted_at) for sync compatibility
+- [x] **INFR-01**: Database tables have composite indexes for cursor queries
+- [x] **INFR-02**: Database tables have updated_at column with trigger
+- [x] **INFR-03**: Database uses soft deletes (deleted_at) for sync compatibility
 - [ ] **INFR-04**: IndexedDB schema mirrors server data structure
 - [ ] **INFR-05**: Sync engine tracks local vs server state
 
@@ -92,9 +92,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFR-01 | Phase 15 | Pending |
-| INFR-02 | Phase 15 | Pending |
-| INFR-03 | Phase 15 | Pending |
+| INFR-01 | Phase 15 | Complete |
+| INFR-02 | Phase 15 | Complete |
+| INFR-03 | Phase 15 | Complete |
 | PAGI-01 | Phase 16 | Pending |
 | PAGI-02 | Phase 16 | Pending |
 | PAGI-03 | Phase 16 | Pending |

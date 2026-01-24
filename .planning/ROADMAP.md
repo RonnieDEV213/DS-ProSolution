@@ -30,7 +30,7 @@ See commit history for v2 implementation details.
 
 **Milestone Goal:** Handle millions of records with fast read/write across server storage, transport, client storage, and rendering
 
-- [ ] **Phase 15: Server Storage Foundation** - Database indexes, updated_at triggers, soft deletes
+- [x] **Phase 15: Server Storage Foundation** - Database indexes, updated_at triggers, soft deletes
 - [ ] **Phase 16: Transport Layer** - Cursor-based pagination APIs with server-side filtering/sorting
 - [ ] **Phase 17: Client Query Caching** - TanStack Query integration with stale-while-revalidate
 - [ ] **Phase 18: Client Persistence** - IndexedDB schema with sync state tracking
@@ -52,7 +52,7 @@ See commit history for v2 implementation details.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 15-01-PLAN.md - Sync infrastructure migrations (columns, indexes, purge job)
+- [x] 15-01-PLAN.md - Sync infrastructure migrations (columns, indexes, purge job)
 
 ### Phase 16: Transport Layer
 **Goal**: API endpoints support cursor-based pagination with server-side filtering and sorting
@@ -166,7 +166,7 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 15. Server Storage Foundation | v3 | 0/1 | Planned | - |
+| 15. Server Storage Foundation | v3 | 1/1 | Complete | 2026-01-24 |
 | 16. Transport Layer | v3 | 0/2 | Not started | - |
 | 17. Client Query Caching | v3 | 0/2 | Not started | - |
 | 18. Client Persistence | v3 | 0/2 | Not started | - |

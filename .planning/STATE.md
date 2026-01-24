@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-01-23)
 
 **Core value:** Handle millions of records with fast read/write across server storage, transport, client storage, and rendering
-**Current focus:** Phase 15 - Server Storage Foundation
+**Current focus:** Phase 16 - Transport Layer
 
 ## Current Position
 
-Phase: 15 of 21 (Server Storage Foundation)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-24 — Completed 15-01-PLAN.md (Sync Infrastructure)
+Phase: 16 of 21 (Transport Layer)
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-01-24 — Phase 15 verified and complete
 
 Progress: [█░░░░░░░░░] 6% (1/16 plans)
 
@@ -45,13 +45,12 @@ Recent decisions affecting current work:
 | Decision | Phase | Rationale |
 |----------|-------|-----------|
 | Reuse public.update_updated_at() | 15-01 | Existing function from 001_auth_schema.sql, consistent with profiles/memberships |
-| CONCURRENTLY for all cursor indexes | 15-01 | All 3 tables are active, prevents write locks |
+| Removed CONCURRENTLY from index migration | 15-01 | Supabase SQL Editor runs in transaction block |
 | 30-day soft delete retention | 15-01 | Per CONTEXT.md, daily purge at 3 AM UTC |
 
 ### Pending Todos
 
-- Run migrations 036-045 in Supabase SQL editor (if not already done)
-- Run migrations 046-048 in Supabase SQL editor (new sync infrastructure)
+None.
 
 ### Blockers/Concerns
 
@@ -60,6 +59,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 15-01-PLAN.md
+Stopped at: Phase 15 verified and complete
 Resume file: None
-Next action: Phase 15 complete - proceed to Phase 16 (Server Sync API)
+Next action: `/gsd:discuss-phase 16` to plan Transport Layer
