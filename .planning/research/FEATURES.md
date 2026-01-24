@@ -1,238 +1,218 @@
-# Feature Landscape: SellerCollection (v2)
+# Feature Landscape: Large-Scale Data Infrastructure
 
-**Domain:** Amazon-to-eBay dropshipper discovery tool
-**Researched:** 2026-01-20
-**Confidence:** HIGH (based on existing competitive tools and project requirements)
-
-## Executive Summary
-
-The seller collection domain is well-established with mature competitors (ZIK Analytics, Salefreaks, AutoDS, SuperDS). However, DS-ProSolution's use case is fundamentally different: **collect seller names only**, not build a full arbitrage/listing platform. This dramatically simplifies the feature set.
-
-Most competitor features are irrelevant because:
-1. We output to third-party software for analysis (not in-house)
-2. We don't need pricing, profit margins, or listing automation
-3. We want bulk seller discovery, not product-by-product analysis
-
-**Key insight:** Competitors solve "find profitable products to list." We solve "find dropshippers to analyze elsewhere." Different problem = different features.
-
----
+**Domain:** Data pipeline for eBay account management (millions of records)
+**Researched:** 2026-01-23
+**Overall Confidence:** MEDIUM-HIGH
 
 ## Table Stakes
 
-Features users expect. Missing = tool feels incomplete for the stated purpose.
+Features users expect. Missing = product feels incomplete or broken at scale.
+
+### Large Dataset Browsing
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Amazon Best Sellers scraping** | Core input data source | Medium | Via Rainforest API per PROJECT.md |
-| **Category/department selection** | Not all categories relevant | Low | UI dropdown or multi-select |
-| **eBay search with filters** | Core matching logic | Medium | Brand New, free shipping, price range |
-| **Price markup filter (80-120%)** | Identifies dropshipper pricing behavior | Low | Configurable percentage range |
-| **Seller name extraction** | The actual output we need | Low | Parse from eBay search results |
-| **Deduplication against existing DB** | Avoid re-processing known sellers | Low | Simple unique constraint check |
-| **Progress indication** | Collections take time; users need feedback | Low | Progress bar or percentage |
-| **Collection history/status** | Know what ran, when, and results | Low | Basic log of runs |
-| **Export: JSON** | Standard machine-readable format | Low | Single button |
-| **Export: CSV** | Spreadsheet-compatible | Low | Single button |
-| **Export: Copy to clipboard** | Quick transfer to other tools | Low | Single button |
-| **Error handling/retry** | API calls fail; need graceful recovery | Medium | Per-product retry, not full restart |
-| **Admin-only access** | Per PROJECT.md constraints | Low | Already have RBAC |
+| Cursor-based pagination | Offset pagination fails at scale (DB scans all preceding rows). Users expect consistent performance regardless of page depth. | Medium | Server-side, index-backed. [Sentry confirms](https://blog.sentry.io/paginating-large-datasets-in-production-why-offset-fails-and-cursors-win/) offset degrades linearly. |
+| Server-side filtering | Client can't filter millions of rows. Users expect sub-second filter response. | Medium | Push filtering to DB with proper indexes. |
+| Server-side sorting | Same as filtering - client can't sort millions of rows in memory. | Medium | DB-level sort with index support. |
+| Virtual scrolling | Rendering 10K+ DOM nodes crashes browsers. Users expect smooth scrolling through large lists. | Medium | TanStack Virtual or similar. Constant DOM elements regardless of data size. |
+| Row count / result summary | Users need context: "Showing 1-50 of 2,340,567 results". | Low | Can be expensive to compute for huge datasets - consider caching or async count. |
+| Configurable page size | Different contexts need different densities (quick scan vs detailed review). Standard options: 10, 25, 50, 100. | Low | Default to 25-50 rows per page per [UX research](https://uxpatterns.dev/patterns/data-display/table). |
+| Loading states | Users need to know system is working. "Is it frozen or loading?" | Low | Determinate progress for 3-10s operations, indeterminate for <3s. |
 
-### Why These Are Table Stakes
+### Client-Side Caching
 
-The current manual workflow (VA browses Amazon, searches eBay, collects names) defines the baseline. Automation must do at least what VAs do manually:
-- Browse Amazon Best Sellers (category selection)
-- Search on eBay with specific filters (Brand New, free shipping, price markup)
-- Collect unique seller names (dedup)
-- Export the list (for third-party software)
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Basic query caching | Re-fetching identical data on every navigation feels broken. Users expect instant back-button. | Low | TanStack Query provides this out of the box. |
+| Stale-while-revalidate | Show cached data immediately, refresh in background. Users see instant UI with fresh data arriving. | Low | SWR pattern - TanStack Query default behavior. |
+| Cache invalidation on mutation | After user creates/edits/deletes, list must reflect change. Stale data after mutation = broken UX. | Medium | [TanStack Query invalidation](https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation) - query key factory pattern recommended. |
+| Session persistence | Navigating away and back shouldn't re-fetch everything. Cache should survive within session. | Low | Memory cache sufficient for session. |
 
-Anything less = tool doesn't replace manual work.
+### Sync UX
 
----
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Sync status indicator | Users need to know if data is current, syncing, or stale. [Google Drive pattern](https://www.pencilandpaper.io/articles/ux-pattern-analysis-loading-feedback). | Low | Subtle when auto-syncing, prominent when action needed. |
+| Last synced timestamp | "Data from 5 minutes ago" gives users confidence context. | Low | Store and display last successful fetch time. |
+| Retry on failure | Network failures happen. Users expect automatic retry with exponential backoff. | Low | TanStack Query has built-in retry logic. |
+| Error states with recovery | When sync fails, users need clear error message and retry action. | Low | Toast + retry button, not just silent failure. |
+| Optimistic updates | For mutations, update UI immediately, rollback on error. Sub-second feedback for user actions. | Medium | Critical for perceived performance. |
+
+### Export/Import
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| CSV export | Universal format, everyone expects it. | Medium | Streaming for large datasets - don't load millions of rows into memory. |
+| Column selection for export | Users rarely need all 50 columns. Let them pick relevant ones. | Low | UI for column selection before export. |
+| Export progress indicator | Large exports take time. Users need feedback that export is working. | Low | Determinate progress bar showing row count / total. |
+| Export size limits / chunking | Single 10M row export will crash browser or timeout. | Medium | Server-side streaming or background job with download link. |
 
 ## Differentiators
 
-Features that add value beyond the manual workflow. Nice to have but not required for MVP.
+Features that set product apart. Not expected but valued when present.
+
+### Large Dataset Browsing
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Scheduled collection** | Monthly recurring without manual trigger | Low | Cron job or Supabase scheduled function |
-| **Multi-category batch** | Run all categories in one operation | Medium | Queue management |
-| **Seller metadata capture** | Store feedback score, item count, join date | Low | Extra fields from eBay results |
-| **Collection pause/resume** | Long-running jobs can be interrupted | Medium | Checkpoint state in DB |
-| **Rate limit visualization** | Show API usage/remaining quota | Low | Display from API response headers |
-| **Seller count estimates** | Preview expected results before running | Medium | Sample query first |
-| **Email notification on complete** | Notify admin when background job finishes | Low | Integrate with existing notification system |
-| **Result filtering/sorting** | Filter collected sellers by metadata | Low | UI table controls |
-| **Seller tagging/notes** | Annotate sellers for later reference | Low | Extra DB fields |
-| **Collection presets** | Save filter configurations for reuse | Medium | Preset management UI |
+| Infinite scroll + virtual scroll hybrid | Best of both: smooth continuous browsing (no page clicks) + constant DOM performance. | High | Combines [TanStack Virtual](https://tanstack.com/virtual) with pagination API. "Paged infinite virtual scrolling" pattern. |
+| Saved views / filters | VAs work with same filter sets repeatedly. Save time by persisting filter configurations. | Medium | Store per-user filter presets. Big productivity gain for repetitive workflows. |
+| Quick filters / faceted navigation | Common filters as one-click chips (e.g., "Awaiting Shipment", "Today's Orders"). | Medium | Pre-defined filter shortcuts for common workflows. |
+| Real-time updates via SSE/WebSocket | Data updates without manual refresh. See new orders appear as they come in. | High | Already have SSE infrastructure from v2. Can extend to order streams. |
+| Keyboard navigation | Power users can browse/select without mouse. j/k for rows, Enter to select. | Medium | Accessibility bonus, productivity win for VAs. |
+| Multi-level sorting | Sort by date, then by status, then by amount. Complex data needs complex sorting. | Medium | UI for defining sort priority order. |
 
-### Differentiator Prioritization
+### Client-Side Caching
 
-**High value, low effort (do in v2 if time):**
-- Scheduled collection (explicitly in PROJECT.md as optional)
-- Seller metadata capture (no extra API calls, just parse more fields)
-- Result filtering/sorting (standard table features)
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| IndexedDB persistence | Cache survives browser restart. App loads instantly with cached data, syncs in background. | High | [2025 trend](https://blog.logrocket.com/offline-first-frontend-apps-2025-indexeddb-sqlite/): full DBs in browser. Significant complexity but 40-60% faster perceived load. |
+| Incremental sync protocol | Only fetch changed records since last sync, not full dataset. Massive bandwidth savings. | High | Requires server-side change tracking (timestamps, version vectors). |
+| Background sync with service worker | Sync data even when tab is inactive. Data is fresh when user returns. | High | Service worker + Background Sync API. Overkill for internal tool? |
+| Predictive prefetching | Prefetch next page while user is on current page. Instant pagination. | Medium | Predict user navigation patterns, prefetch likely next queries. |
 
-**Medium value, medium effort (defer to v2.1):**
-- Multi-category batch
-- Collection pause/resume
-- Collection presets
+### Sync UX
 
-**Low value (skip):**
-- Email notifications (overkill for admin-only internal tool)
-- Seller count estimates (just run it)
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Conflict resolution UI | When same record edited in multiple places, show both versions and let user decide. | High | Most apps use "last write wins". Explicit resolution = premium feature. |
+| Offline queue with retry | Queue mutations when offline, sync when online. Never lose user work. | High | Requires careful state management, conflict handling. |
+| Per-record sync status | See which specific records are syncing, failed, or stale. Not just global status. | Medium | Badge or icon per row showing sync state. |
+| Sync pause/resume | Let user pause background sync (bandwidth concerns, focus mode). | Low | Toggle in settings, not commonly expected. |
 
----
+### Export/Import
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Background export with notification | User initiates large export, continues working, gets notified when ready. | High | Background job, download link in notification. |
+| Scheduled exports | Auto-export daily/weekly to email or cloud storage. | High | Cron job, storage integration. Overkill for internal tool? |
+| Multiple formats (CSV, JSON, Excel, PDF) | Different stakeholders need different formats. Clients want Excel, devs want JSON. | Medium | Already have CSV/JSON from v2. Excel and PDF are nice-to-have. |
+| Import with validation preview | Preview import results, see errors before committing. Prevents bad data entry. | High | Parse, validate, show preview, then insert. Complex but valuable. |
+| Import rollback | Undo a bad import. Safety net for large data operations. | High | Track import batch, provide rollback action. |
 
 ## Anti-Features
 
-Features to explicitly NOT build in v2. Common mistakes or scope creep traps.
+Features to explicitly NOT build. Common mistakes or overkill for this domain.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Profit margin calculator** | Output goes to third-party software that does this | Just collect seller names |
-| **Product listing/import** | Separate project per PROJECT.md out-of-scope | Focus on discovery only |
-| **Seller quality scoring** | Explicitly out of scope (reverse image search, hero detection, win rate) | Defer to future milestone |
-| **Real-time price monitoring** | Out of scope; brute force monthly is sufficient | One-time collection per run |
-| **VeRO database/protection** | We're not listing products, just collecting sellers | Not applicable |
-| **eBay account integration** | We scrape public data via API | No auth needed |
-| **Amazon account integration** | Same - public data only | No auth needed |
-| **Custom proxy management** | Third-party APIs handle this per PROJECT.md | Use Rainforest/ScraperAPI |
-| **Title optimization/SEO** | Not listing products | Not applicable |
-| **Competitor analysis dashboard** | We output to external tools | Keep output simple |
-| **Seller watchlist/tracking** | Overkill for one-time collection | Just re-run collection |
-| **Mobile/responsive UI** | Desktop-first per PROJECT.md | Admin dashboard only |
-| **VA access to SellerCollection** | Admin-only per PROJECT.md | RBAC exclusion |
-| **Authenticated scraping** | Public data only per PROJECT.md | Third-party APIs only |
-
-### Why These Are Anti-Features
-
-**Scope creep from competitors:** Tools like ZIK Analytics and Salefreaks offer comprehensive arbitrage platforms. DS-ProSolution is NOT building that. Copying their feature set would:
-1. Duplicate functionality that exists in third-party software you already use
-2. Massively increase scope (v2 would take months instead of weeks)
-3. Violate the explicit out-of-scope boundaries in PROJECT.md
-
-**The principle:** We collect raw material (seller names). Third-party software refines it. Don't build the refinery.
-
----
+| Offline-first as core architecture | Overkill for internal agency tool with reliable connectivity. Adds massive complexity. | Cache-first for performance, but assume online. Queue mutations briefly, don't build full offline mode. |
+| Real-time collaborative editing | Not a document editor. Multiple VAs shouldn't edit same record simultaneously. | Lock record while editing, or last-write-wins with notification. |
+| CRDTs for conflict resolution | Academic solution for distributed systems. Too complex for internal tool. | Last-write-wins with timestamp. Manual conflict resolution only if absolutely needed. |
+| Full-text search at scale | Building custom search infrastructure is expensive. Not the core value of this app. | Use Supabase full-text search or external service (Algolia) if needed. Don't build from scratch. |
+| GraphQL for pagination | REST with cursor pagination is simpler and sufficient. GraphQL adds complexity without benefit here. | Stick with REST + cursor-based pagination. |
+| Client-side data transformation | Don't transform millions of rows in browser. | Push aggregation, filtering, and transformation to server/database. |
+| Infinite scroll without virtual scroll | Memory will grow unbounded. Will crash at scale. | Always pair infinite scroll with virtualization. |
+| "Load all" option for large datasets | Users will click it, browser will crash, they'll blame the app. | Cap at 10K or remove option. Server-side export for full dataset. |
+| Custom scrollbar implementations | Fighting the browser is painful. Custom scrollbars break accessibility and feel wrong. | Use native scrollbars with virtualization. |
+| Aggressive prefetching | Prefetching too much wastes bandwidth and can slow down actual user requests. | Prefetch one page ahead at most. Respect data caps. |
 
 ## Feature Dependencies
 
 ```
-Category Selection
+Server-side pagination (cursor-based)
     |
-    v
-Amazon Best Sellers Scrape (Rainforest API)
-    |
-    v
-For each product:
-    |
-    +-> eBay Search with Filters (ScraperAPI)
+    +---> Virtual scrolling (needs paginated data source)
     |       |
-    |       v
-    +-> Seller Name Extraction
-            |
-            v
-        Deduplication Check
-            |
-            +-> New seller -> Store in DB
-            |
-            +-> Known seller -> Skip
+    |       +---> Infinite scroll hybrid (needs virtual scrolling working first)
+    |
+    +---> Server-side filtering (same API pattern)
+    |
+    +---> Server-side sorting (same API pattern)
 
-Progress Tracking (parallel to data flow)
+TanStack Query setup
     |
-    v
-Collection Complete
+    +---> Basic caching (automatic)
     |
-    v
-Export Options (JSON/CSV/Clipboard)
+    +---> Cache invalidation (query key factory)
+    |       |
+    |       +---> Optimistic updates (needs invalidation working)
+    |
+    +---> Stale-while-revalidate (configuration)
+
+IndexedDB layer (if building)
+    |
+    +---> Incremental sync (needs local storage)
+    |
+    +---> Session persistence (needs local storage)
+
+Export foundation (streaming CSV)
+    |
+    +---> Column selection (UI addition)
+    |
+    +---> Multiple formats (add format handlers)
+    |
+    +---> Background export (architectural change)
 ```
-
-### Critical Path
-
-1. **API integrations first** - Cannot test anything without Rainforest and ScraperAPI working
-2. **Data flow second** - Amazon -> eBay -> Seller extraction pipeline
-3. **Storage third** - Dedup and persistence
-4. **UI fourth** - Trigger, progress, results display
-5. **Export fifth** - Output formats
-
----
 
 ## MVP Recommendation
 
-For MVP, prioritize in this order:
+For v3 MVP, prioritize table stakes that address current bottlenecks ("full-fetch pattern crashes at scale"):
 
-### Must Ship (v2.0)
+### Must Have (Phase 1-2)
 
-1. **Amazon Best Sellers scraping** - Core input
-2. **Category selection UI** - Basic dropdown
-3. **eBay search with filters** - Core matching
-4. **Seller extraction and dedup** - Core output
-5. **Basic progress display** - Percentage or count
-6. **Collection trigger button** - Start the process
-7. **Results table** - View collected sellers
-8. **Export: JSON, CSV, clipboard** - Get data out
+1. **Cursor-based pagination API** - Foundation for everything else. Server-side, replaces full-fetch.
+2. **Server-side filtering and sorting** - Can't do client-side at scale.
+3. **TanStack Query integration** - Basic caching, SWR, retry. Low effort, high impact.
+4. **Virtual scrolling** - Prevent DOM crashes. TanStack Virtual.
+5. **Loading states** - User feedback during pagination/filtering.
+6. **Sync status indicator** - "Last synced X minutes ago" + syncing indicator.
+7. **Cache invalidation on mutation** - Lists update after create/edit/delete.
 
-### Should Ship (v2.0 stretch)
+### Should Have (Phase 3)
 
-9. **Scheduled collection** - Monthly cron
-10. **Seller metadata** - Feedback score, item count (if available in API response)
-11. **Collection history** - List of past runs
+8. **Optimistic updates** - Instant feedback for mutations.
+9. **Streaming CSV export** - Export doesn't crash for large datasets.
+10. **Saved views** - VA productivity for repetitive workflows.
+11. **Quick filters** - One-click common filters.
 
-### Defer to v2.1
+### Defer to Post-MVP
 
-- Multi-category batch processing
-- Pause/resume for long collections
-- Collection presets
-- Result filtering beyond basic table sort
+- **IndexedDB persistence** - High complexity. Session cache sufficient for now.
+- **Incremental sync** - High complexity. Full refresh with pagination is acceptable initially.
+- **Infinite scroll hybrid** - Nice UX but standard pagination works.
+- **Background export** - Streaming export handles most cases.
+- **Conflict resolution UI** - Last-write-wins is acceptable for internal tool.
+- **Offline queue** - Users are online. Brief network failures handled by retry.
 
-### Never Build
+## Complexity Estimates Summary
 
-- Anything in the Anti-Features list
+| Category | Low | Medium | High |
+|----------|-----|--------|------|
+| Large Dataset Browsing | 3 | 5 | 2 |
+| Client-Side Caching | 3 | 1 | 3 |
+| Sync UX | 4 | 2 | 2 |
+| Export/Import | 2 | 3 | 3 |
 
----
+**MVP effort (table stakes only):** Approximately 3-4 weeks of focused development.
 
-## Competitive Landscape Reference
-
-For context, here's what competitors offer (NOT recommendations to copy):
-
-| Tool | Core Focus | Pricing | Relevant Learning |
-|------|-----------|---------|-------------------|
-| [ZIK Analytics](https://www.zikanalytics.com) | Full arbitrage platform | $19.90/mo | Competitor research feature shows seller analysis is complex |
-| [Salefreaks](https://www.salefreaks.com) | Amazon-to-eBay scanning | Varies | Large VeRO database emphasizes compliance (not our problem) |
-| [AutoDS](https://www.autods.com) | Listing automation | $19.90/mo | Full integration shows we're in different space |
-| [Apify eBay Scraper](https://apify.com/parseforge/ebay-scraper) | Data extraction | Usage-based | Good reference for what data is extractable |
-
-**Key takeaway:** These tools solve different problems. Don't feature-match; stay focused on seller collection.
-
----
+**Differentiators effort:** Additional 2-4 weeks depending on selection.
 
 ## Sources
 
-**Amazon-to-eBay Dropshipping Tools:**
-- [ZIK Analytics - Best Amazon to eBay Dropshipping Software](https://www.zikanalytics.com/blog/best-amazon-to-ebay-dropshipping-software/)
-- [AutoDS - Amazon to eBay Dropshipping](https://www.autods.com/ebay/suppliers/amazon-dropshipping/)
-- [Salefreaks](https://www.salefreaks.com/)
+### High Confidence (Official Documentation / Context7)
+- [TanStack Query - Query Invalidation](https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation)
+- [TanStack Table - Pagination Guide](https://tanstack.com/table/v8/docs/guide/pagination)
+- [Next.js - Caching and Revalidating](https://nextjs.org/docs/app/getting-started/caching-and-revalidating)
 
-**eBay Scraping Tools:**
-- [Apify eBay Scraper](https://apify.com/parseforge/ebay-scraper)
-- [Scrape.do - 2025 Guide to Scraping eBay](https://scrape.do/blog/ebay-scraping/)
-- [Oxylabs - eBay Data Scraping Guide](https://oxylabs.io/blog/ebay-data-scraping-guide/)
+### Medium Confidence (Verified Technical Sources)
+- [Sentry - Paginating Large Datasets: Why OFFSET Fails and Cursors Win](https://blog.sentry.io/paginating-large-datasets-in-production-why-offset-fails-and-cursors-win/)
+- [LogRocket - Offline-First Frontend Apps in 2025: IndexedDB and SQLite](https://blog.logrocket.com/offline-first-frontend-apps-2025-indexeddb-sqlite/)
+- [LogRocket - Pagination vs Infinite Scroll UX](https://blog.logrocket.com/ux-design/pagination-vs-infinite-scroll-ux/)
+- [Pencil & Paper - UX Design Patterns for Loading](https://www.pencilandpaper.io/articles/ux-pattern-analysis-loading-feedback)
+- [Pencil & Paper - Data Table Pattern UX](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-data-tables)
+- [Pencil & Paper - Filter UX Design Patterns](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-filtering)
+- [Google Open Health Stack - Design Guidelines for Offline & Sync](https://developers.google.com/open-health-stack/design/offline-sync-guideline)
+- [Carbon Design System - Status Indicators](https://v10.carbondesignsystem.com/patterns/status-indicator-pattern/)
+- [Dromo - Best Practices for Handling Large CSV Files](https://dromo.io/blog/best-practices-handling-large-csv-files)
 
-**Amazon Best Sellers Scraping:**
-- [Apify Amazon Bestsellers Scraper](https://apify.com/junglee/amazon-bestsellers)
-- [Oxylabs - How to Scrape Amazon Best Sellers](https://oxylabs.io/blog/how-to-scrape-amazon-best-sellers)
-
-**ZIK Analytics Features:**
-- [ZIK Competitor Research Tool](https://www.zikanalytics.com/ebay/competitor-research)
-- [ZIK Competitor Research Guide](https://help.zikanalytics.com/en/articles/7978193-competitor-research-guide)
-
-**eBay Policy:**
-- [eBay Dropshipping Policy](https://www.ebay.com/help/selling/posting-items/setting-postage-options/drop-shipping?id=4176)
-
-**MVP Principles:**
-- [Atlassian - Minimum Viable Product](https://www.atlassian.com/agile/product-management/minimum-viable-product)
+### Low Confidence (WebSearch Only - Verify Before Implementation)
+- AI-powered smart filters for 2025 (unverified trend claim)
+- 40-60% faster perceived load times with offline-first (survey data, not verified)
+- 30-50% server load reduction with smart caching (McKinsey claim, not independently verified)
 
 ---
 
-*Confidence: HIGH - Features derived from explicit project requirements in PROJECT.md, validated against competitive landscape. Anti-features explicitly marked as out-of-scope in project documentation.*
+*Research complete: 2026-01-23*
+*Confidence: MEDIUM-HIGH (core patterns well-documented, complexity estimates based on domain experience)*
