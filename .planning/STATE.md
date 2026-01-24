@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 19 of 21 (Sync Protocol)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-24 — Completed 19-01-PLAN.md (Sync Status Indicator)
+Last activity: 2026-01-24 — Completed 19-02-PLAN.md (Optimistic Mutations)
 
-Progress: [█████████░] 56% (9/16 plans)
+Progress: [██████████] 62% (10/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [█████████░] 56% (9/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 9
-- Average duration: 3.1 min
-- Total execution time: 28 min
+- Total plans completed: 10
+- Average duration: 3.2 min
+- Total execution time: 32 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -67,6 +67,9 @@ Recent decisions affecting current work:
 | Client-side computed fields in UI | 18-03 | Reuse pattern from 18-02 in bookkeeping component |
 | useSyncExternalStore for online/offline | 19-01 | Proper cleanup, SSR-safe browser event subscription |
 | Status priority: offline > syncing > error > idle | 19-01 | Most important state always shown |
+| Temp ID format temp-{uuid} for optimistic creates | 19-02 | Easy identification of uncommitted records |
+| Skip retry for 4xx errors | 19-02 | Validation errors shouldn't retry, only network/5xx |
+| IndexedDB rollback deferred for updates | 19-02 | Server sync will correct, avoids complex rollback logic |
 
 ### Pending Todos
 
@@ -79,6 +82,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 19-01-PLAN.md
+Stopped at: Completed 19-02-PLAN.md
 Resume file: None
-Next action: Execute 19-02-PLAN.md (Row-level sync badges)
+Next action: Execute 19-03-PLAN.md (Row-level Sync Badges)
