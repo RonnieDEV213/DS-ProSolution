@@ -3,6 +3,8 @@ import { queryKeys } from "@/lib/query-keys";
 import { api, type BookkeepingRecord } from "@/lib/api";
 import { db } from "@/lib/db";
 import type { BookkeepingRecord as IndexedDBRecord } from "@/lib/db/schema";
+import { useOnlineStatus } from "@/hooks/sync/use-online-status";
+import { queueMutation } from "@/lib/db/pending-mutations";
 
 /**
  * Response shape for infinite query pages.
@@ -39,9 +41,24 @@ interface DeleteRecordContext {
 export function useDeleteRecord(orgId: string, accountId: string) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.records.infinite(orgId, accountId);
+  const isOnline = useOnlineStatus();
 
   return useMutation<void, Error, string, DeleteRecordContext>({
-    mutationFn: (recordId: string) => api.deleteRecord(recordId),
+    mutationFn: async (recordId: string) => {
+      if (!isOnline) {
+        // Queue mutation for later sync
+        await queueMutation({
+          record_id: recordId,
+          table: 'records',
+          operation: 'delete',
+          data: {}, // Delete doesn't need data
+        });
+        // Return void - onMutate already updated cache/IndexedDB
+        return;
+      }
+      // Online: call API directly
+      return api.deleteRecord(recordId);
+    },
 
     onMutate: async (recordId: string) => {
       // Cancel any in-flight queries
