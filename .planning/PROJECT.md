@@ -10,7 +10,7 @@ Automate repetitive eBay operations — from VA task coordination to dropshipper
 
 ## Current State
 
-**Active:** Planning next milestone
+**Active:** v3 Storage & Rendering Infrastructure
 **Shipped:** v2 SellerCollection (2026-01-23), v1 Extension Auth & RBAC (2026-01-20)
 **Tech Stack:** Next.js 14+, FastAPI, Supabase, Chrome Extension MV3
 **Codebase:** ~55,000 lines across 346 files (v1: +16,544, v2: +38,240)
@@ -63,7 +63,13 @@ Automate repetitive eBay operations — from VA task coordination to dropshipper
 
 <!-- Current scope. Building toward these. -->
 
-(No active requirements — next milestone to be defined)
+**v3 Storage & Rendering Infrastructure:**
+- [ ] Server storage: Pagination foundation (indexes, cursor support, query optimization)
+- [ ] Transport: Cursor-based paginated APIs (convert full-fetch endpoints)
+- [ ] Transport: Incremental sync protocol (fetch only changed records)
+- [ ] Client storage: IndexedDB cache layer (schema, read/write operations)
+- [ ] Client storage: Sync manager (track cached vs stale, background refresh)
+- [ ] Rendering: Integration with pagination (virtualization + infinite scroll + cache)
 
 ### Out of Scope
 
@@ -116,6 +122,16 @@ Amazon Best Sellers (Oxylabs)
 - SellerCollection is Admin-only (data sourcing tool, not VA workflow)
 - Extension auth via access codes (4-char prefix + 12-char secret)
 
+**v3 Scale Target:**
+- Agency scale: hundreds of eBay accounts, each with 2-5 Amazon accounts
+- Per account: orders, listings, metrics, messages, feedback, payouts, tracking
+- Data volume: thousands of MB (GBs) across the platform
+- Current bottlenecks:
+  - Transport: Full-fetch pattern won't scale (fetches all records every request)
+  - Client storage: Missing entirely (no IndexedDB cache, every navigation re-fetches)
+  - Server storage: Basic indexes, no pagination support
+  - Rendering: Virtualization exists but not connected to paginated fetch
+
 ## Constraints
 
 - **Tech stack**: Next.js 14+ / FastAPI / Supabase — no new frameworks
@@ -124,6 +140,9 @@ Amazon Best Sellers (Oxylabs)
 - **Public data only**: No authenticated scraping, no account risk
 - **UI patterns**: Use existing shadcn/ui components
 - **Admin-only**: SellerCollection UI is for Admins only (not VAs or Clients)
+- **Scale**: Architecture must support millions of records with fast read/write
+- **Browser limits**: ~1-2GB max per tab, IndexedDB ~50% of storage quota
+- **Supabase limits**: Connection pooling, row limits on tiers to consider
 
 ## Key Decisions
 
@@ -149,4 +168,4 @@ Amazon Best Sellers (Oxylabs)
 | Delete vs deprecate for unused code | Cleaner codebase, no confusion from deprecated stubs | ✓ Good — v2 |
 
 ---
-*Last updated: 2026-01-23 after v2 SellerCollection milestone*
+*Last updated: 2026-01-23 after starting v3 Storage & Rendering Infrastructure milestone*
