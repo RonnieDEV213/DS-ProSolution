@@ -47,6 +47,8 @@ import {
   type BookkeepingStatus,
   type UserRole,
 } from "@/lib/api";
+import { useUpdateRecord } from "@/hooks/mutations/use-update-record";
+import { useDeleteRecord } from "@/hooks/mutations/use-delete-record";
 
 const STATUS_OPTIONS: { value: BookkeepingStatus; label: string }[] = [
   { value: "SUCCESSFUL", label: "Successful" },
@@ -86,16 +88,16 @@ const FIELD_CONFIG: Record<string, { type: FieldType; width: string }> = {
 
 interface RecordsTableProps {
   records: BookkeepingRecord[];
-  onRecordUpdated: (record: BookkeepingRecord) => void;
-  onRecordDeleted: (recordId: string) => void;
   userRole: UserRole;
+  orgId: string;
+  accountId: string;
 }
 
 export function RecordsTable({
   records,
-  onRecordUpdated,
-  onRecordDeleted,
   userRole,
+  orgId,
+  accountId,
 }: RecordsTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -108,7 +110,10 @@ export function RecordsTable({
     status: BookkeepingStatus;
   } | null>(null);
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+
+  // Mutation hooks
+  const updateMutation = useUpdateRecord(orgId, accountId);
+  const deleteMutation = useDeleteRecord(orgId, accountId);
 
   const toggleExpanded = (id: string) => {
     const next = new Set(expandedIds);
@@ -204,24 +209,17 @@ export function RecordsTable({
     setSaving(true);
 
     try {
-      // Handle remark updates separately
+      // Handle remark updates separately (they use different endpoints)
       if (editingField === "order_remark") {
         await api.updateOrderRemark(editingId, convertedValue as string | null);
-        onRecordUpdated({
-          ...record,
-          order_remark: convertedValue as string | null,
-        });
       } else if (editingField === "service_remark") {
         await api.updateServiceRemark(editingId, convertedValue as string | null);
-        onRecordUpdated({
-          ...record,
-          service_remark: convertedValue as string | null,
-        });
       } else {
-        const updated = await api.updateRecord(editingId, {
-          [editingField]: convertedValue,
+        // Use mutation for regular field updates
+        await updateMutation.mutateAsync({
+          id: editingId,
+          data: { [editingField]: convertedValue },
         });
-        onRecordUpdated(updated);
       }
       handleEditCancel();
     } catch (err) {
@@ -241,8 +239,10 @@ export function RecordsTable({
     setSaving(true);
     setError(null);
     try {
-      const updated = await api.updateRecord(recordId, { status: newStatus });
-      onRecordUpdated(updated);
+      await updateMutation.mutateAsync({
+        id: recordId,
+        data: { status: newStatus },
+      });
       toast.success(`Status updated to ${STATUS_LABELS[newStatus]}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update status");
@@ -258,15 +258,12 @@ export function RecordsTable({
 
   const handleConfirmDelete = async () => {
     if (!recordToDelete) return;
-    setDeleting(true);
     try {
-      await api.deleteRecord(recordToDelete);
+      await deleteMutation.mutateAsync(recordToDelete);
       toast.success("Record deleted");
-      onRecordDeleted(recordToDelete);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete");
     } finally {
-      setDeleting(false);
       setRecordToDelete(null);
     }
   };
@@ -387,6 +384,7 @@ export function RecordsTable({
             const strikeSalesFees = record.status === "REFUND_NO_RETURN";
             const displayProfit = strikeAll ? 0 : record.profit_cents;
             const canEditStatus = true; // Backend enforces via permission_keys
+            const isDeleting = deleteMutation.isPending && recordToDelete === record.id;
 
             return (
               <Fragment key={record.id}>
@@ -517,7 +515,7 @@ export function RecordsTable({
                             onValueChange={(value) =>
                               handleStatusChange(record.id, value as BookkeepingStatus)
                             }
-                            disabled={isPending}
+                            disabled={isPending || updateMutation.isPending}
                           >
                             <SelectTrigger className="min-w-[160px] h-7 text-xs bg-gray-800 border-gray-700" aria-label="Order status">
                               <SelectValue>
@@ -560,7 +558,7 @@ export function RecordsTable({
                         size="sm"
                         className="h-7 w-7 p-0 text-gray-400 hover:text-red-400 hover:bg-red-900/20"
                         onClick={() => handleDeleteClick(record.id)}
-                        disabled={saving}
+                        disabled={saving || isDeleting}
                         title="Delete record"
                       >
                         <svg
@@ -746,10 +744,10 @@ export function RecordsTable({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              disabled={deleting}
+              disabled={deleteMutation.isPending}
               className="bg-red-600 hover:bg-red-700"
             >
-              {deleting ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

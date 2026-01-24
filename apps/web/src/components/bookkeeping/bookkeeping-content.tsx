@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 const STORAGE_KEY = "dspro:last_order_tracking_account_id";
 import { Button } from "@/components/ui/button";
@@ -11,21 +12,17 @@ import { AccountSelector } from "@/components/bookkeeping/account-selector";
 import { RecordsTable } from "@/components/bookkeeping/records-table";
 import { AddRecordDialog } from "@/components/bookkeeping/add-record-dialog";
 import { useUserRole } from "@/hooks/use-user-role";
-import {
-  api,
-  exportToCSV,
-  type Account,
-  type BookkeepingRecord,
-} from "@/lib/api";
+import { useAccounts } from "@/hooks/queries/use-accounts";
+import { useRecordsInfinite } from "@/hooks/queries/use-records-infinite";
+import { exportToCSV, type Account } from "@/lib/api";
+
+// TODO: Get orgId from user context when multi-org support added
+const DEFAULT_ORG_ID = "default";
 
 export function BookkeepingContent() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null
   );
-  const [records, setRecords] = useState<BookkeepingRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const persistenceApplied = useRef(false);
 
@@ -33,37 +30,27 @@ export function BookkeepingContent() {
   const router = useRouter();
   const userRole = useUserRole();
 
-  // Load accounts on mount
-  useEffect(() => {
-    const loadAccounts = async () => {
-      try {
-        const data = await api.getAccounts();
-        setAccounts(data);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load accounts"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadAccounts();
-  }, []);
+  // Fetch accounts using TanStack Query
+  const {
+    data: accounts = [],
+    isPending: accountsLoading,
+    error: accountsError,
+  } = useAccounts(DEFAULT_ORG_ID);
 
-  // Load records for an account
-  const loadRecords = useCallback(async (accountId: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.getRecords({ account_id: accountId });
-      setRecords(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load records");
-      setRecords([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Fetch records using TanStack Query infinite query
+  const {
+    data: recordsData,
+    isPending: recordsLoading,
+    isFetching: recordsFetching,
+    error: recordsError,
+  } = useRecordsInfinite(
+    DEFAULT_ORG_ID,
+    selectedAccountId ?? "",
+    undefined // No filters for now
+  );
+
+  // Extract records from pages
+  const records = recordsData?.pages?.flatMap((page) => page.items) ?? [];
 
   // Apply persisted account selection after accounts load (once)
   useEffect(() => {
@@ -92,17 +79,15 @@ export function BookkeepingContent() {
       }
     }
 
-    // Apply restored account and load records
+    // Apply restored account (records will load via query)
     if (restoredAccountId) {
       setSelectedAccountId(restoredAccountId);
-      loadRecords(restoredAccountId);
     }
-  }, [accounts, searchParams, router, loadRecords]);
+  }, [accounts, searchParams, router]);
 
   const handleAccountSelect = (accountId: string) => {
     setSelectedAccountId(accountId);
     setAddDialogOpen(false);
-    loadRecords(accountId);
 
     // Persist to URL
     const params = new URLSearchParams(searchParams.toString());
@@ -117,29 +102,25 @@ export function BookkeepingContent() {
     }
   };
 
-  const handleRecordUpdated = (updated: BookkeepingRecord) => {
-    setRecords((prev) =>
-      prev.map((r) => (r.id === updated.id ? updated : r))
-    );
-  };
-
-  const handleRecordAdded = (record: BookkeepingRecord) => {
-    setRecords((prev) => [record, ...prev]);
-  };
-
-  const handleRecordDeleted = (recordId: string) => {
-    setRecords((prev) => prev.filter((r) => r.id !== recordId));
+  const handleRecordAdded = () => {
+    // Close dialog - TanStack Query handles cache invalidation via mutation hook
+    setAddDialogOpen(false);
   };
 
   const handleExportCSV = () => {
-    const account = accounts.find((a) => a.id === selectedAccountId);
+    const account = accounts.find((a: Account) => a.id === selectedAccountId);
     if (account && records.length > 0) {
       exportToCSV(records, account.account_code);
       toast.success(`Exported ${records.length} records`);
     }
   };
 
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const selectedAccount = accounts.find(
+    (a: Account) => a.id === selectedAccountId
+  );
+
+  // Error display
+  const error = accountsError?.message || recordsError?.message;
 
   return (
     <motion.div
@@ -148,13 +129,19 @@ export function BookkeepingContent() {
       transition={{ duration: 0.3 }}
     >
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-white">Order Tracking</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-white">Order Tracking</h1>
+          {/* Background refetch indicator */}
+          {recordsFetching && !recordsLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          )}
+        </div>
         <div className="flex items-center gap-4">
           <AccountSelector
             accounts={accounts}
             selectedAccountId={selectedAccountId}
             onSelect={handleAccountSelect}
-            disabled={loading && accounts.length === 0}
+            disabled={accountsLoading}
           />
           {selectedAccountId && (
             <>
@@ -188,7 +175,7 @@ export function BookkeepingContent() {
         </div>
       ) : (
         <>
-          {loading ? (
+          {recordsLoading ? (
             <div className="text-center py-12 text-gray-400">
               Loading records...
             </div>
@@ -201,8 +188,8 @@ export function BookkeepingContent() {
               <RecordsTable
                 records={records}
                 userRole={userRole}
-                onRecordUpdated={handleRecordUpdated}
-                onRecordDeleted={handleRecordDeleted}
+                orgId={DEFAULT_ORG_ID}
+                accountId={selectedAccountId}
               />
             </>
           )}
@@ -215,6 +202,7 @@ export function BookkeepingContent() {
           onOpenChange={setAddDialogOpen}
           accountId={selectedAccountId}
           userRole={userRole}
+          orgId={DEFAULT_ORG_ID}
           onRecordAdded={handleRecordAdded}
         />
       )}

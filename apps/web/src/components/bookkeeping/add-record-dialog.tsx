@@ -13,29 +13,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  api,
-  parseDollars,
-  type BookkeepingRecord,
-  type UserRole,
-} from "@/lib/api";
+import { parseDollars, type UserRole } from "@/lib/api";
+import { useCreateRecord } from "@/hooks/mutations/use-create-record";
 
 interface AddRecordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accountId: string;
   userRole: UserRole;
-  onRecordAdded: (record: BookkeepingRecord) => void;
+  orgId: string;
+  onRecordAdded: () => void;
 }
 
 export function AddRecordDialog({
   open,
   onOpenChange,
   accountId,
+  orgId,
   onRecordAdded,
 }: AddRecordDialogProps) {
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Use mutation hook
+  const createMutation = useCreateRecord(orgId, accountId);
 
   const [formData, setFormData] = useState({
     ebay_order_id: "",
@@ -94,7 +94,6 @@ export function AddRecordDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSaving(true);
 
     try {
       // Validate sale price
@@ -130,7 +129,8 @@ export function AddRecordDialog({
         "Amazon Shipping"
       );
 
-      const record = await api.createRecord({
+      // Use mutation to create record
+      await createMutation.mutateAsync({
         account_id: accountId,
         ebay_order_id: formData.ebay_order_id,
         sale_date: formData.sale_date,
@@ -148,11 +148,10 @@ export function AddRecordDialog({
 
       toast.success("Record added successfully");
       onOpenChange(false);
-      onRecordAdded(record);
+      onRecordAdded();
     } catch (err) {
+      // Don't close dialog on error - let user fix and retry
       setError(err instanceof Error ? err.message : "Failed to create record");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -190,6 +189,7 @@ export function AddRecordDialog({
                   value={formData.ebay_order_id}
                   onChange={(e) => handleChange("ebay_order_id", e.target.value)}
                   required
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -203,6 +203,7 @@ export function AddRecordDialog({
                   value={formData.sale_date}
                   onChange={(e) => handleChange("sale_date", e.target.value)}
                   required
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -217,6 +218,7 @@ export function AddRecordDialog({
                   value={formData.item_name}
                   onChange={(e) => handleChange("item_name", e.target.value)}
                   required
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -230,6 +232,7 @@ export function AddRecordDialog({
                   min="1"
                   value={formData.qty}
                   onChange={(e) => handleChange("qty", e.target.value)}
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -254,6 +257,7 @@ export function AddRecordDialog({
                   value={formData.sale_price}
                   onChange={(e) => handleChange("sale_price", e.target.value)}
                   required
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -270,6 +274,7 @@ export function AddRecordDialog({
                   placeholder="3.00"
                   value={formData.ebay_fees}
                   onChange={(e) => handleChange("ebay_fees", e.target.value)}
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -287,6 +292,7 @@ export function AddRecordDialog({
                 id="amazon_order_id"
                 value={formData.amazon_order_id}
                 onChange={(e) => handleChange("amazon_order_id", e.target.value)}
+                disabled={createMutation.isPending}
                 className="bg-gray-800 border-gray-700 h-8 text-sm"
               />
             </div>
@@ -309,6 +315,7 @@ export function AddRecordDialog({
                   placeholder="15.00"
                   value={formData.amazon_price}
                   onChange={(e) => handleChange("amazon_price", e.target.value)}
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -325,6 +332,7 @@ export function AddRecordDialog({
                   placeholder="1.20"
                   value={formData.amazon_tax}
                   onChange={(e) => handleChange("amazon_tax", e.target.value)}
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -341,6 +349,7 @@ export function AddRecordDialog({
                   placeholder="0.00"
                   value={formData.amazon_shipping}
                   onChange={(e) => handleChange("amazon_shipping", e.target.value)}
+                  disabled={createMutation.isPending}
                   className="bg-gray-800 border-gray-700 h-8 text-sm"
                 />
               </div>
@@ -354,6 +363,7 @@ export function AddRecordDialog({
               id="order_remark"
               value={formData.order_remark}
               onChange={(e) => handleChange("order_remark", e.target.value)}
+              disabled={createMutation.isPending}
               className="bg-gray-800 border-gray-700 min-h-[50px] text-sm"
               placeholder="Notes about this order..."
             />
@@ -365,13 +375,13 @@ export function AddRecordDialog({
               variant="outline"
               size="sm"
               onClick={() => onOpenChange(false)}
-              disabled={saving}
+              disabled={createMutation.isPending}
               className="border-gray-700 text-gray-300 hover:bg-gray-800"
             >
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={saving}>
-              {saving ? "Saving..." : "Add Record"}
+            <Button type="submit" size="sm" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Saving..." : "Add Record"}
             </Button>
           </div>
         </form>
