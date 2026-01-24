@@ -56,6 +56,8 @@ export function BookkeepingContent() {
   const recordsLoading = selectedAccountId ? syncResult.isLoading : false;
   const recordsFetching = selectedAccountId ? syncResult.isSyncing : false;
   const recordsError = selectedAccountId ? syncResult.error : null;
+  const totalCount = selectedAccountId ? syncResult.totalCount : 0;
+  const hasMore = selectedAccountId ? syncResult.hasMore : false;
   const { density, toggleDensity, rowHeight } = useRowDensity();
 
   // Compute derived fields (profit, earnings, COGS) - same logic as use-records-infinite.ts
@@ -184,6 +186,9 @@ export function BookkeepingContent() {
   }, [records, activeFilter]);
 
   const isFiltered = activeFilter !== "all";
+  const displayTotalCount = isFiltered
+    ? filteredRecords.length
+    : totalCount || filteredRecords.length;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -267,8 +272,8 @@ export function BookkeepingContent() {
         <>
           <div className="space-y-4" ref={listContainerRef}>
             <div className="text-sm text-gray-400">
-              {selectedAccount?.account_code} - {filteredRecords.length} record
-              {filteredRecords.length !== 1 ? "s" : ""}
+              {selectedAccount?.account_code} - {displayTotalCount} record
+              {displayTotalCount !== 1 ? "s" : ""}
               {isFiltered ? " (filtered)" : ""}
             </div>
 
@@ -277,7 +282,7 @@ export function BookkeepingContent() {
               onFilterChange={setActiveFilter}
               density={density}
               onToggleDensity={toggleDensity}
-              recordCount={filteredRecords.length}
+              recordCount={displayTotalCount}
               isFiltered={isFiltered}
               helpOpen={helpModalOpen}
               onHelpOpenChange={setHelpModalOpen}
@@ -292,10 +297,9 @@ export function BookkeepingContent() {
               density={density}
               rowHeight={rowHeight}
               isFiltered={isFiltered}
-              hasMore={false}
-              loadMore={async () => {
-                await Promise.resolve(syncResult.refetch());
-              }}
+              hasMore={hasMore}
+              totalCount={displayTotalCount}
+              loadMore={syncResult.loadMore}
               isLoading={recordsFetching}
               listRef={listRef}
             />

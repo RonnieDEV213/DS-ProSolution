@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SyncRowBadge } from "@/components/sync/sync-row-badge";
+import { SkeletonRow } from "@/components/bookkeeping/skeleton-row";
 import {
   displayValue,
   formatCents,
@@ -96,6 +97,8 @@ interface RecordRowProps {
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
   density: RowDensity;
+  rowHeight: number;
+  isLoadingMore: boolean;
   userRole: UserRole;
   orgId: string;
   accountId: string;
@@ -121,6 +124,8 @@ export function RecordRow({
   expandedIds,
   onToggleExpand,
   density,
+  rowHeight,
+  isLoadingMore,
   userRole,
   editingState,
   onEditStart,
@@ -136,7 +141,11 @@ export function RecordRow({
   focusedIndex,
 }: RowComponentProps<RecordRowProps>) {
   const row = records[index];
-  if (!row) return null;
+  if (!row) {
+    return isLoadingMore ? (
+      <SkeletonRow style={{ ...style, width: "100%", height: rowHeight }} density={density} />
+    ) : null;
+  }
 
   const record = row.record;
   const isExpanded = expandedIds.has(record.id);

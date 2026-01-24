@@ -73,6 +73,7 @@ interface VirtualizedRecordsListProps {
   rowHeight: number;
   isFiltered: boolean;
   hasMore: boolean;
+  totalCount: number;
   loadMore: () => Promise<void> | void;
   isLoading: boolean;
   listRef?: RefObject<ListImperativeAPI | null>;
@@ -103,6 +104,7 @@ export function VirtualizedRecordsList({
   rowHeight,
   isFiltered,
   hasMore,
+  totalCount,
   loadMore,
   isLoading,
   listRef: listRefProp,
@@ -124,6 +126,7 @@ export function VirtualizedRecordsList({
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
   const [visibleStartIndex, setVisibleStartIndex] = useState(0);
   const [visibleStopIndex, setVisibleStopIndex] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const updateMutation = useUpdateRecord(orgId, accountId);
   const deleteMutation = useDeleteRecord(orgId, accountId);
@@ -301,15 +304,20 @@ export function VirtualizedRecordsList({
 
   const itemCount = hasMore ? virtualRows.length + 1 : virtualRows.length;
   const loadMoreRows = useCallback(
-    (_startIndex: number, _stopIndex: number) => {
-      if (isLoading) return Promise.resolve();
-      return Promise.resolve(loadMore());
+    async (_startIndex: number, _stopIndex: number) => {
+      if (isLoading || isLoadingMore || !hasMore) return;
+      setIsLoadingMore(true);
+      try {
+        await Promise.resolve(loadMore());
+      } finally {
+        setIsLoadingMore(false);
+      }
     },
-    [isLoading, loadMore]
+    [hasMore, isLoading, isLoadingMore, loadMore]
   );
 
   const onRowsRendered = useInfiniteLoader({
-    isRowLoaded: (index) => index < virtualRows.length,
+    isRowLoaded: (index) => !hasMore || index < virtualRows.length,
     loadMoreRows,
     rowCount: itemCount,
     minimumBatchSize: 50,
@@ -337,7 +345,7 @@ export function VirtualizedRecordsList({
     [virtualRows, rowHeight]
   );
 
-  const totalRecords = records.length;
+  const totalRecords = totalCount || records.length;
   const startRecordIndex = virtualRows[visibleStartIndex]?.recordIndex ?? 0;
   const endRecordIndex = virtualRows[visibleStopIndex]?.recordIndex ?? startRecordIndex;
   const summaryStart = totalRecords > 0 ? Math.min(startRecordIndex, totalRecords - 1) : 0;
@@ -413,6 +421,8 @@ export function VirtualizedRecordsList({
                 expandedIds,
                 onToggleExpand: toggleExpanded,
                 density,
+                rowHeight,
+                isLoadingMore,
                 userRole,
                 orgId,
                 accountId,
