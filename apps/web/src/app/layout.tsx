@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { DatabaseProvider } from "@/components/providers/database-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,9 +32,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <TooltipProvider>
-          <QueryProvider>
-            {children}
-          </QueryProvider>
+          <DatabaseProvider>
+            <QueryProvider>
+              {children}
+            </QueryProvider>
+          </DatabaseProvider>
           <Toaster position="top-right" richColors duration={5000} closeButton />
         </TooltipProvider>
       </body>
