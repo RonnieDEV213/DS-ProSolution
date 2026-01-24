@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-23)
 
 **Core value:** Handle millions of records with fast read/write across server storage, transport, client storage, and rendering
-**Current focus:** Phase 17 - Client Query Caching
+**Current focus:** Phase 17 - Client Query Caching (COMPLETE)
 
 ## Current Position
 
 Phase: 17 of 21 (Client Query Caching)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-24 — Completed 17-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-24 - Completed 17-02-PLAN.md
 
-Progress: [████░░░░░░] 25% (4/16 plans)
+Progress: [█████░░░░░] 31% (5/16 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [████░░░░░░] 25% (4/16 plans)
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 2.8 min
-- Total execution time: 11 min
+- Total execution time: 14 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -54,6 +54,9 @@ Recent decisions affecting current work:
 | Lightweight sync items without computed fields | 16-02 | Client computes if needed, minimizes payload |
 | 30s default staleTime, 5min for accounts | 17-01 | Records change frequently, accounts rarely |
 | useState pattern for SSR-safe QueryClient | 17-01 | Avoid sharing state between server requests |
+| Optimistic delete with rollback | 17-02 | Instant UI feedback, rollback on API failure |
+| Remarks use direct API calls | 17-02 | Separate endpoints, still trigger UI updates |
+| DEFAULT_ORG_ID placeholder | 17-02 | Until multi-org support added |
 
 ### Pending Todos
 
@@ -66,6 +69,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 17-01-PLAN.md
+Stopped at: Completed 17-02-PLAN.md (Phase 17 complete)
 Resume file: None
-Next action: Execute 17-02-PLAN.md (mutation hooks)
+Next action: Execute Phase 18 (IndexedDB Storage)
