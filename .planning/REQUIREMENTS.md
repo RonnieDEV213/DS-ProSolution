@@ -25,9 +25,9 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 - [x] **CACH-01**: TanStack Query provides query caching and stale-while-revalidate
 - [x] **CACH-02**: Cache invalidates automatically after create/update/delete mutations
 - [x] **CACH-03**: Cache persists in memory for session duration
-- [ ] **CACH-04**: Cache persists to IndexedDB (survives browser restart)
-- [ ] **CACH-05**: Incremental sync fetches only changed records since last sync
-- [ ] **CACH-06**: Next page prefetches while user views current page
+- [x] **CACH-04**: Cache persists to IndexedDB (survives browser restart)
+- [x] **CACH-05**: Incremental sync fetches only changed records since last sync
+- [x] **CACH-06**: Next page prefetches while user views current page
 
 ### Sync UX
 
@@ -55,8 +55,8 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 - [x] **INFR-01**: Database tables have composite indexes for cursor queries
 - [x] **INFR-02**: Database tables have updated_at column with trigger
 - [x] **INFR-03**: Database uses soft deletes (deleted_at) for sync compatibility
-- [ ] **INFR-04**: IndexedDB schema mirrors server data structure
-- [ ] **INFR-05**: Sync engine tracks local vs server state
+- [x] **INFR-04**: IndexedDB schema mirrors server data structure
+- [x] **INFR-05**: Sync engine tracks local vs server state
 
 ## v4+ Requirements
 
@@ -101,11 +101,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CACH-01 | Phase 17 | Complete |
 | CACH-02 | Phase 17 | Complete |
 | CACH-03 | Phase 17 | Complete |
-| INFR-04 | Phase 18 | Pending |
-| INFR-05 | Phase 18 | Pending |
-| CACH-04 | Phase 18 | Pending |
-| CACH-05 | Phase 18 | Pending |
-| CACH-06 | Phase 18 | Pending |
+| INFR-04 | Phase 18 | Complete |
+| INFR-05 | Phase 18 | Complete |
+| CACH-04 | Phase 18 | Complete |
+| CACH-05 | Phase 18 | Complete |
+| CACH-06 | Phase 18 | Complete |
 | SYNC-01 | Phase 19 | Pending |
 | SYNC-02 | Phase 19 | Pending |
 | SYNC-03 | Phase 19 | Pending |
@@ -136,4 +136,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-23*
-*Last updated: 2026-01-24 — Phase 17 complete*
+*Last updated: 2026-01-24 — Phase 18 complete*
