@@ -89,6 +89,69 @@ export interface RemarkUpdate {
   content: string | null;
 }
 
+// ============================================================
+// Sync API Types (for IndexedDB sync)
+// ============================================================
+
+export interface SyncParams {
+  account_id?: string;
+  cursor?: string | null;
+  limit?: number;
+  include_deleted?: boolean;
+  updated_since?: string;
+  status?: BookkeepingStatus;
+  flagged?: boolean;
+}
+
+export interface SyncResponse<T> {
+  items: T[];
+  next_cursor: string | null;
+  has_more: boolean;
+  total_estimate: number | null;
+}
+
+// Sync item types (raw server data without computed fields)
+export interface RecordSyncItem {
+  id: string;
+  account_id: string;
+  ebay_order_id: string;
+  sale_date: string;
+  item_name: string;
+  qty: number;
+  sale_price_cents: number;
+  ebay_fees_cents: number | null;
+  amazon_price_cents: number | null;
+  amazon_tax_cents: number | null;
+  amazon_shipping_cents: number | null;
+  amazon_order_id: string | null;
+  status: BookkeepingStatus;
+  return_label_cost_cents: number | null;
+  order_remark: string | null;
+  service_remark: string | null;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface AccountSyncItem {
+  id: string;
+  account_code: string;
+  name: string | null;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface SellerSyncItem {
+  id: string;
+  display_name: string;
+  normalized_name: string;
+  platform: string;
+  platform_id: string | null;
+  times_seen: number;
+  flagged: boolean;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
@@ -181,6 +244,37 @@ export const api = {
     fetchAPI<{ status: string }>("/access-codes/logout", {
       method: "POST",
     }),
+
+  // Sync API (for IndexedDB sync)
+  syncRecords: async (params: SyncParams): Promise<SyncResponse<RecordSyncItem>> => {
+    const searchParams = new URLSearchParams();
+    if (params.account_id) searchParams.set("account_id", params.account_id);
+    if (params.cursor) searchParams.set("cursor", params.cursor);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.include_deleted) searchParams.set("include_deleted", "true");
+    if (params.updated_since) searchParams.set("updated_since", params.updated_since);
+    if (params.status) searchParams.set("status", params.status);
+    return fetchAPI(`/sync/records?${searchParams}`);
+  },
+
+  syncAccounts: async (params: SyncParams): Promise<SyncResponse<AccountSyncItem>> => {
+    const searchParams = new URLSearchParams();
+    if (params.cursor) searchParams.set("cursor", params.cursor);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.include_deleted) searchParams.set("include_deleted", "true");
+    if (params.updated_since) searchParams.set("updated_since", params.updated_since);
+    return fetchAPI(`/sync/accounts?${searchParams}`);
+  },
+
+  syncSellers: async (params: SyncParams): Promise<SyncResponse<SellerSyncItem>> => {
+    const searchParams = new URLSearchParams();
+    if (params.cursor) searchParams.set("cursor", params.cursor);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.include_deleted) searchParams.set("include_deleted", "true");
+    if (params.updated_since) searchParams.set("updated_since", params.updated_since);
+    if (params.flagged !== undefined) searchParams.set("flagged", String(params.flagged));
+    return fetchAPI(`/sync/sellers?${searchParams}`);
+  },
 };
 
 // Utility functions
