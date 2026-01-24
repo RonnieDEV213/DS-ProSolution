@@ -1,10 +1,13 @@
 'use client';
 
+import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { db, type BookkeepingRecord } from '@/lib/db';
 import { syncRecords } from '@/lib/db/sync';
 import type { BookkeepingStatus } from '@/lib/api';
+
+const PAGE_SIZE = 50;
 
 interface UseSyncRecordsOptions {
   accountId: string;
@@ -20,6 +23,9 @@ interface UseSyncRecordsResult {
   isLoading: boolean;
   isSyncing: boolean;
   error: Error | null;
+  hasMore: boolean;
+  totalCount: number;
+  loadMore: () => void;
   refetch: () => void;
 }
 
@@ -32,12 +38,21 @@ export function useSyncRecords({ accountId, filters }: UseSyncRecordsOptions): U
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const syncingRef = useRef(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Live query - reactive to IndexedDB changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [accountId]);
+
   const records = useLiveQuery(async () => {
+    if (!accountId) return [];
+
     const results = await db.records
-      .where('account_id')
-      .equals(accountId)
+      .where('[account_id+sale_date]')
+      .between([accountId, Dexie.minKey], [accountId, Dexie.maxKey])
+      .reverse()
+      .limit(visibleCount)
       .toArray();
 
     // Apply additional filters in memory (Dexie compound indexes have limitations)
@@ -54,7 +69,18 @@ export function useSyncRecords({ accountId, filters }: UseSyncRecordsOptions): U
         if (dateCompare !== 0) return dateCompare;
         return b.id.localeCompare(a.id);
       });
-  }, [accountId, filters?.status, filters?.dateFrom, filters?.dateTo]);
+  }, [accountId, filters?.status, filters?.dateFrom, filters?.dateTo, visibleCount]);
+
+  const totalCount =
+    useLiveQuery(async () => {
+      if (!accountId) return 0;
+      return db.records.where('account_id').equals(accountId).count();
+    }, [accountId]) ?? 0;
+
+  const hasMore = visibleCount < totalCount;
+  const loadMore = useCallback(() => {
+    setVisibleCount((current) => current + PAGE_SIZE);
+  }, []);
 
   // Sync function that can be called manually or on mount
   const doSync = useCallback(async () => {
@@ -85,6 +111,9 @@ export function useSyncRecords({ accountId, filters }: UseSyncRecordsOptions): U
     isLoading: records === undefined,
     isSyncing,
     error,
+    hasMore,
+    totalCount,
+    loadMore,
     refetch: doSync,
   };
 }
