@@ -137,13 +137,14 @@ Plans:
   4. Infinite scroll integrates with virtual scroll (seamless pagination trigger)
   5. Common filters available as one-click quick filter chips
   6. Lists support keyboard navigation (j/k for rows, Enter to select)
-**Plans**: 4 plans
+**Plans**: 5 plans
 
 Plans:
 - [x] 20-01-PLAN.md - Virtualized table core (react-window v2, row density, skeleton rows)
 - [x] 20-02-PLAN.md - Infinite scroll integration and keyboard navigation
 - [x] 20-03-PLAN.md - Quick filter chips and scroll restoration
 - [x] 20-04-PLAN.md - Infinite scroll pagination wiring (gap closure)
+- [ ] 20-05-PLAN.md - UAT fixes: row click expand, granular filter chips (gap closure)
 
 ### Phase 21: Export/Import
 **Goal**: Users can export large datasets without browser crashes and import with validation
@@ -176,9 +177,9 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | 17. Client Query Caching | v3 | 2/2 | Complete | 2026-01-24 |
 | 18. Client Persistence | v3 | 3/3 | Complete | 2026-01-24 |
 | 19. Sync Protocol | v3 | 6/6 | Complete | 2026-01-24 |
-| 20. Virtualized Rendering | v3 | 4/4 | Complete | 2026-01-25 |
+| 20. Virtualized Rendering | v3 | 4/5 | In progress | - |
 | 21. Export/Import | v3 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-25 - Phase 20 complete (4/4 plans)*
+*Last updated: 2026-01-25 - Phase 20 gap closure plan added (20-05)*
