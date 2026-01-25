@@ -548,7 +548,129 @@ export function exportToCSV(
 // ============================================================
 
 // ============================================================
-// Export/Import Types
+// Export Types
+// ============================================================
+
+export type ExportFormat = 'csv' | 'json' | 'excel';
+
+export type ExportJobStatusType = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface ExportParams {
+  account_id: string;
+  format: ExportFormat;
+  columns?: string[];
+  status?: BookkeepingStatus;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface ExportJobStatus {
+  job_id: string;
+  status: ExportJobStatusType;
+  row_count: number | null;
+  file_url: string | null;
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export const EXPORT_COLUMNS = {
+  essential: ['ebay_order_id', 'sale_date', 'item_name', 'sale_price_cents', 'status'],
+  financial: ['ebay_order_id', 'sale_date', 'item_name', 'sale_price_cents', 'ebay_fees_cents', 'earnings_net_cents', 'amazon_price_cents', 'amazon_tax_cents', 'amazon_shipping_cents', 'cogs_total_cents', 'return_label_cost_cents', 'profit_cents', 'status'],
+  all: ['id', 'ebay_order_id', 'sale_date', 'item_name', 'qty', 'sale_price_cents', 'ebay_fees_cents', 'earnings_net_cents', 'amazon_price_cents', 'amazon_tax_cents', 'amazon_shipping_cents', 'cogs_total_cents', 'amazon_order_id', 'status', 'return_label_cost_cents', 'profit_cents', 'order_remark', 'service_remark'],
+} as const;
+
+export const COLUMN_LABELS: Record<string, string> = {
+  id: 'ID',
+  ebay_order_id: 'eBay Order ID',
+  sale_date: 'Sale Date',
+  item_name: 'Item Name',
+  qty: 'Quantity',
+  sale_price_cents: 'Sale Price',
+  ebay_fees_cents: 'eBay Fees',
+  earnings_net_cents: 'Earnings Net',
+  amazon_price_cents: 'Amazon Price',
+  amazon_tax_cents: 'Amazon Tax',
+  amazon_shipping_cents: 'Amazon Shipping',
+  cogs_total_cents: 'COGS Total',
+  amazon_order_id: 'Amazon Order ID',
+  status: 'Status',
+  return_label_cost_cents: 'Return Label Cost',
+  profit_cents: 'Profit',
+  order_remark: 'Order Remark',
+  service_remark: 'Service Remark',
+};
+
+// ============================================================
+// Export API Functions
+// ============================================================
+
+export const exportApi = {
+  // Streaming exports (direct download) - build URL for authenticated fetch
+  getExportUrl: (params: ExportParams): string => {
+    const searchParams = new URLSearchParams();
+    searchParams.set('account_id', params.account_id);
+    if (params.columns?.length) searchParams.set('columns', params.columns.join(','));
+    if (params.status) searchParams.set('status', params.status);
+    if (params.date_from) searchParams.set('date_from', params.date_from);
+    if (params.date_to) searchParams.set('date_to', params.date_to);
+    return `${API_BASE}/export/records/${params.format}?${searchParams}`;
+  },
+
+  // Streaming export with auth - downloads directly
+  streamingExport: async (params: ExportParams): Promise<Blob> => {
+    const token = await getAccessToken();
+    const url = exportApi.getExportUrl(params);
+
+    const res = await fetch(url, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Export failed' }));
+      throw new Error(error.detail || 'Export failed');
+    }
+
+    return res.blob();
+  },
+
+  // Background export (returns job ID)
+  createBackgroundExport: (params: ExportParams) =>
+    fetchAPI<{ job_id: string; status: string }>('/export/records/background', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  // Poll job status
+  getJobStatus: (jobId: string) =>
+    fetchAPI<ExportJobStatus>(`/export/jobs/${jobId}`),
+
+  // List user's export jobs
+  getExportJobs: () =>
+    fetchAPI<{ jobs: ExportJobStatus[] }>('/export/jobs'),
+
+  // Download completed background job file
+  downloadBackgroundExport: async (jobId: string): Promise<Blob> => {
+    const token = await getAccessToken();
+    const res = await fetch(`${API_BASE}/export/jobs/${jobId}/download`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Download failed' }));
+      throw new Error(error.detail || 'Download failed');
+    }
+
+    return res.blob();
+  },
+};
+
+// ============================================================
+// Import Types
 // ============================================================
 
 export type ImportFormat = 'csv' | 'json' | 'excel';
