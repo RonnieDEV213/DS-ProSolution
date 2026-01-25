@@ -84,6 +84,12 @@ export function useSyncRecords({ accountId, filters }: UseSyncRecordsOptions): U
 
   // Sync function that can be called manually or on mount
   const doSync = useCallback(async () => {
+    if (!accountId) {
+      syncingRef.current = false;
+      setIsSyncing(false);
+      setError(null);
+      return;
+    }
     if (syncingRef.current) return;
     syncingRef.current = true;
     setIsSyncing(true);
@@ -103,8 +109,9 @@ export function useSyncRecords({ accountId, filters }: UseSyncRecordsOptions): U
 
   // Background sync on mount
   useEffect(() => {
+    if (!accountId) return;
     doSync();
-  }, [doSync]);
+  }, [accountId, doSync]);
 
   return {
     records: records ?? [],

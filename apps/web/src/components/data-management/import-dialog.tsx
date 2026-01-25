@@ -10,7 +10,6 @@ import {
   History,
   Loader2,
   Upload,
-  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -169,10 +168,24 @@ export function ImportDialog({
     return requiredFields.every((f) => mappedFields.has(f.field));
   }, [columnMapping]);
 
-  // Check if all rows are valid
-  const allRowsValid = validationResult
-    ? validationResult.valid_rows === validationResult.total_rows
-    : false;
+  // Get set of mapped fields (for filtering errors)
+  const mappedFields = useMemo(() => {
+    return new Set(
+      Object.values(columnMapping).filter((v) => v && v !== SKIP_COLUMN)
+    );
+  }, [columnMapping]);
+
+  // Check if all rows are valid (considering only mapped fields)
+  const allRowsValid = useMemo(() => {
+    if (!validationResult) return false;
+
+    // Check each preview row for errors in mapped fields only
+    for (const row of validationResult.preview) {
+      const relevantErrors = row.errors.filter((e) => mappedFields.has(e.field));
+      if (relevantErrors.length > 0) return false;
+    }
+    return true;
+  }, [validationResult, mappedFields]);
 
   // Handle commit
   const handleCommit = useCallback(async () => {
@@ -211,7 +224,7 @@ export function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" hideCloseButton>
         <DialogHeader className="shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
@@ -374,14 +387,6 @@ export function ImportDialog({
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => handleOpenChange(false)}
-              disabled={isCommitting}
-            >
-              Cancel
-            </Button>
-
             {step === "mapping" && (
               <Button onClick={goNext} disabled={!allRequiredMapped}>
                 Preview

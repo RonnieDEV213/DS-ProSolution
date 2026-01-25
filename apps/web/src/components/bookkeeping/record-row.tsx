@@ -220,10 +220,6 @@ export function RecordRow({
         {...ariaAttributes}
         className="border-b border-gray-800 bg-gray-900/50 px-4 py-3 text-sm text-gray-200"
       >
-        <div className="mb-3 text-sm">
-          <span className="text-gray-400">Quantity: </span>
-          <span className="text-white font-medium">{record.qty}</span>
-        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-gray-400 mb-3">
@@ -355,9 +351,8 @@ export function RecordRow({
     <div
       style={style}
       {...ariaAttributes}
-      onClick={() => onToggleExpand(record.id)}
       className={cn(
-        "flex items-center gap-2 border-b border-gray-800 text-sm text-gray-200 px-2 min-w-[1200px] cursor-pointer",
+        "flex items-center gap-2 border-b border-gray-800 text-sm text-gray-200 px-2 min-w-[1200px]",
         rowPadding,
         isFocused && "ring-2 ring-blue-500"
       )}

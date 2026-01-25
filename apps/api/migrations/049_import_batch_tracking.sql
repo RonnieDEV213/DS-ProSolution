@@ -6,7 +6,7 @@
 CREATE TABLE import_batches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id),
-    org_id UUID NOT NULL REFERENCES organizations(id),
+    org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
     account_id UUID NOT NULL REFERENCES accounts(id),
     filename TEXT NOT NULL,
     row_count INTEGER NOT NULL DEFAULT 0,

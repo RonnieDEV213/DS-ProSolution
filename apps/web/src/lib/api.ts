@@ -789,7 +789,16 @@ export const importApi = {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Import failed' }));
-      throw new Error(error.detail || 'Import failed');
+      // Handle both string and object error formats
+      const detail = error.detail;
+      if (typeof detail === 'string') {
+        throw new Error(detail);
+      } else if (detail?.message) {
+        // Object format: { message: string, errors: string[] }
+        const errorList = detail.errors?.join('; ') || '';
+        throw new Error(errorList ? `${detail.message}: ${errorList}` : detail.message);
+      }
+      throw new Error('Import failed');
     }
 
     return res.json();

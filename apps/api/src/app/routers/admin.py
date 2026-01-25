@@ -1517,6 +1517,30 @@ async def update_account(
     )
 
 
+@router.get("/accounts/{account_id}/records/count")
+async def get_account_records_count(
+    account_id: str,
+    user: dict = Depends(require_permission_key("admin.accounts")),
+):
+    """
+    Get count of active bookkeeping records for an account.
+
+    Used by frontend to show confirmation dialog before account deletion.
+    """
+    supabase = get_supabase()
+
+    # Count active records (not soft-deleted)
+    result = (
+        supabase.table("bookkeeping_records")
+        .select("id", count="exact")
+        .eq("account_id", account_id)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+
+    return {"count": result.count or 0}
+
+
 @router.delete("/accounts/{account_id}")
 async def delete_account(
     account_id: str,
@@ -1524,7 +1548,7 @@ async def delete_account(
     user: dict = Depends(require_permission_key("admin.accounts")),
 ):
     """
-    Delete an account (cascades to assignments).
+    Delete an account and soft-delete associated bookkeeping records.
 
     Requires admin.accounts permission (admin role).
     """
@@ -1541,22 +1565,22 @@ async def delete_account(
 
     old_account = current_result.data[0]
 
-    # Check for existing bookkeeping records (existence check only)
-    records_result = (
+    # Count active bookkeeping records before soft-delete
+    count_result = (
         supabase.table("bookkeeping_records")
-        .select("id")
+        .select("id", count="exact")
         .eq("account_id", account_id)
-        .limit(1)
+        .is_("deleted_at", "null")
         .execute()
     )
-    if records_result.data and len(records_result.data) > 0:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "HAS_RECORDS",
-                "message": "Cannot delete account with bookkeeping records. Archive or reassign records first.",
-            },
-        )
+    records_count = count_result.count or 0
+
+    # Soft-delete bookkeeping records (set deleted_at timestamp)
+    if records_count > 0:
+        from datetime import datetime, timezone
+        supabase.table("bookkeeping_records").update(
+            {"deleted_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("account_id", account_id).is_("deleted_at", "null").execute()
 
     # Delete account (assignments cascade via FK)
     supabase.table("accounts").delete().eq("id", account_id).execute()
@@ -1573,7 +1597,7 @@ async def delete_account(
         request=request,
     )
 
-    return {"status": "deleted"}
+    return {"status": "deleted", "records_deleted": records_count}
 
 
 @router.get("/accounts/{account_id}/assignments", response_model=list[AccountAssignmentResponse])

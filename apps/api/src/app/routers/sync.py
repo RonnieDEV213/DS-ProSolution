@@ -54,8 +54,15 @@ def _apply_cursor_filter(query, cursor: Optional[str], table_has_account_scope: 
     return query.or_(cursor_filter)
 
 
-def _build_response(items: list, limit: int, item_class):
-    """Build paginated response with has_more detection."""
+def _build_response(items: list, limit: int, item_class, remarks: tuple[dict, dict] | None = None):
+    """Build paginated response with has_more detection.
+
+    Args:
+        items: List of database rows
+        limit: Page size limit
+        item_class: Model class with from_db method
+        remarks: Optional tuple of (order_remarks_map, service_remarks_map) for records
+    """
     has_more = len(items) > limit
     if has_more:
         items = items[:limit]
@@ -73,8 +80,22 @@ def _build_response(items: list, limit: int, item_class):
         else:
             next_cursor = encode_cursor(last.updated_at, last.id)
 
+    # Build items with remarks if provided
+    if remarks is not None:
+        order_remarks, service_remarks = remarks
+        converted_items = [
+            item_class.from_db(
+                i,
+                order_remark=order_remarks.get(i["id"]),
+                service_remark=service_remarks.get(i["id"]),
+            ) if isinstance(i, dict) else i
+            for i in items
+        ]
+    else:
+        converted_items = [item_class.from_db(i) if isinstance(i, dict) else i for i in items]
+
     return {
-        "items": [item_class.from_db(i) if isinstance(i, dict) else i for i in items],
+        "items": converted_items,
         "next_cursor": next_cursor,
         "has_more": has_more,
         "total_estimate": None,  # Can add pg_class estimate later if needed
@@ -141,7 +162,40 @@ async def sync_records(
         result = query.execute()
         records = result.data or []
 
-        return _build_response(records, limit, RecordSyncItem)
+        # Fetch remarks for records (RLS will filter based on user's access)
+        record_ids = [r["id"] for r in records]
+        order_remarks: dict[str, str] = {}
+        service_remarks: dict[str, str] = {}
+
+        if record_ids:
+            # Fetch order remarks (silently skip if user lacks permission)
+            try:
+                order_result = (
+                    supabase.table("order_remarks")
+                    .select("record_id, content")
+                    .in_("record_id", record_ids)
+                    .execute()
+                )
+                logger.info(f"Fetched {len(order_result.data or [])} order remarks for {len(record_ids)} records")
+                for row in order_result.data or []:
+                    order_remarks[row["record_id"]] = row["content"]
+            except Exception as e:
+                logger.warning(f"Failed to fetch order remarks: {e}")
+
+            # Fetch service remarks (silently skip if user lacks permission)
+            try:
+                service_result = (
+                    supabase.table("service_remarks")
+                    .select("record_id, content")
+                    .in_("record_id", record_ids)
+                    .execute()
+                )
+                for row in service_result.data or []:
+                    service_remarks[row["record_id"]] = row["content"]
+            except Exception as e:
+                logger.warning(f"Failed to fetch service remarks: {e}")
+
+        return _build_response(records, limit, RecordSyncItem, remarks=(order_remarks, service_remarks))
 
     except HTTPException:
         raise

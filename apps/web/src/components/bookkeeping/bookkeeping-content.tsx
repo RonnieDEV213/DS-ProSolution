@@ -8,7 +8,6 @@ import { Loader2 } from "lucide-react";
 import type { ListImperativeAPI } from "react-window";
 
 const STORAGE_KEY = "dspro:last_order_tracking_account_id";
-import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/bookkeeping/account-selector";
 import { RecordsToolbar } from "@/components/bookkeeping/records-toolbar";
 import { VirtualizedRecordsList } from "@/components/bookkeeping/virtualized-records-list";
@@ -17,7 +16,7 @@ import { useRowDensity } from "@/hooks/use-row-density";
 import { useUserRole } from "@/hooks/use-user-role";
 import { useAccounts } from "@/hooks/queries/use-accounts";
 import { useSyncRecords } from "@/hooks/sync/use-sync-records";
-import { exportToCSV, type Account, type BookkeepingStatus } from "@/lib/api";
+import { type Account, type BookkeepingStatus } from "@/lib/api";
 
 // TODO: Get orgId from user context when multi-org support added
 const DEFAULT_ORG_ID = "default";
@@ -155,14 +154,6 @@ export function BookkeepingContent() {
     setAddDialogOpen(false);
   };
 
-  const handleExportCSV = () => {
-    const account = accounts.find((a: Account) => a.id === selectedAccountId);
-    if (account && records.length > 0) {
-      exportToCSV(records, account.account_code);
-      toast.success(`Exported ${records.length} records`);
-    }
-  };
-
   const selectedAccount = accounts.find(
     (a: Account) => a.id === selectedAccountId
   );
@@ -230,31 +221,12 @@ export function BookkeepingContent() {
             <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <AccountSelector
-            accounts={accounts}
-            selectedAccountId={selectedAccountId}
-            onSelect={handleAccountSelect}
-            disabled={accountsLoading}
-          />
-          {selectedAccountId && (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setAddDialogOpen(true)}
-              >
-                Add Record
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={handleExportCSV}
-                disabled={records.length === 0}
-              >
-                Export CSV
-              </Button>
-            </>
-          )}
-        </div>
+        <AccountSelector
+          accounts={accounts}
+          selectedAccountId={selectedAccountId}
+          onSelect={handleAccountSelect}
+          disabled={accountsLoading}
+        />
       </div>
 
       {error && (
@@ -287,6 +259,7 @@ export function BookkeepingContent() {
               onHelpOpenChange={setHelpModalOpen}
               accountId={selectedAccountId}
               totalRecords={totalCount}
+              onAddRecord={() => setAddDialogOpen(true)}
             />
 
             <VirtualizedRecordsList

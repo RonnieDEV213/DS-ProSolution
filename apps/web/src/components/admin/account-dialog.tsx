@@ -103,6 +103,8 @@ export function AccountDialog({
   // Delete state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [recordsCount, setRecordsCount] = useState<number | null>(null);
+  const [loadingRecordsCount, setLoadingRecordsCount] = useState(false);
 
   const isEditing = account !== null;
 
@@ -344,6 +346,41 @@ export function AccountDialog({
     }
   };
 
+  const handleDeleteClick = async () => {
+    if (!account) return;
+    setLoadingRecordsCount(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/admin/accounts/${account.id}/records/count`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setRecordsCount(data.count);
+      } else {
+        setRecordsCount(0);
+      }
+      setDeleteConfirmOpen(true);
+    } catch {
+      setRecordsCount(0);
+      setDeleteConfirmOpen(true);
+    } finally {
+      setLoadingRecordsCount(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!account) return;
     setDeleting(true);
@@ -370,7 +407,13 @@ export function AccountDialog({
         throw new Error(error.detail || "Failed to delete account");
       }
 
-      toast.success("Account deleted");
+      const result = await res.json();
+      const deletedRecords = result.records_deleted || 0;
+      toast.success(
+        deletedRecords > 0
+          ? `Account deleted (${deletedRecords} records archived)`
+          : "Account deleted"
+      );
       setDeleteConfirmOpen(false);
       onOpenChange(false);
       onDeleted?.();
@@ -427,10 +470,10 @@ export function AccountDialog({
                 <Button
                   variant="destructive"
                   className="w-full"
-                  onClick={() => setDeleteConfirmOpen(true)}
-                  disabled={deleting}
+                  onClick={handleDeleteClick}
+                  disabled={deleting || loadingRecordsCount}
                 >
-                  Delete Account
+                  {loadingRecordsCount ? "Loading..." : "Delete Account"}
                 </Button>
               </div>
             )}
@@ -654,10 +697,20 @@ export function AccountDialog({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{account?.account_code}&quot;? This will
-              permanently remove this account and all VA assignments. This action cannot be
-              undone.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Are you sure you want to delete &quot;{account?.account_code}&quot;?
+                </p>
+                {recordsCount !== null && recordsCount > 0 && (
+                  <p className="text-amber-500 font-medium">
+                    This account has {recordsCount.toLocaleString()} bookkeeping record
+                    {recordsCount !== 1 ? "s" : ""}. Deleting the account will archive all
+                    associated records. Records can be recovered within 30 days.
+                  </p>
+                )}
+                <p>This will also remove all VA assignments. This action cannot be undone.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

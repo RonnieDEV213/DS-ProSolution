@@ -31,6 +31,7 @@ import {
 import { useUpdateRecord } from "@/hooks/mutations/use-update-record";
 import { useDeleteRecord } from "@/hooks/mutations/use-delete-record";
 import { usePendingMutations } from "@/hooks/sync/use-pending-mutations";
+import { db } from "@/lib/db";
 import type { RowDensity } from "@/hooks/use-row-density";
 import { useKeyboardNavigation } from "@/hooks/use-keyboard-navigation";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
@@ -41,17 +42,17 @@ import { ResultSummary } from "@/components/bookkeeping/result-summary";
 type FieldType = "text" | "date" | "number" | "cents";
 
 const FIELD_CONFIG: Record<string, { type: FieldType; width: string }> = {
-  sale_date: { type: "date", width: "w-32" },
-  ebay_order_id: { type: "text", width: "w-32" },
-  item_name: { type: "text", width: "w-48" },
-  qty: { type: "number", width: "w-16" },
+  sale_date: { type: "date", width: "w-24" },
+  ebay_order_id: { type: "text", width: "w-36" },
+  item_name: { type: "text", width: "w-full" },
+  qty: { type: "number", width: "w-12" },
   sale_price_cents: { type: "cents", width: "w-24" },
   ebay_fees_cents: { type: "cents", width: "w-24" },
   amazon_price_cents: { type: "cents", width: "w-24" },
   amazon_tax_cents: { type: "cents", width: "w-24" },
   amazon_shipping_cents: { type: "cents", width: "w-24" },
   return_label_cost_cents: { type: "cents", width: "w-24" },
-  amazon_order_id: { type: "text", width: "w-32" },
+  amazon_order_id: { type: "text", width: "w-52" },
   order_remark: { type: "text", width: "w-full" },
   service_remark: { type: "text", width: "w-full" },
 };
@@ -225,8 +226,12 @@ export function VirtualizedRecordsList({
     try {
       if (editingField === "order_remark") {
         await api.updateOrderRemark(editingId, convertedValue as string | null);
+        // Update local IndexedDB cache
+        await db.records.update(editingId, { order_remark: convertedValue as string | null });
       } else if (editingField === "service_remark") {
         await api.updateServiceRemark(editingId, convertedValue as string | null);
+        // Update local IndexedDB cache
+        await db.records.update(editingId, { service_remark: convertedValue as string | null });
       } else {
         await updateMutation.mutateAsync({
           id: editingId,
@@ -340,7 +345,7 @@ export function VirtualizedRecordsList({
     (index: number) => {
       const row = virtualRows[index];
       if (!row) return rowHeight;
-      return row.type === "expanded" ? 180 : rowHeight;
+      return row.type === "expanded" ? 220 : rowHeight;
     },
     [virtualRows, rowHeight]
   );
@@ -389,24 +394,24 @@ export function VirtualizedRecordsList({
           <div
             ref={containerRef}
             tabIndex={0}
-            className="rounded-md border border-gray-800 overflow-hidden focus:outline-none"
+            className="rounded-md border border-gray-800 overflow-x-auto focus:outline-none"
             aria-label="Records list"
             onFocus={() => setFocusedIndex((prev) => (prev < 0 ? 0 : prev))}
           >
-            <div className="flex items-center border-b border-gray-800 bg-gray-900/60 text-gray-400 text-xs uppercase tracking-wide px-2 py-2">
+            <div className="flex items-center gap-2 border-b border-gray-800 bg-gray-900/60 text-gray-400 text-xs uppercase tracking-wide px-2 py-2 min-w-[1200px]">
               <div className="w-10 shrink-0">
                 <span className="sr-only">Expand</span>
               </div>
-              <div className="w-32 shrink-0">Date</div>
-              <div className="w-32 shrink-0">eBay Order</div>
-              <div className="w-48 shrink-0">Item</div>
-              <div className="w-16 shrink-0 text-center">Qty</div>
-              <div className="w-24 shrink-0 text-right">Earnings</div>
-              <div className="w-24 shrink-0 text-right">COGS</div>
-              <div className="w-24 shrink-0 text-right">Profit</div>
-              <div className="w-32 shrink-0">Amazon Order</div>
+              <div className="w-24 shrink-0">Date</div>
+              <div className="w-36 shrink-0">eBay Order</div>
+              <div className="flex-1 min-w-[200px]">Item</div>
+              <div className="w-12 shrink-0 text-center">Qty</div>
+              <div className="w-20 shrink-0 text-right">Earnings</div>
+              <div className="w-20 shrink-0 text-right">COGS</div>
+              <div className="w-20 shrink-0 text-right pr-4">Profit</div>
+              <div className="w-52 shrink-0">Amazon Order</div>
               <div className="w-40 shrink-0">Status</div>
-              <div className="w-12 shrink-0">
+              <div className="w-10 shrink-0 ml-auto">
                 <span className="sr-only">Actions</span>
               </div>
             </div>

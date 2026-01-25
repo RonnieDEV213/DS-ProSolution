@@ -1,16 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { AlertCircle, Check, ChevronDown, ChevronRight, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Tooltip,
   TooltipContent,
@@ -50,16 +42,25 @@ export function ImportPreview({
       .map(([source, target]) => ({ source, target }));
   }, [columnMapping]);
 
-  // Group errors by row for easy lookup
+  // Get set of mapped DB fields (exclude skipped)
+  const mappedFields = useMemo(() => {
+    return new Set(
+      Object.values(columnMapping).filter((v) => v && v !== SKIP_COLUMN)
+    );
+  }, [columnMapping]);
+
+  // Group errors by row, filtering out errors for unmapped/skipped fields
   const errorsByRow = useMemo(() => {
     const map = new Map<number, ImportValidationError[]>();
     for (const row of preview) {
-      if (row.errors.length > 0) {
-        map.set(row.row_number, row.errors);
+      // Filter errors to only include mapped fields
+      const relevantErrors = row.errors.filter((e) => mappedFields.has(e.field));
+      if (relevantErrors.length > 0) {
+        map.set(row.row_number, relevantErrors);
       }
     }
     return map;
-  }, [preview]);
+  }, [preview, mappedFields]);
 
   // Toggle row expansion
   const toggleRow = (rowNumber: number) => {
@@ -72,8 +73,13 @@ export function ImportPreview({
     setExpandedRows(newExpanded);
   };
 
-  const invalidRows = totalRows - validRows;
-  const allValid = invalidRows === 0;
+  // Recalculate valid/invalid based on filtered errors (respects user's mapping)
+  const filteredValidRows = useMemo(() => {
+    return preview.filter((row) => !errorsByRow.has(row.row_number)).length;
+  }, [preview, errorsByRow]);
+
+  const filteredInvalidRows = preview.length - filteredValidRows;
+  const allValid = filteredInvalidRows === 0;
 
   return (
     <div className="space-y-4">
@@ -85,12 +91,12 @@ export function ImportPreview({
           ) : (
             <X className="mr-1 h-3 w-3" />
           )}
-          {validRows.toLocaleString()} valid
+          {filteredValidRows.toLocaleString()} valid
         </Badge>
-        {invalidRows > 0 && (
+        {filteredInvalidRows > 0 && (
           <Badge variant="destructive">
             <AlertCircle className="mr-1 h-3 w-3" />
-            {invalidRows.toLocaleString()} with errors
+            {filteredInvalidRows.toLocaleString()} with errors
           </Badge>
         )}
         <span className="text-sm text-gray-400">
@@ -112,41 +118,41 @@ export function ImportPreview({
       )}
 
       {/* Preview table */}
-      <div className="rounded-md border border-gray-700 overflow-hidden max-h-[400px] overflow-y-auto">
-        <Table>
-          <TableHeader className="sticky top-0 bg-gray-900 z-10">
-            <TableRow>
-              <TableHead className="w-12 text-center">#</TableHead>
-              <TableHead className="w-12 text-center">Status</TableHead>
+      <div className="rounded-md border border-gray-700 max-h-[400px] overflow-auto scrollbar-thin">
+        <table className="w-full caption-bottom text-sm min-w-max">
+          <thead className="sticky top-0 bg-gray-900 z-10 [&_tr]:border-b">
+            <tr className="border-b transition-colors">
+              <th className="h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-12 text-center text-foreground">#</th>
+              <th className="h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-12 text-center text-foreground">Status</th>
               {visibleColumns.map((col) => (
-                <TableHead key={col.target} className="min-w-[120px]">
+                <th key={col.source} className="h-10 px-2 text-left align-middle font-medium whitespace-nowrap min-w-[120px] text-foreground">
                   {formatFieldName(col.target)}
-                </TableHead>
+                </th>
               ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+            </tr>
+          </thead>
+          <tbody className="[&_tr:last-child]:border-0">
             {preview.map((row) => {
               const isExpanded = expandedRows.has(row.row_number);
               const rowErrors = errorsByRow.get(row.row_number) || [];
               const errorFields = new Set(rowErrors.map((e) => e.field));
+              const isRowValid = rowErrors.length === 0;
 
               return (
-                <>
-                  <TableRow
-                    key={row.row_number}
-                    className={
-                      row.is_valid
-                        ? ""
+                <Fragment key={row.row_number}>
+                  <tr
+                    className={`border-b transition-colors ${
+                      isRowValid
+                        ? "hover:bg-muted/50"
                         : "bg-red-500/5 hover:bg-red-500/10 cursor-pointer"
-                    }
-                    onClick={() => !row.is_valid && toggleRow(row.row_number)}
+                    }`}
+                    onClick={() => !isRowValid && toggleRow(row.row_number)}
                   >
-                    <TableCell className="text-center text-gray-500 font-mono text-xs">
+                    <td className="p-2 align-middle whitespace-nowrap text-center text-gray-500 font-mono text-xs">
                       {row.row_number}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {row.is_valid ? (
+                    </td>
+                    <td className="p-2 align-middle whitespace-nowrap text-center">
+                      {isRowValid ? (
                         <Check className="h-4 w-4 text-green-500 mx-auto" />
                       ) : (
                         <div className="flex items-center justify-center">
@@ -157,16 +163,17 @@ export function ImportPreview({
                           )}
                         </div>
                       )}
-                    </TableCell>
+                    </td>
                     {visibleColumns.map((col) => {
-                      const value = row.data[col.source];
+                      // row.data is keyed by DB field (target), not CSV column (source)
+                      const value = row.data[col.target];
                       const hasError = errorFields.has(col.target);
                       const fieldError = rowErrors.find((e) => e.field === col.target);
 
                       return (
-                        <TableCell
-                          key={col.target}
-                          className={hasError ? "text-red-400" : ""}
+                        <td
+                          key={col.source}
+                          className={`p-2 align-middle whitespace-nowrap ${hasError ? "text-red-400" : ""}`}
                         >
                           {hasError && fieldError ? (
                             <Tooltip>
@@ -182,16 +189,16 @@ export function ImportPreview({
                           ) : (
                             formatValue(value)
                           )}
-                        </TableCell>
+                        </td>
                       );
                     })}
-                  </TableRow>
+                  </tr>
                   {/* Expanded error details */}
                   {isExpanded && rowErrors.length > 0 && (
-                    <TableRow className="bg-red-500/5">
-                      <TableCell
+                    <tr className="bg-red-500/5 border-b transition-colors">
+                      <td
                         colSpan={visibleColumns.length + 2}
-                        className="py-2"
+                        className="p-2 align-middle py-2"
                       >
                         <div className="pl-8 space-y-1">
                           {rowErrors.map((error, i) => (
@@ -203,14 +210,14 @@ export function ImportPreview({
                             </div>
                           ))}
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   )}
-                </>
+                </Fragment>
               );
             })}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
       <p className="text-xs text-gray-500">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Keyboard, Rows2, Rows3, Upload } from "lucide-react";
+import { Download, Keyboard, Plus, Rows2, Rows3, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -34,6 +34,8 @@ interface RecordsToolbarProps {
     dateFrom?: string;
     dateTo?: string;
   };
+  /** Callback when Add Record is clicked */
+  onAddRecord?: () => void;
 }
 
 export function RecordsToolbar({
@@ -48,6 +50,7 @@ export function RecordsToolbar({
   accountId,
   totalRecords = 0,
   filters,
+  onAddRecord,
 }: RecordsToolbarProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -80,6 +83,23 @@ export function RecordsToolbar({
       </div>
 
       <div className="flex items-center gap-2">
+        {accountId && onAddRecord && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={onAddRecord}
+                className="h-8 w-8"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Add record</TooltipContent>
+          </Tooltip>
+        )}
+
         {accountId && totalRecords > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>

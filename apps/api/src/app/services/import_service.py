@@ -33,69 +33,111 @@ logger = logging.getLogger(__name__)
 EXPECTED_FIELDS = {
     "ebay_order_id": [
         "ebay order",
-        "order id",
-        "ebay_order_id",
-        "orderid",
         "ebay order id",
+        "ebay_order_id",
+        "ebay order #",
+        "ebay order number",
+        "ebay #",
+        "ebay id",
+        "ebay number",
+        "order id",
         "order_id",
+        "orderid",
+        "order #",
+        "order number",
     ],
     "sale_date": [
         "sale date",
-        "date",
-        "order date",
         "sale_date",
         "saledate",
+        "date",
+        "order date",
         "sold date",
+        "transaction date",
+        "sale-date",
+        "saledt",
+        "dt",
+        "sold_date",
+        "order_date",
+        "date of sale",
+        "date_of_sale",
     ],
     "item_name": [
         "item",
         "item name",
-        "product",
-        "title",
         "item_name",
+        "product",
         "product name",
+        "title",
         "description",
     ],
-    "qty": ["quantity", "qty", "amount", "count", "units"],
+    "qty": [
+        "qty",
+        "quantity",
+        "amount",
+        "count",
+        "units",
+    ],
     "sale_price_cents": [
         "sale price",
-        "price",
-        "sale_price",
-        "total",
+        "sale price (cents)",
         "sale_price_cents",
+        "sale_price",
+        "price",
+        "total",
         "sale amount",
     ],
     "ebay_fees_cents": [
         "ebay fees",
-        "fees",
+        "ebay fees (cents)",
         "ebay_fees_cents",
         "ebay fee",
+        "fees",
         "platform fees",
     ],
     "amazon_price_cents": [
         "amazon price",
-        "cost",
+        "amazon price (cents)",
         "amazon_price_cents",
+        "cost",
         "purchase price",
         "cogs",
+        "cost of goods",
+        "cost of goods sold",
+        "item cost",
+        "product cost",
     ],
     "amazon_tax_cents": [
         "amazon tax",
-        "tax",
+        "amazon tax (cents)",
         "amazon_tax_cents",
+        "tax",
         "sales tax",
     ],
     "amazon_shipping_cents": [
         "amazon shipping",
-        "shipping",
+        "amazon shipping (cents)",
         "amazon_shipping_cents",
+        "shipping",
         "shipping cost",
     ],
     "amazon_order_id": [
         "amazon order",
-        "amazon_order_id",
         "amazon order id",
+        "amazon_order_id",
+        "amazon order #",
+        "amazon order number",
+        "amazon order no",
+        "amazon purchase",
+        "amazon purchase #",
+        "amazon purchase id",
+        "amazon purchase number",
+        "amazon #",
+        "amazon id",
+        "amazon no",
         "purchase order",
+        "purchase order id",
+        "purchase order #",
     ],
     "order_remark": [
         "order remark",
@@ -104,7 +146,11 @@ EXPECTED_FIELDS = {
         "order notes",
         "remarks",
     ],
-    "status": ["status", "state", "order status"],
+    "status": [
+        "status",
+        "state",
+        "order status",
+    ],
 }
 
 # Required fields for validation
@@ -119,17 +165,19 @@ def suggest_column_mapping(headers: list[str]) -> dict[str, str]:
     Suggest column mappings based on header similarity.
 
     Uses difflib.SequenceMatcher for fuzzy matching with 70% threshold.
+    All headers are included in the result - unmatched headers map to empty string.
 
     Args:
         headers: List of column headers from uploaded file
 
     Returns:
-        Dict mapping CSV header -> DB field name
+        Dict mapping CSV header -> DB field name (or empty string if no match)
     """
     mapping: dict[str, str] = {}
 
     for header in headers:
-        header_lower = header.lower().strip()
+        # Clean header: strip whitespace, BOM, and normalize
+        header_lower = header.lower().strip().lstrip("\ufeff")
 
         # Try exact match first
         matched = False
@@ -153,6 +201,9 @@ def suggest_column_mapping(headers: list[str]) -> dict[str, str]:
 
             if best_match:
                 mapping[header] = best_match
+            else:
+                # Include unmatched headers with empty string
+                mapping[header] = ""
 
     return mapping
 
@@ -217,7 +268,18 @@ def _parse_date(value: Any) -> Optional[date]:
     if isinstance(value, str):
         value = value.strip()
         # Try common date formats
-        for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]:
+        for fmt in [
+            "%Y-%m-%d",      # 2026-01-24
+            "%m/%d/%Y",      # 01/24/2026
+            "%d/%m/%Y",      # 24/01/2026
+            "%Y/%m/%d",      # 2026/01/24
+            "%b %d, %Y",     # Jan 24, 2026
+            "%B %d, %Y",     # January 24, 2026
+            "%d %b %Y",      # 24 Jan 2026
+            "%d %B %Y",      # 24 January 2026
+            "%m-%d-%Y",      # 01-24-2026
+            "%d-%m-%Y",      # 24-01-2026
+        ]:
             try:
                 return datetime.strptime(value, fmt).date()
             except ValueError:
@@ -238,18 +300,37 @@ def _parse_cents(value: Any) -> Optional[int]:
         # Assume it's dollars, convert to cents
         return int(round(value * 100))
 
-    if isinstance(value, str):
-        value = value.strip().replace("$", "").replace(",", "")
-        try:
-            # Try as cents first
-            if "." not in value:
-                return int(value)
-            # Otherwise treat as dollars
-            return int(round(float(value) * 100))
-        except ValueError:
-            return None
+    # Convert to string for parsing
+    value_str = str(value).strip()
 
-    return None
+    # Handle empty string
+    if not value_str:
+        return None
+
+    # Remove various currency symbols and formatting
+    # Includes regular $, unicode dollar signs, and other common symbols
+    for char in ["$", "¢", "€", "£", "¥", "\u0024", "\uFF04", "\uFE69"]:
+        value_str = value_str.replace(char, "")
+
+    # Remove commas, spaces, and other formatting
+    value_str = value_str.replace(",", "").replace(" ", "").strip()
+
+    # Handle parentheses for negative numbers (accounting format)
+    if value_str.startswith("(") and value_str.endswith(")"):
+        value_str = "-" + value_str[1:-1]
+
+    # Handle empty after stripping
+    if not value_str:
+        return None
+
+    try:
+        # Try as cents first (no decimal point)
+        if "." not in value_str:
+            return int(value_str)
+        # Otherwise treat as dollars and convert to cents
+        return int(round(float(value_str) * 100))
+    except ValueError:
+        return None
 
 
 def _parse_status(value: Any) -> Optional[str]:
@@ -298,9 +379,9 @@ def validate_rows(
         errors: list[ImportValidationError] = []
         mapped_data: dict[str, Any] = {}
 
-        # Map columns
+        # Map columns (skip empty/skipped mappings)
         for csv_header, db_field in mapping.items():
-            if csv_header in row:
+            if db_field and db_field != "__skip__" and csv_header in row:
                 mapped_data[db_field] = row[csv_header]
 
         # Validate required fields
@@ -340,13 +421,15 @@ def validate_rows(
             "amazon_shipping_cents",
         ]:
             if field in mapped_data and not pd.isna(mapped_data.get(field)):
-                parsed_cents = _parse_cents(mapped_data[field])
+                raw_value = mapped_data[field]
+                parsed_cents = _parse_cents(raw_value)
                 if parsed_cents is None:
+                    # Show the actual value and type for debugging
                     errors.append(
                         ImportValidationError(
                             row=row_number,
                             field=field,
-                            message=f"Invalid numeric value for {field}",
+                            message=f"Invalid numeric value: '{raw_value}' (type: {type(raw_value).__name__})",
                         )
                     )
                 elif parsed_cents < 0:
@@ -511,8 +594,10 @@ def commit_import(
         raise ValueError("Failed to create import batch record")
 
     try:
-        # Prepare records for insertion
-        records_to_insert = []
+        # Prepare records for insertion, deduplicating by ebay_order_id
+        # (last occurrence wins if duplicates exist in import file)
+        records_by_ebay_id: dict[str, dict] = {}
+        remarks_by_ebay_id: dict[str, str] = {}  # Track order_remark separately
         for record in data:
             # Build record dict with required fields
             db_record = {
@@ -537,25 +622,77 @@ def commit_import(
                 if record.get(field) is not None:
                     db_record[field] = record[field]
 
-            records_to_insert.append(db_record)
+            # Deduplicate by ebay_order_id (last occurrence wins)
+            ebay_id = record.get("ebay_order_id")
+            if ebay_id:
+                records_by_ebay_id[ebay_id] = db_record
+                # Track order_remark for later insertion
+                if record.get("order_remark"):
+                    remarks_by_ebay_id[ebay_id] = record["order_remark"]
 
-        # Insert all records
-        insert_result = supabase.table("bookkeeping_records").insert(
-            records_to_insert
+        records_to_process = list(records_by_ebay_id.values())
+
+        # Prepare records for RPC (strip account_id and import_batch_id - RPC adds them)
+        rpc_records = []
+        for record in records_to_process:
+            rpc_record = {k: v for k, v in record.items() if k not in ("account_id", "import_batch_id")}
+            rpc_records.append(rpc_record)
+
+        # Single RPC call does all upserts (~50-100x faster than sequential HTTP calls)
+        rpc_result = supabase.rpc(
+            "bulk_upsert_records",
+            {
+                "p_account_id": account_id,
+                "p_batch_id": batch_id,
+                "p_records": rpc_records,
+            }
         ).execute()
 
-        if not insert_result.data:
-            raise ValueError("Failed to insert records")
+        if not rpc_result.data:
+            raise ValueError("Bulk upsert RPC returned no data")
+
+        result = rpc_result.data[0]
+        inserted_count = result["inserted_count"]
+        updated_count = result["updated_count"]
+        record_ids = result["record_ids"]  # Array of {ebay_order_id, id}
+
+        logger.info(f"Bulk upsert: inserted={inserted_count}, updated={updated_count}")
+
+        # Upsert order_remarks for records that have them
+        if remarks_by_ebay_id:
+            # Build lookup from ebay_order_id -> record_id
+            id_map = {r["ebay_order_id"]: r["id"] for r in record_ids}
+            remarks_to_upsert = [
+                {"record_id": id_map[ebay_id], "content": content}
+                for ebay_id, content in remarks_by_ebay_id.items()
+                if ebay_id in id_map
+            ]
+            if remarks_to_upsert:
+                # record_id is primary key, so upsert will update existing remarks
+                supabase.table("order_remarks").upsert(
+                    remarks_to_upsert,
+                    on_conflict="record_id"
+                ).execute()
+                logger.info(f"Upserted {len(remarks_to_upsert)} order remarks")
 
         logger.info(
-            f"Import committed: batch_id={batch_id}, rows={len(records_to_insert)}"
+            f"Import committed: batch_id={batch_id}, "
+            f"inserted={inserted_count}, updated={updated_count}"
         )
         return batch_id
 
     except Exception as e:
-        # Rollback: delete the batch record
+        # Rollback: clean up records then delete the batch
         logger.error(f"Import failed, rolling back: {e}")
-        supabase.table("import_batches").delete().eq("id", batch_id).execute()
+        try:
+            # Delete any newly inserted records with this batch_id
+            supabase.table("bookkeeping_records").delete().eq(
+                "import_batch_id", batch_id
+            ).execute()
+            # Now safe to delete the batch record
+            supabase.table("import_batches").delete().eq("id", batch_id).execute()
+        except Exception as rollback_error:
+            logger.error(f"Rollback cleanup failed: {rollback_error}")
         raise ValueError(f"Import failed: {str(e)}")
 
 
