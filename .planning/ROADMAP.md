@@ -150,20 +150,22 @@ Plans:
 **Goal**: Users can export large datasets without browser crashes and import with validation
 **Depends on**: Phase 16 (requires paginated endpoints for streaming)
 **Requirements**: EXPO-01, EXPO-02, EXPO-03, EXPO-04, EXPO-05, EXPO-06, EXPO-07
+**Note**: PDF export is OUT OF SCOPE per CONTEXT.md (deferred to future phase)
 **Success Criteria** (what must be TRUE):
   1. CSV export streams data (doesn't load all records into memory)
   2. Export UI allows column selection before export
   3. Export shows progress indicator with row count
   4. Large exports (>10K rows) run in background with notification when complete
-  5. Export supports multiple formats (CSV, JSON, Excel, PDF)
+  5. Export supports multiple formats (CSV, JSON, Excel)
   6. Import shows validation preview before committing (first 100 rows + errors)
   7. Import supports rollback to undo bad imports (within 24 hours)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 21-01: Streaming export (CSV, JSON)
-- [ ] 21-02: Export UI and background jobs
-- [ ] 21-03: Import validation and rollback
+- [ ] 21-01-PLAN.md - Backend export infrastructure (streaming endpoints + background jobs)
+- [ ] 21-02-PLAN.md - Frontend export UI (column selection, progress, notifications)
+- [ ] 21-03-PLAN.md - Backend import infrastructure (validation, batch tracking, rollback)
+- [ ] 21-04-PLAN.md - Frontend import UI (column mapping, preview, history)
 
 ## Progress
 
@@ -178,8 +180,8 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | 18. Client Persistence | v3 | 3/3 | Complete | 2026-01-24 |
 | 19. Sync Protocol | v3 | 6/6 | Complete | 2026-01-24 |
 | 20. Virtualized Rendering | v3 | 5/5 | Complete | 2026-01-25 |
-| 21. Export/Import | v3 | 0/3 | Not started | - |
+| 21. Export/Import | v3 | 0/4 | Planned | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-25 - Phase 20 complete (5/5 plans, including UAT gap closure)*
+*Last updated: 2026-01-25 - Phase 21 planned (4 plans in 2 waves)*
