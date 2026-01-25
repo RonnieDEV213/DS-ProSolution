@@ -68,17 +68,17 @@ const getStatusBadgeVariant = (status: BookkeepingStatus) => {
 type FieldType = "text" | "date" | "number" | "cents";
 
 const FIELD_CONFIG: Record<string, { type: FieldType; width: string }> = {
-  sale_date: { type: "date", width: "w-32" },
-  ebay_order_id: { type: "text", width: "w-32" },
-  item_name: { type: "text", width: "w-48" },
-  qty: { type: "number", width: "w-16" },
+  sale_date: { type: "date", width: "w-24" },
+  ebay_order_id: { type: "text", width: "w-36" },
+  item_name: { type: "text", width: "w-full" },
+  qty: { type: "number", width: "w-12" },
   sale_price_cents: { type: "cents", width: "w-24" },
   ebay_fees_cents: { type: "cents", width: "w-24" },
   amazon_price_cents: { type: "cents", width: "w-24" },
   amazon_tax_cents: { type: "cents", width: "w-24" },
   amazon_shipping_cents: { type: "cents", width: "w-24" },
   return_label_cost_cents: { type: "cents", width: "w-24" },
-  amazon_order_id: { type: "text", width: "w-32" },
+  amazon_order_id: { type: "text", width: "w-52" },
   order_remark: { type: "text", width: "w-full" },
   service_remark: { type: "text", width: "w-full" },
 };
@@ -195,7 +195,7 @@ export function RecordRow({
             if (e.key === "Enter") onEditSave();
             if (e.key === "Escape") onEditCancel();
           }}
-          className={`${config?.width || "w-24"} h-7 text-sm bg-gray-800 border-gray-700`}
+          className={`${config?.width || "w-24"} h-7 text-sm bg-gray-800 border-gray-700 [&::-webkit-calendar-picker-indicator]:invert`}
           autoFocus
           disabled={editingState.saving}
           min={config?.type === "number" ? 1 : undefined}
@@ -355,8 +355,9 @@ export function RecordRow({
     <div
       style={style}
       {...ariaAttributes}
+      onClick={() => onToggleExpand(record.id)}
       className={cn(
-        "flex items-center border-b border-gray-800 text-sm text-gray-200 px-2",
+        "flex items-center gap-2 border-b border-gray-800 text-sm text-gray-200 px-2 min-w-[1200px] cursor-pointer",
         rowPadding,
         isFocused && "ring-2 ring-blue-500"
       )}
@@ -388,11 +389,11 @@ export function RecordRow({
         </Button>
       </div>
 
-      <div className="w-32 shrink-0 text-white">
+      <div className="w-24 shrink-0 text-white">
         {renderEditableCell("sale_date", record.sale_date, "text-white")}
       </div>
 
-      <div className="w-32 shrink-0">
+      <div className="w-36 shrink-0">
         {renderEditableCell(
           "ebay_order_id",
           record.ebay_order_id,
@@ -400,7 +401,7 @@ export function RecordRow({
         )}
       </div>
 
-      <div className="w-48 shrink-0">
+      <div className="flex-1 min-w-[200px]">
         {renderEditableCell(
           "item_name",
           <span className="truncate block" title={record.item_name}>
@@ -410,11 +411,11 @@ export function RecordRow({
         )}
       </div>
 
-      <div className="w-16 shrink-0 text-center">
+      <div className="w-12 shrink-0 text-center">
         {renderEditableCell("qty", record.qty, "text-white")}
       </div>
 
-      <div className="w-24 shrink-0 text-right">
+      <div className="w-20 shrink-0 text-right">
         {strikeSalesFees || strikeAll ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -434,14 +435,14 @@ export function RecordRow({
       </div>
 
       <div
-        className={cn("w-24 shrink-0 text-right", strikeAll ? STRIKE_CLASS : "text-white")}
+        className={cn("w-20 shrink-0 text-right", strikeAll ? STRIKE_CLASS : "text-white")}
       >
         {formatCents(record.cogs_total_cents)}
       </div>
 
       <div
         className={cn(
-          "w-24 shrink-0 text-right font-semibold",
+          "w-20 shrink-0 text-right font-semibold pr-4",
           strikeAll
             ? STRIKE_CLASS
             : displayProfit >= 0
@@ -452,7 +453,7 @@ export function RecordRow({
         {formatCents(displayProfit)}
       </div>
 
-      <div className="w-32 shrink-0">
+      <div className="w-52 shrink-0">
         {renderEditableCell(
           "amazon_order_id",
           displayValue(record.amazon_order_id),
@@ -469,7 +470,7 @@ export function RecordRow({
           disabled={isPending || isUpdating}
         >
           <SelectTrigger
-            className="min-w-[160px] h-7 text-xs bg-gray-800 border-gray-700"
+            className="w-full h-7 text-xs bg-gray-800 border-gray-700"
             aria-label="Order status"
           >
             <SelectValue>
@@ -496,7 +497,7 @@ export function RecordRow({
         </Select>
       </div>
 
-      <div className="w-12 shrink-0">
+      <div className="w-10 shrink-0 ml-auto">
         {userRole.isAdmin && (
           <Button
             variant="ghost"
