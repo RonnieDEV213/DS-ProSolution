@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Keyboard, Rows2, Rows3 } from "lucide-react";
+import { Download, Keyboard, Rows2, Rows3, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -10,7 +10,10 @@ import {
 } from "@/components/ui/tooltip";
 import { QuickFilterChips } from "@/components/bookkeeping/quick-filter-chips";
 import { KeyboardShortcutsModal } from "@/components/bookkeeping/keyboard-shortcuts-modal";
+import { ImportDialog } from "@/components/data-management/import-dialog";
+import { ExportDialog } from "@/components/data-management/export-dialog";
 import type { RowDensity } from "@/hooks/use-row-density";
+import type { BookkeepingStatus } from "@/lib/api";
 
 interface RecordsToolbarProps {
   activeFilter: string;
@@ -21,6 +24,16 @@ interface RecordsToolbarProps {
   isFiltered: boolean;
   helpOpen?: boolean;
   onHelpOpenChange?: (open: boolean) => void;
+  /** Account ID for import/export (required for data operations) */
+  accountId?: string;
+  /** Total records for export (used to determine streaming vs background) */
+  totalRecords?: number;
+  /** Current filters to apply to export */
+  filters?: {
+    status?: BookkeepingStatus;
+    dateFrom?: string;
+    dateTo?: string;
+  };
 }
 
 export function RecordsToolbar({
@@ -32,8 +45,13 @@ export function RecordsToolbar({
   isFiltered,
   helpOpen,
   onHelpOpenChange,
+  accountId,
+  totalRecords = 0,
+  filters,
 }: RecordsToolbarProps) {
   const [internalOpen, setInternalOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const isControlled = helpOpen !== undefined && onHelpOpenChange !== undefined;
   const open = isControlled ? helpOpen : internalOpen;
   const setOpen = isControlled ? onHelpOpenChange : setInternalOpen;
@@ -62,6 +80,40 @@ export function RecordsToolbar({
       </div>
 
       <div className="flex items-center gap-2">
+        {accountId && totalRecords > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setExportOpen(true)}
+                className="h-8 w-8"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Export records</TooltipContent>
+          </Tooltip>
+        )}
+
+        {accountId && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setImportOpen(true)}
+                className="h-8 w-8"
+              >
+                <Upload className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Import records</TooltipContent>
+          </Tooltip>
+        )}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -97,6 +149,14 @@ export function RecordsToolbar({
         open={open}
         onOpenChange={(nextOpen) => setOpen(nextOpen)}
       />
+
+      {accountId && (
+        <ImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          accountId={accountId}
+        />
+      )}
     </div>
   );
 }

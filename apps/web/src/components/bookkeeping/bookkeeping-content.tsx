@@ -285,6 +285,7 @@ export function BookkeepingContent() {
               isFiltered={isFiltered}
               helpOpen={helpModalOpen}
               onHelpOpenChange={setHelpModalOpen}
+              accountId={selectedAccountId}
             />
 
             <VirtualizedRecordsList
