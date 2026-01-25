@@ -12,13 +12,13 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 - [x] **PAGI-01**: API endpoints use cursor-based pagination (not offset)
 - [x] **PAGI-02**: API supports server-side filtering with indexed queries
 - [x] **PAGI-03**: API supports server-side sorting with indexed queries
-- [ ] **PAGI-04**: Lists render using virtual scrolling (constant DOM elements)
-- [ ] **PAGI-05**: Lists display row count and result summary ("Showing 1-50 of 2,340,567")
-- [ ] **PAGI-06**: Lists show loading states during pagination and filtering
-- [ ] **PAGI-07**: Infinite scroll integrates with virtual scroll (hybrid pattern)
-- [ ] **PAGI-08**: User can save and load filter/view presets
-- [ ] **PAGI-09**: Common filters available as one-click quick filter chips
-- [ ] **PAGI-10**: Lists support keyboard navigation (j/k for rows, Enter to select)
+- [x] **PAGI-04**: Lists render using virtual scrolling (constant DOM elements)
+- [x] **PAGI-05**: Lists display row count and result summary ("Showing 1-50 of 2,340,567")
+- [x] **PAGI-06**: Lists show loading states during pagination and filtering
+- [x] **PAGI-07**: Infinite scroll integrates with virtual scroll (hybrid pattern)
+- [ ] **PAGI-08**: User can save and load filter/view presets (OUT OF SCOPE)
+- [x] **PAGI-09**: Common filters available as one-click quick filter chips
+- [x] **PAGI-10**: Lists support keyboard navigation (j/k for rows, Enter to select)
 
 ### Client Caching
 
@@ -114,13 +114,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-06 | Phase 19 | Complete |
 | SYNC-07 | Phase 19 | Complete |
 | SYNC-08 | Phase 19 | Complete |
-| PAGI-04 | Phase 20 | Pending |
-| PAGI-05 | Phase 20 | Pending |
-| PAGI-06 | Phase 20 | Pending |
-| PAGI-07 | Phase 20 | Pending |
-| PAGI-08 | Phase 20 | Pending |
-| PAGI-09 | Phase 20 | Pending |
-| PAGI-10 | Phase 20 | Pending |
+| PAGI-04 | Phase 20 | Complete |
+| PAGI-05 | Phase 20 | Complete |
+| PAGI-06 | Phase 20 | Complete |
+| PAGI-07 | Phase 20 | Complete |
+| PAGI-08 | Phase 20 | Out of Scope |
+| PAGI-09 | Phase 20 | Complete |
+| PAGI-10 | Phase 20 | Complete |
 | EXPO-01 | Phase 21 | Pending |
 | EXPO-02 | Phase 21 | Pending |
 | EXPO-03 | Phase 21 | Pending |
@@ -136,4 +136,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-23*
-*Last updated: 2026-01-24 — Phase 19 complete*
+*Last updated: 2026-01-25 — Phase 20 complete (PAGI-04, 05, 06, 07, 09, 10)*

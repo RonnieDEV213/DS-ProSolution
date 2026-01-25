@@ -35,7 +35,7 @@ See commit history for v2 implementation details.
 - [x] **Phase 17: Client Query Caching** - TanStack Query integration with stale-while-revalidate
 - [x] **Phase 18: Client Persistence** - IndexedDB schema with sync state tracking
 - [x] **Phase 19: Sync Protocol** - Sync status UI, optimistic updates, error handling, offline queue
-- [ ] **Phase 20: Virtualized Rendering** - Virtual scroll, infinite scroll, keyboard navigation, filter UX
+- [x] **Phase 20: Virtualized Rendering** - Virtual scroll, infinite scroll, keyboard navigation, filter UX
 - [ ] **Phase 21: Export/Import** - Streaming export, background jobs, import validation
 
 ## Phase Details
@@ -144,7 +144,7 @@ Plans:
 - [x] 20-02-PLAN.md - Infinite scroll integration and keyboard navigation
 - [x] 20-03-PLAN.md - Quick filter chips and scroll restoration
 - [x] 20-04-PLAN.md - Infinite scroll pagination wiring (gap closure)
-- [ ] 20-05-PLAN.md - UAT fixes: row click expand, granular filter chips (gap closure)
+- [x] 20-05-PLAN.md - UAT fixes: row click expand, granular filter chips (gap closure)
 
 ### Phase 21: Export/Import
 **Goal**: Users can export large datasets without browser crashes and import with validation
@@ -177,9 +177,9 @@ Phases execute in numeric order: 15 -> 16 -> 17 -> 18 -> 19 -> 20 -> 21
 | 17. Client Query Caching | v3 | 2/2 | Complete | 2026-01-24 |
 | 18. Client Persistence | v3 | 3/3 | Complete | 2026-01-24 |
 | 19. Sync Protocol | v3 | 6/6 | Complete | 2026-01-24 |
-| 20. Virtualized Rendering | v3 | 4/5 | In progress | - |
+| 20. Virtualized Rendering | v3 | 5/5 | Complete | 2026-01-25 |
 | 21. Export/Import | v3 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-25 - Phase 20 gap closure plan added (20-05)*
+*Last updated: 2026-01-25 - Phase 20 complete (5/5 plans, including UAT gap closure)*
