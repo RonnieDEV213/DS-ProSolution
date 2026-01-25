@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 21 of 21 (Export/Import)
-Plan: 3 of ? in current phase
-Status: In progress
-Last activity: 2026-01-25 - Completed 21-03-PLAN.md (Backend Import Infrastructure)
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-01-25 - Completed 21-04-PLAN.md (Frontend Import UI)
 
-Progress: [████████████████████] 100%+ (22/22+ plans)
+Progress: [████████████████████] 100% (23/23 plans)
 
 ## Shipped Milestones
 
@@ -27,9 +27,9 @@ Progress: [████████████████████] 100%+ (
 ## Performance Metrics
 
 **v3 Velocity:**
-- Total plans completed: 14
-- Average duration: 3.4 min
-- Total execution time: 50 min
+- Total plans completed: 15
+- Average duration: 3.5 min
+- Total execution time: 56 min
 
 **Historical:**
 - v2: 37 plans in 4 days
@@ -93,6 +93,8 @@ Recent decisions affecting current work:
 | Soft-delete for import rollback | 21-03 | Follows existing pattern, maintains audit trail |
 | 24-hour rollback window for imports | 21-03 | Per CONTEXT.md requirement, enforced in code and DB function |
 | Modified record detection via timestamp | 21-03 | Warns user if records edited since import before rollback |
+| SKIP_COLUMN constant for unmapped columns | 21-04 | Clear marker for columns to skip during import |
+| Multi-step wizard for import | 21-04 | Upload -> Mapping -> Preview mirrors all-or-nothing validation |
 
 ### Pending Todos
 
@@ -105,6 +107,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 21-03-PLAN.md (Backend Import Infrastructure)
+Stopped at: Completed 21-04-PLAN.md (Frontend Import UI)
 Resume file: None
-Next action: Continue with Phase 21 remaining plans (frontend import UI)
+Next action: Phase 21 (Export/Import) complete. All v3 phases finished.
