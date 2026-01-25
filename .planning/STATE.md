@@ -95,6 +95,9 @@ Recent decisions affecting current work:
 | Modified record detection via timestamp | 21-03 | Warns user if records edited since import before rollback |
 | SKIP_COLUMN constant for unmapped columns | 21-04 | Clear marker for columns to skip during import |
 | Multi-step wizard for import | 21-04 | Upload -> Mapping -> Preview mirrors all-or-nothing validation |
+| Auto-select export method streaming vs background | 21-02 | Hook decides based on 10K threshold |
+| Three column presets (Essential, Financial, All) | 21-02 | Quick selection plus individual toggles |
+| Toast + browser notification for exports | 21-02 | Toast when active, browser notification when backgrounded |
 
 ### Pending Todos
 
