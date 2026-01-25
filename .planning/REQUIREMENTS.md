@@ -1,7 +1,7 @@
 # Requirements: DS-ProSolution v4 UI/Design System
 
 **Defined:** 2026-01-25
-**Core Value:** Transform DS-ProSolution into a polished Modern SaaS application with custom UI components and preset themes — while maintaining or improving performance.
+**Core Value:** Transform DS-ProSolution into a polished Modern SaaS application with custom UI components and preset themes -- while maintaining or improving performance.
 
 ## v4 Requirements
 
@@ -15,10 +15,10 @@
 
 ### Theme Presets
 
-- [ ] **PRESET-01**: Midnight theme (refined dark — near-black with blue undertone, blue accent)
-- [ ] **PRESET-02**: Dawn theme (light mode — clean white/warm gray, indigo accent)
-- [ ] **PRESET-03**: Slate theme (alternative dark — warm dark gray with green undertone, teal accent)
-- [ ] **PRESET-04**: Carbon theme (high contrast dark — true black, bright cyan accent, OLED-friendly)
+- [ ] **PRESET-01**: Midnight theme (refined dark -- near-black with blue undertone, blue accent)
+- [ ] **PRESET-02**: Dawn theme (light mode -- clean white/warm gray, indigo accent)
+- [ ] **PRESET-03**: Slate theme (alternative dark -- warm dark gray with green undertone, teal accent)
+- [ ] **PRESET-04**: Carbon theme (high contrast dark -- true black, bright cyan accent, OLED-friendly)
 - [ ] **PRESET-05**: System preference detection (`prefers-color-scheme`) sets initial theme
 - [ ] **PRESET-06**: Theme persistence across sessions via localStorage (automatic with `next-themes`)
 
@@ -54,7 +54,7 @@
 - [ ] **TYPE-01**: Documented type scale with CSS variables for consistent heading/body/caption sizes
 - [ ] **TYPE-02**: Font weight conventions established (regular=body, medium=labels, semibold=headings)
 - [ ] **TYPE-03**: `font-mono` (Geist Mono) applied consistently to data values (order IDs, account numbers, monetary values)
-- [ ] **TYPE-04**: Text color hierarchy audited — `text-foreground` for primary, `text-muted-foreground` for secondary
+- [ ] **TYPE-04**: Text color hierarchy audited -- `text-foreground` for primary, `text-muted-foreground` for secondary
 
 ### Color Migration
 
@@ -76,14 +76,14 @@
 - [ ] **POLISH-06**: Skeleton loading states for dashboard cards, table rows, sidebar
 - [ ] **POLISH-07**: Empty state designs (search-no-results, first-time-empty, error-empty, filtered-empty)
 - [ ] **POLISH-08**: Focus ring consistency audit across all interactive elements
-- [ ] **POLISH-09**: Command palette (Cmd+K) — lazy-loaded, search pages/entities/actions
+- [ ] **POLISH-09**: Command palette (Cmd+K) -- lazy-loaded, search pages/entities/actions
 - [ ] **POLISH-10**: Keyboard shortcuts for common actions (N=new, F=filter, E=export)
 
 ## Future Requirements
 
 ### Deferred from v4
 
-- **THEME-CUSTOM-01**: User-customizable accent color picker (accessibility concerns — need vetted palette)
+- **THEME-CUSTOM-01**: User-customizable accent color picker (accessibility concerns -- need vetted palette)
 - **THEME-CUSTOM-02**: Runtime theme generation from user color input (Linear-style 3-variable approach)
 - **LAYOUT-RESPONSIVE-01**: Responsive sidebar collapse for mobile/tablet (desktop-first tool)
 - **DENSE-01**: Data-dense dashboard layout option (configurable in settings)
@@ -117,6 +117,13 @@
 | THEME-03 | Phase 22 | Pending |
 | THEME-04 | Phase 22 | Pending |
 | THEME-05 | Phase 22 | Pending |
+| SCROLL-01 | Phase 22 | Pending |
+| SCROLL-02 | Phase 22 | Pending |
+| SCROLL-03 | Phase 22 | Pending |
+| SCROLL-04 | Phase 22 | Pending |
+| SCROLL-05 | Phase 22 | Pending |
+| TYPE-01 | Phase 22 | Pending |
+| TYPE-02 | Phase 22 | Pending |
 | PRESET-01 | Phase 23 | Pending |
 | PRESET-02 | Phase 23 | Pending |
 | PRESET-03 | Phase 23 | Pending |
@@ -128,11 +135,6 @@
 | SWITCH-03 | Phase 23 | Pending |
 | SWITCH-04 | Phase 23 | Pending |
 | SWITCH-05 | Phase 23 | Pending |
-| SCROLL-01 | Phase 22 | Pending |
-| SCROLL-02 | Phase 22 | Pending |
-| SCROLL-03 | Phase 22 | Pending |
-| SCROLL-04 | Phase 22 | Pending |
-| SCROLL-05 | Phase 22 | Pending |
 | LAYOUT-01 | Phase 24 | Pending |
 | LAYOUT-02 | Phase 24 | Pending |
 | LAYOUT-03 | Phase 24 | Pending |
@@ -141,10 +143,6 @@
 | LAYOUT-06 | Phase 24 | Pending |
 | LAYOUT-07 | Phase 24 | Pending |
 | LAYOUT-08 | Phase 24 | Pending |
-| TYPE-01 | Phase 22 | Pending |
-| TYPE-02 | Phase 22 | Pending |
-| TYPE-03 | Phase 25 | Pending |
-| TYPE-04 | Phase 25 | Pending |
 | MIGRATE-01 | Phase 25 | Pending |
 | MIGRATE-02 | Phase 25 | Pending |
 | MIGRATE-03 | Phase 25 | Pending |
@@ -152,6 +150,8 @@
 | MIGRATE-05 | Phase 25 | Pending |
 | MIGRATE-06 | Phase 25 | Pending |
 | MIGRATE-07 | Phase 25 | Pending |
+| TYPE-03 | Phase 25 | Pending |
+| TYPE-04 | Phase 25 | Pending |
 | POLISH-01 | Phase 26 | Pending |
 | POLISH-02 | Phase 26 | Pending |
 | POLISH-03 | Phase 26 | Pending |
@@ -164,10 +164,10 @@
 | POLISH-10 | Phase 26 | Pending |
 
 **Coverage:**
-- v4 requirements: 48 total
-- Mapped to phases: 48
+- v4 requirements: 50 total
+- Mapped to phases: 50
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after initial definition*
+*Last updated: 2026-01-25 after roadmap creation (phase assignments finalized)*

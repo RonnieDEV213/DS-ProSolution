@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** v4 UI/Design System
+**Current focus:** v4 UI/Design System - Phase 22: Theme Foundation & Color Token Migration
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements for v4
-Last activity: 2026-01-25 — Milestone v4 UI/Design System started
+Phase: 22 of 26 (Theme Foundation & Color Token Migration)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-25 — v4 roadmap created (5 phases, 50 requirements)
 
-Progress: Milestone initialized, moving to research/requirements
+Progress: [░░░░░░░░░░] 0% (v4 milestone)
 
 ## Shipped Milestones
 
@@ -29,12 +29,8 @@ Progress: Milestone initialized, moving to research/requirements
 
 ## Performance Metrics
 
-**v3 Velocity:**
-- Total plans completed: 23
-- Commits: 60
-- Total execution time: 2 days
-
 **Historical:**
+- v3: 23 plans in 2 days
 - v2: 37 plans in 4 days
 - v1: 12 plans in 3 days
 
@@ -51,10 +47,12 @@ None.
 ### Blockers/Concerns
 
 **v4 constraint:** Performance-neutral minimum, performance-positive preferred. All UI changes must use CSS-first approach to avoid compute overhead.
+**v4 constraint:** Theme switching must trigger ZERO React re-renders -- CSS variable cascade only.
+**v4 constraint:** No CSS-in-JS, no JS scrollbar libraries. Scrollbar styling must be CSS-only to preserve react-window virtualization.
 
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: v4 milestone started, moving to research
+Stopped at: v4 roadmap created, ready to plan Phase 22
 Resume file: None
-Next action: Research or define requirements
+Next action: Plan Phase 22 (Theme Foundation & Color Token Migration)
