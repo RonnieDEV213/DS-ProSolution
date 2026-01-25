@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 20-virtualized-rendering
 source: 20-01-SUMMARY.md, 20-02-SUMMARY.md, 20-03-SUMMARY.md, 20-04-SUMMARY.md
 started: 2026-01-25T00:15:00Z
@@ -71,9 +71,12 @@ skipped: 0
   reason: "User reported: Clicking a row does not expand it, clicking the row's arrow and pressing enter does expand and close it"
   severity: minor
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Row container div has no onClick handler - only the arrow button triggers onToggleExpand"
+  artifacts:
+    - path: "apps/web/src/components/bookkeeping/record-row.tsx"
+      issue: "Main row div (line 354-363) lacks onClick to toggle expand"
+  missing:
+    - "Add onClick to row container that calls onToggleExpand(record.id)"
   debug_session: ""
 
 - truth: "Status filter chips should include granular return statuses"
@@ -81,7 +84,10 @@ skipped: 0
   reason: "User reported: I think there should be a return close and return label filter chip instead of only a return chip"
   severity: minor
   test: 8
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "QUICK_FILTERS array combines RETURN_LABEL_PROVIDED and RETURN_CLOSED into single 'Returns' chip"
+  artifacts:
+    - path: "apps/web/src/components/bookkeeping/quick-filter-chips.tsx"
+      issue: "Lines 9-13 define combined Returns filter instead of separate chips"
+  missing:
+    - "Split 'Returns' filter into 'Return Label' and 'Return Closed' filters"
   debug_session: ""
