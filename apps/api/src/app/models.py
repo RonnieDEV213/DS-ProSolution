@@ -1,9 +1,12 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import Literal, Optional
+from typing import Generic, Literal, Optional, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, field_validator
+
+
+T = TypeVar("T")
 
 
 # ============================================================
@@ -1166,6 +1169,258 @@ class CollectionScheduleUpdate(BaseModel):
 
 
 # ============================================================
+# Cursor Pagination Models
+# ============================================================
+
+
+class CursorPage(BaseModel, Generic[T]):
+    """
+    Standard cursor-based pagination response.
+
+    Usage:
+        class RecordSyncResponse(CursorPage[RecordResponse]):
+            pass
+    """
+    items: list[T]
+    next_cursor: Optional[str] = None  # None when no more pages
+    has_more: bool
+    total_estimate: Optional[int] = None  # Approximate count for UI display
+
+
+# ============================================================
+# Export/Import Models
+# ============================================================
+
+
+class ExportFormat(str, Enum):
+    CSV = "csv"
+    JSON = "json"
+    EXCEL = "excel"
+
+
+class ExportJobStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+# Valid columns for export
+EXPORT_COLUMNS = [
+    "id",
+    "ebay_order_id",
+    "sale_date",
+    "item_name",
+    "qty",
+    "sale_price_cents",
+    "ebay_fees_cents",
+    "earnings_net_cents",
+    "amazon_price_cents",
+    "amazon_tax_cents",
+    "amazon_shipping_cents",
+    "cogs_total_cents",
+    "amazon_order_id",
+    "status",
+    "return_label_cost_cents",
+    "profit_cents",
+    "order_remark",
+    "service_remark",
+]
+
+
+class ExportRequest(BaseModel):
+    """Request for streaming export."""
+
+    account_id: str
+    format: ExportFormat
+    columns: Optional[list[str]] = None  # Defaults to all columns
+    status: Optional[BookkeepingStatus] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+
+    @field_validator("columns")
+    @classmethod
+    def validate_columns(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        if v is not None:
+            invalid = [c for c in v if c not in EXPORT_COLUMNS]
+            if invalid:
+                raise ValueError(f"Invalid columns: {invalid}")
+        return v
+
+
+class ExportJobCreate(BaseModel):
+    """Request for background export job."""
+
+    account_id: str
+    format: ExportFormat
+    columns: Optional[list[str]] = None
+    status: Optional[BookkeepingStatus] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+
+    @field_validator("columns")
+    @classmethod
+    def validate_columns(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        if v is not None:
+            invalid = [c for c in v if c not in EXPORT_COLUMNS]
+            if invalid:
+                raise ValueError(f"Invalid columns: {invalid}")
+        return v
+
+
+class ExportJobResponse(BaseModel):
+    """Response for export job status."""
+
+    job_id: str
+    status: ExportJobStatus
+    row_count: Optional[int] = None
+    file_url: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class ExportJobListItem(BaseModel):
+    """Item for export job list."""
+
+    job_id: str
+    account_id: str
+    format: ExportFormat
+    status: ExportJobStatus
+    row_count: Optional[int] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class ExportJobListResponse(BaseModel):
+    """Paginated export job list response."""
+
+    jobs: list[ExportJobListItem]
+    total: int
+    page: int
+    page_size: int
+
+
+# ============================================================
+# Sync Response Models
+# ============================================================
+
+
+class RecordSyncItem(BaseModel):
+    """Record data for sync (subset of RecordResponse for efficiency)."""
+    id: str
+    account_id: str
+    ebay_order_id: str
+    sale_date: date
+    item_name: str
+    qty: int
+    sale_price_cents: int
+    ebay_fees_cents: Optional[int] = None
+    amazon_price_cents: Optional[int] = None
+    amazon_tax_cents: Optional[int] = None
+    amazon_shipping_cents: Optional[int] = None
+    amazon_order_id: Optional[str] = None
+    status: BookkeepingStatus
+    return_label_cost_cents: Optional[int] = None
+    order_remark: Optional[str] = None
+    service_remark: Optional[str] = None
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None  # For sync: null = active, set = deleted
+
+    @classmethod
+    def from_db(
+        cls,
+        data: dict,
+        order_remark: Optional[str] = None,
+        service_remark: Optional[str] = None,
+    ) -> "RecordSyncItem":
+        """Create RecordSyncItem from database row."""
+        return cls(
+            id=data["id"],
+            account_id=data["account_id"],
+            ebay_order_id=data["ebay_order_id"],
+            sale_date=data["sale_date"],
+            item_name=data["item_name"],
+            qty=data["qty"],
+            sale_price_cents=data["sale_price_cents"],
+            ebay_fees_cents=data.get("ebay_fees_cents"),
+            amazon_price_cents=data.get("amazon_price_cents"),
+            amazon_tax_cents=data.get("amazon_tax_cents"),
+            amazon_shipping_cents=data.get("amazon_shipping_cents"),
+            amazon_order_id=data.get("amazon_order_id"),
+            status=data["status"],
+            return_label_cost_cents=data.get("return_label_cost_cents"),
+            order_remark=order_remark,
+            service_remark=service_remark,
+            updated_at=data["updated_at"],
+            deleted_at=data.get("deleted_at"),
+        )
+
+
+class RecordSyncResponse(CursorPage[RecordSyncItem]):
+    """Paginated records for sync."""
+    pass
+
+
+class AccountSyncItem(BaseModel):
+    """Account data for sync."""
+    id: str
+    account_code: str
+    name: Optional[str] = None
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+    @classmethod
+    def from_db(cls, data: dict) -> "AccountSyncItem":
+        """Create AccountSyncItem from database row."""
+        return cls(
+            id=data["id"],
+            account_code=data["account_code"],
+            name=data.get("name"),
+            updated_at=data["updated_at"],
+            deleted_at=data.get("deleted_at"),
+        )
+
+
+class AccountSyncResponse(CursorPage[AccountSyncItem]):
+    """Paginated accounts for sync."""
+    pass
+
+
+class SellerSyncItem(BaseModel):
+    """Seller data for sync."""
+    id: str
+    display_name: str
+    normalized_name: str
+    platform: str
+    platform_id: Optional[str] = None
+    times_seen: int
+    flagged: bool = False
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+    @classmethod
+    def from_db(cls, data: dict) -> "SellerSyncItem":
+        """Create SellerSyncItem from database row."""
+        return cls(
+            id=data["id"],
+            display_name=data["display_name"],
+            normalized_name=data["normalized_name"],
+            platform=data["platform"],
+            platform_id=data.get("platform_id"),
+            times_seen=data["times_seen"],
+            flagged=data.get("flagged", False),
+            updated_at=data["updated_at"],
+            deleted_at=data.get("deleted_at"),
+        )
+
+
+class SellerSyncResponse(CursorPage[SellerSyncItem]):
+    """Paginated sellers for sync."""
+    pass
+
+
+# ============================================================
 # Activity Stream Models
 # ============================================================
 
@@ -1183,3 +1438,94 @@ class ActivityEntry(BaseModel):
     seller_found: Optional[str] = None
     new_sellers_count: Optional[int] = None
     error_message: Optional[str] = None
+
+
+# ============================================================
+# Import Models
+# ============================================================
+
+
+class ImportFormat(str, Enum):
+    CSV = "csv"
+    JSON = "json"
+    EXCEL = "excel"
+
+
+class ImportValidationError(BaseModel):
+    """Single validation error for a row."""
+
+    row: int  # Excel row number (1-indexed + header)
+    field: str
+    message: str
+
+
+class ImportPreviewRow(BaseModel):
+    """Single row in import preview."""
+
+    row_number: int
+    data: dict  # Mapped column data
+    is_valid: bool
+    errors: list[ImportValidationError]
+
+
+class ImportValidationResponse(BaseModel):
+    """Response from import validation endpoint."""
+
+    preview: list[ImportPreviewRow]  # First 100 rows
+    errors: list[ImportValidationError]  # All errors from preview
+    total_rows: int
+    valid_rows: int
+    suggested_mapping: dict[str, str]  # CSV header -> DB field
+
+
+class ImportCommitRequest(BaseModel):
+    """Request to commit validated import."""
+
+    account_id: str
+    filename: str
+    format: ImportFormat
+    column_mapping: dict[str, str]  # User-confirmed mapping
+    # File data passed separately via form data
+
+
+class ImportCommitResponse(BaseModel):
+    """Response from import commit."""
+
+    batch_id: str
+    rows_imported: int
+
+
+class ImportBatchResponse(BaseModel):
+    """Import batch details for history/rollback."""
+
+    id: str
+    account_id: str
+    filename: str
+    row_count: int
+    format: str
+    created_at: datetime
+    can_rollback: bool
+    rolled_back_at: Optional[datetime] = None
+
+
+class ImportBatchListResponse(BaseModel):
+    """List of import batches."""
+
+    batches: list[ImportBatchResponse]
+
+
+class ImportRollbackWarning(BaseModel):
+    """Warning about modified records before rollback."""
+
+    warning: str
+    modified_count: int
+    modified_record_ids: list[str]
+    requires_confirmation: bool
+
+
+class ImportRollbackResponse(BaseModel):
+    """Response from rollback (success or warning)."""
+
+    success: bool = False
+    rows_deleted: int = 0
+    warning: Optional[ImportRollbackWarning] = None

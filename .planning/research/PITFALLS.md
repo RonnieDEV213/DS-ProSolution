@@ -1,415 +1,699 @@
-# SellerCollection Pitfalls
+# Domain Pitfalls: Large-Scale Data Infrastructure (v3)
 
-**Domain:** Amazon Best Sellers scraping + eBay seller collection workflow
-**Researched:** 2026-01-20
-**Confidence:** HIGH (verified against official API documentation and scraping service providers)
-
-**Note:** Bot detection and account suspension risks are covered in [EXISTING-RISKS.md](./EXISTING-RISKS.md). This document focuses on SellerCollection-specific pitfalls: API costs, data quality, edge cases, and workflow reliability.
+**Domain:** eBay account management platform - cursor pagination, IndexedDB caching, incremental sync, virtualized rendering
+**Researched:** 2026-01-23
+**Confidence:** HIGH (multiple authoritative sources cross-referenced)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause budget overruns, data corruption, or workflow failure.
+Mistakes that cause rewrites or major architectural issues. Address these in design, not as bugs.
 
-### Pitfall 1: Unbounded API Cost Explosion
+---
 
-**What goes wrong:**
-Admin triggers SellerCollection expecting ~1,000 products. Amazon has 40+ Best Seller categories, each with up to 100 products. For each product, 3-5 eBay searches are triggered. Total: 40 x 100 x 5 = 20,000 API calls. At $2.45/1K (ScraperAPI) or ~$1/1K (Rainforest), a single run costs $20-50. Monthly runs without monitoring quietly burn $600/year.
+### CP-01: Non-Unique Cursor Columns (Pagination)
 
-**Why it happens:**
-Developers estimate based on a few test categories. They don't account for category count growth, subcategories, or eBay search multipliers. No cost caps are implemented because "it's just scraping."
+**What goes wrong:** Using `updated_at` or `created_at` alone as cursor produces duplicate or missing records when multiple rows share the same timestamp. With 1000 rows at the same `updated_at` and page size of 100, there is no safe way to traverse.
+
+**Why it happens:** Developers assume timestamps are unique enough. Batch inserts, concurrent writes, and clock precision (millisecond) create collisions. PostgreSQL can commit rows out-of-order relative to sequence values.
+
+**Consequences:**
+- Users see same records on multiple pages
+- Users skip records entirely (never visible)
+- Infinite loops when all visible records share the cursor value
+- Sync processes miss records during incremental fetch
 
 **Warning signs:**
-- No API budget tracking in admin dashboard
-- No cost-per-run estimates shown before triggering
-- No alerts when approaching budget thresholds
-- Monthly billing surprises from API providers
+- QA reports "I saw this item twice"
+- Record counts don't match between paginated fetch and COUNT(*)
+- Automated tests pass but production shows duplicates
 
 **Prevention:**
-- Display estimated cost before Admin confirms trigger
-- Implement hard budget cap per run (e.g., $25 max)
-- Track cumulative monthly spend in database
-- Alert at 50%, 75%, 90% of monthly budget
-- Allow category selection to limit scope
+1. **Always use compound cursors**: `(updated_at, id)` not just `updated_at`
+2. **Use tuple comparison**: `WHERE (updated_at, id) > ($cursor_ts, $cursor_id)`
+3. **Index both columns together**: `CREATE INDEX idx_compound ON table(updated_at DESC, id DESC)`
+4. **Never use non-unique columns alone** - even UUIDs can collide in edge cases
 
-**Phase to address:** Phase 1 (Data Collection Infrastructure) - budget controls must exist before first real run
+**Which phase should address:** Phase 1 (Pagination Infrastructure) - must be correct from day one
+
+**Recovery strategy:** Requires API contract change if already shipped. Add `cursor_id` field, deprecate old cursor, migrate clients.
+
+**Sources:**
+- [Keyset Cursors for Postgres Pagination](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/)
+- [Cursor Pagination PostgreSQL Guide](https://bun.uptrace.dev/guide/cursor-pagination.html)
+- [Paginating Large Ordered Datasets](https://brunoscheufler.com/blog/2022-01-01-paginating-large-ordered-datasets-with-cursor-based-pagination)
 
 ---
 
-### Pitfall 2: Long-Running Job Timeout Without Progress Persistence
+### CP-02: IndexedDB Transaction Auto-Commit (Async/Await Trap)
 
-**What goes wrong:**
-SellerCollection job processes 10,000 products. At 500ms per API call (rate-limited), job takes ~90 minutes. Server timeout at 60 minutes kills job. No progress saved. Admin restarts, job starts from beginning, doubles API costs, still fails.
+**What goes wrong:** Transaction commits automatically before async operations complete. Any `await` to external API (fetch, setTimeout) inside a transaction causes `TransactionInactiveError`.
 
-**Why it happens:**
-Developers test with 50 products (25 seconds). Production has 200x more data. HTTP request timeouts, worker timeouts, and database connection limits all converge to kill long jobs.
+**Why it happens:** IndexedDB transactions have an "active flag" that clears when control returns from the event loop tick. Promise microtasks can keep it alive briefly, but any macrotask (fetch, setTimeout) causes commit. Firefox is stricter than Chrome - even Promise.resolve().then() can trigger premature commit.
+
+**Consequences:**
+- `TransactionInactiveError` thrown mid-operation
+- Partial writes corrupt data integrity
+- Works in Chrome testing, fails in Firefox/Safari production
+- Silent data loss when transactions commit before all writes
 
 **Warning signs:**
-- Job starts but never completes
-- No progress indicator in admin UI
-- API costs double without results
-- Database shows partial data from interrupted runs
-- "Connection reset" or timeout errors in logs
+- "Transaction is not active" errors in console
+- Data inconsistency after page refresh
+- Works locally, fails in specific browsers
+- Operations succeed in sequence but fail in parallel
 
 **Prevention:**
-- Implement checkpointing: save progress every 100 products
-- Use background job queue (Celery, RQ) not HTTP request
-- Store job state: `{total: 10000, completed: 3500, last_category: "Electronics"}`
-- On restart, resume from last checkpoint
-- Set realistic timeout (2-4 hours) with progress heartbeat
+1. **Never await external operations inside transactions**
+2. **Fetch all data before starting transaction**
+3. **Use explicit `transaction.commit()` when supported**
+4. **Structure code**: gather data -> open transaction -> write all -> close
+5. **Test in Firefox** (stricter transaction timing than Chrome)
 
-**Phase to address:** Phase 1 (Data Collection Infrastructure) - job architecture must support long runs
+**Code pattern to avoid:**
+```typescript
+// WRONG - will auto-commit before fetch returns
+const tx = db.transaction('store', 'readwrite');
+const data = await fetch('/api/data'); // Transaction commits here!
+await tx.store.put(data); // TransactionInactiveError
+```
+
+**Correct pattern:**
+```typescript
+// RIGHT - gather first, then transact
+const data = await fetch('/api/data');
+const tx = db.transaction('store', 'readwrite');
+await tx.store.put(data);
+await tx.done;
+```
+
+**Which phase should address:** Phase 2 (IndexedDB Layer) - foundation of all client-side caching
+
+**Recovery strategy:** Refactor all transaction code. Use wrapper library (Dexie.js, idb) that handles this correctly.
+
+**Sources:**
+- [IndexedDB Promises Proposal](https://github.com/inexorabletash/indexeddb-promises)
+- [Pain and Anguish of IndexedDB](https://gist.github.com/pesterhazy/4de96193af89a6dd5ce682ce2adff49a)
+- [IDB Transaction Commit Explainer](https://andreas-butler.github.io/idb-transaction-commit/EXPLAINER.html)
 
 ---
 
-### Pitfall 3: Amazon Parent ASIN Confusion
+### CP-03: Safari 7-Day Storage Eviction (Data Loss)
 
-**What goes wrong:**
-Best Sellers list includes parent ASINs (non-buyable umbrella products). Scraper extracts parent ASIN, searches eBay, finds zero results. Alternatively, scraper follows parent to random child variation, gets inconsistent product data. Seller collection becomes random.
+**What goes wrong:** Safari deletes ALL browser storage (IndexedDB, localStorage, WebSQL) after 7 days of user inactivity. Users return to find their cached data gone.
 
-**Why it happens:**
-Amazon's parent-child ASIN structure is invisible to naive scrapers. A "product" in Best Sellers might be a family of 50 color/size variations. Only child ASINs are sellable; parent ASINs are catalog structures.
+**Why it happens:** Safari's Intelligent Tracking Prevention (ITP) treats client-side storage as potential tracking mechanism. Unlike other browsers, Safari aggressively evicts even legitimate app data.
+
+**Consequences:**
+- Users lose offline data after vacation/break
+- Re-sync required from scratch (bandwidth, time)
+- Perceived app unreliability
+- Support tickets: "All my data disappeared"
 
 **Warning signs:**
-- eBay searches returning zero results for "valid" Amazon products
-- Same product appearing multiple times with different attributes
-- Price data showing as null or "Select options"
-- Inconsistent product titles across runs
+- Safari users report data loss after not using app
+- Analytics show Safari users have longer initial load times
+- Support tickets cluster around Monday mornings (weekend inactivity)
 
 **Prevention:**
-- Detect parent ASINs (no price, "Select options" present)
-- For parent ASINs, either: skip entirely, or extract first/popular child ASIN
-- Document strategy: "We collect sellers for best-selling child variations only"
-- Validate extracted data has price before proceeding to eBay search
+1. **Request persistent storage**: `navigator.storage.persist()` (may not work in Safari)
+2. **Design for re-sync**: Assume cache is ephemeral, server is source of truth
+3. **Track last sync time**: Warn users if cache is stale
+4. **Don't store critical data only in IndexedDB** - always recoverable from server
+5. **Document limitation** for users in Safari
 
-**Phase to address:** Phase 2 (Amazon Best Sellers Collection) - ASIN handling logic is core to data quality
+**Which phase should address:** Phase 2 (IndexedDB Layer) and Phase 3 (Sync Protocol)
+
+**Recovery strategy:** Graceful degradation - detect empty cache, trigger full sync, show progress indicator.
+
+**Sources:**
+- [IndexedDB Max Storage Limits](https://rxdb.info/articles/indexeddb-max-storage-limit.html)
+- [MDN Storage Quotas and Eviction](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria)
 
 ---
 
-### Pitfall 4: eBay Search Returns Zero Sellers (Silent Failure)
+### CP-04: Optimistic Update Rollback Races (Sync Conflicts)
 
-**What goes wrong:**
-Amazon product "XYZ Widget Pro" searched on eBay returns zero results. Could be: product not sold on eBay, search terms too specific, geographic restrictions, or API error. System logs "0 sellers found" and moves on. After full run, 40% of products yielded zero sellers - but nobody knows if that's expected or a bug.
+**What goes wrong:** User makes change A, then change B while A is in-flight. A fails and needs rollback, but B's optimistic state is based on A's optimistic state. Rollback creates inconsistent UI.
 
-**Why it happens:**
-Zero results is a valid outcome (product genuinely not on eBay). But it's also the outcome of search failures, rate limiting, and malformed queries. Without distinguishing these, data quality degrades silently.
+**Why it happens:** Each optimistic update snapshots "previous state" for rollback. When updates overlap, rollback targets are stale. Without proper sequencing, later updates don't know earlier ones failed.
+
+**Consequences:**
+- UI shows impossible states (rolled back partially)
+- User confusion about what actually saved
+- Data inconsistency between client and server
+- Race conditions create non-reproducible bugs
 
 **Warning signs:**
-- High percentage (>30%) of products with zero eBay results
-- Inconsistent zero-result rates between runs
-- No distinction between "searched, nothing found" vs "search failed"
-- API error responses logged but not surfaced
+- Users report "data jumping around"
+- Quick double-clicks cause weird states
+- Undo/redo behavior is unpredictable
+- QA cannot reproduce user-reported bugs
 
 **Prevention:**
-- Track three states: `sellers_found`, `no_sellers_exist`, `search_failed`
-- Log API response status separately from result count
-- Alert if zero-result rate exceeds historical baseline by >20%
-- Implement search term fallback: full title -> shortened title -> brand + keywords
-- Store raw API response for debugging failed searches
+1. **Sequence mutations**: Don't allow overlapping optimistic updates to same entity
+2. **Use mutation queues**: Process changes FIFO, rollback affects entire queue
+3. **Cancel in-flight requests** before applying conflicting optimistic update
+4. **Track dependency chains**: B depends on A, if A fails, invalidate B
+5. **Consider last-write-wins** for simple cases vs complex CRDT
 
-**Phase to address:** Phase 3 (eBay Seller Search) - error handling strategy before scaling
+**Which phase should address:** Phase 3 (Sync Protocol) - must design mutation flow correctly
+
+**Recovery strategy:** Implement proper optimistic update library (TanStack Query's optimistic updates, or custom queue).
+
+**Sources:**
+- [Concurrent Optimistic Updates in React Query](https://tkdodo.eu/blog/concurrent-optimistic-updates-in-react-query)
+- [Optimistic State with Rollbacks](https://github.com/perceived-dev/optimistic-state)
 
 ---
 
-### Pitfall 5: Seller Name Deduplication Inconsistency
+### CP-05: IndexedDB Schema Migration Version Conflicts (Multi-Tab)
 
-**What goes wrong:**
-Seller "TechGadgets_Store" found in run 1. In run 2, same seller appears as "techgadgets_store" (lowercase) or "TechGadgets Store" (underscore removed). System inserts as new seller. Database accumulates duplicates. Seller count inflated, downstream analysis corrupted.
+**What goes wrong:** User has two tabs open. New deployment upgrades IndexedDB schema. New tab tries to upgrade, old tab blocks it because it has connection open. App deadlocks or corrupts.
 
-**Why it happens:**
-eBay seller names have display variations. API might return different casing or formatting based on context. Simple string equality misses these duplicates.
+**Why it happens:** IndexedDB `onupgradeneeded` requires exclusive access. Old tabs with open connections receive `onversionchange` but may not close connection quickly. New tabs wait on `onblocked` indefinitely.
+
+**Consequences:**
+- App freezes on load
+- Old tab crashes or shows stale data
+- Schema migration never completes
+- Data corruption if partial migration
 
 **Warning signs:**
-- Seller count growing faster than expected
-- Similar-looking seller names in database
-- Same seller appearing in "new sellers" list repeatedly
-- Downstream reports showing inflated unique seller counts
+- Users report "app won't load" after update
+- "Multiple tabs" support tickets
+- Migration works in fresh browser, fails for active users
+- Postman/GitHub had this exact issue
 
 **Prevention:**
-- Normalize seller names before storage: lowercase, strip special chars, trim whitespace
-- Store both `display_name` (original) and `normalized_name` (for dedup)
-- Deduplicate on normalized_name, not display_name
-- Consider fuzzy matching for near-duplicates (Levenshtein distance < 2)
-- Log dedup decisions for audit trail
+1. **Handle `onversionchange`**: Force-close database or prompt user to refresh all tabs
+2. **Handle `onblocked`**: Show UI explaining other tabs must close
+3. **Use version-aware connection pooling**: Don't leave connections open
+4. **Test multi-tab scenarios** in CI/QA
+5. **Consider broadcast channel** to coordinate tab shutdown
 
-**Phase to address:** Phase 4 (Data Storage & Deduplication) - normalization rules before first storage
+**Code pattern:**
+```typescript
+db.onversionchange = () => {
+  db.close();
+  alert('Database update required. Please refresh all tabs.');
+};
+
+request.onblocked = () => {
+  console.warn('Database upgrade blocked by another tab');
+  // Show UI to user
+};
+```
+
+**Which phase should address:** Phase 2 (IndexedDB Layer) - must handle from initial implementation
+
+**Recovery strategy:** Add version change handlers, implement tab coordination, consider service worker for single connection.
+
+**Sources:**
+- [Handling IndexedDB Upgrade Version Conflict](https://dev.to/ivandotv/handling-indexeddb-upgrade-version-conflict-368a)
+- [MDN Using IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB)
 
 ---
 
-## Moderate Pitfalls
+## Performance Traps
 
-Mistakes that cause delays, tech debt, or degraded user experience.
+Mistakes that cause slowness, memory issues, or degraded UX. May not break functionality but harm user experience at scale.
 
-### Pitfall 6: Category Structure Changes Breaking Scraper
+---
 
-**What goes wrong:**
-Amazon reorganizes Best Sellers categories. "Cell Phones & Accessories" splits into "Smartphones" and "Phone Accessories". Hardcoded category list now misses half the products. Alternatively, category URLs change, scraper returns 404s.
+### PT-01: Missing Compound Index for Cursor Pagination
 
-**Why it happens:**
-Amazon updates Best Sellers structure periodically. Scrapers hardcode category paths assuming stability. No monitoring detects when categories change.
+**What goes wrong:** Query `WHERE (updated_at, id) > ($1, $2) ORDER BY updated_at, id` does sequential scan instead of index scan. Performance degrades from O(log n) to O(n).
+
+**Why it happens:** Developers create separate indexes on `updated_at` and `id`, but tuple comparison needs compound index. PostgreSQL query planner can't efficiently combine single-column indexes for this pattern.
+
+**Consequences:**
+- First pages fast, deep pages slow (minutes for page 1000)
+- Database CPU spikes during pagination
+- Timeouts on large datasets
+- Users abandon app waiting for "Load More"
 
 **Warning signs:**
-- Sudden drop in products collected (categories missing)
-- 404 errors in logs for category URLs
-- New categories appearing in Amazon UI but not in results
-- Manual comparison shows missing categories
+- EXPLAIN shows Seq Scan instead of Index Scan
+- Query time increases linearly with page depth
+- Database monitoring shows high CPU during list views
+- Works fine with 1000 records, crawls at 1M
 
 **Prevention:**
-- Dynamically discover categories from Best Sellers main page
-- Don't hardcode category URLs; scrape them each run
-- Alert if category count changes >10% from last run
-- Store category metadata (name, URL, product count) for comparison
-- Fallback to cached category list if discovery fails
+1. **Create compound index matching query**: `CREATE INDEX ON table(updated_at DESC, id DESC)`
+2. **Match index direction to ORDER BY** - DESC cursor needs DESC index
+3. **Run EXPLAIN ANALYZE** on pagination queries during development
+4. **Test with production-scale data** before shipping
+5. **Supabase**: Verify RLS doesn't prevent index usage
 
-**Phase to address:** Phase 2 (Amazon Best Sellers Collection) - dynamic discovery vs hardcoded paths
+**Which phase should address:** Phase 1 (Pagination Infrastructure)
+
+**Recovery strategy:** Add index (may take hours on large tables), consider `CREATE INDEX CONCURRENTLY`.
+
+**Sources:**
+- [Five Ways to Paginate in Postgres](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/)
+- [Optimizing SQL Pagination in Postgres](https://readyset.io/blog/optimizing-sql-pagination-in-postgres)
 
 ---
 
-### Pitfall 7: Rate Limit Exhaustion Mid-Job
+### PT-02: Unbounded Infinite Query Memory Growth
 
-**What goes wrong:**
-Third-party API (Rainforest, ScraperAPI) has daily rate limits. Job starts, processes 60% of products, hits rate limit. Remaining 40% fails. Partial data stored. Next day, job restarts from beginning (no checkpoint), re-processes same 60%, hits limit again at same point.
+**What goes wrong:** TanStack Query's infinite queries store all fetched pages in memory. After loading 100 pages of 50 items each, 5000 records are in memory. Mobile devices crash.
 
-**Why it happens:**
-Rate limits are documented but not enforced in code. Developers assume "we won't hit the limit" without calculating actual needs.
+**Why it happens:** Default infinite query behavior appends pages indefinitely. No automatic pruning. Developers test with few pages, users scroll for hours.
+
+**Consequences:**
+- Browser memory grows without bound
+- Tab crashes on mobile (especially iOS Safari)
+- Entire app becomes sluggish
+- Cannot recover without page refresh
 
 **Warning signs:**
-- Consistent failure at same percentage of job completion
-- HTTP 429 errors in logs
-- API provider dashboard showing limit reached
-- Jobs completing but with less data than expected
+- Memory profiler shows constant growth during scrolling
+- iOS Safari tab refreshes/crashes
+- "Aw, Snap!" errors in Chrome after extended use
+- Performance degrades over session duration
 
 **Prevention:**
-- Calculate required API calls before job start
-- Compare to remaining daily quota
-- If insufficient quota: queue job for next day, or split across days
-- Implement exponential backoff on 429 errors
-- Track API usage in database, not just provider dashboard
+1. **Use `maxPages` option** in TanStack Query infinite queries
+2. **Implement bidirectional scrolling**: Drop pages when scrolling away
+3. **Virtual window of pages**: Keep only visible pages + buffer
+4. **Monitor memory usage**: `performance.memory` in Chrome
+5. **Test extended scroll sessions** in QA
 
-**Phase to address:** Phase 1 (Data Collection Infrastructure) - quota awareness before scaling
+**Code pattern:**
+```typescript
+useInfiniteQuery({
+  // Only keep 5 pages in memory
+  maxPages: 5,
+  getNextPageParam: (lastPage) => lastPage.nextCursor,
+  getPreviousPageParam: (firstPage) => firstPage.prevCursor,
+});
+```
+
+**Which phase should address:** Phase 4 (Virtualization) - must implement from start
+
+**Recovery strategy:** Add maxPages, implement page pruning, may require re-architecture if deeply integrated.
+
+**Sources:**
+- [TanStack Query Infinite Queries](https://tanstack.com/query/latest/docs/framework/react/guides/infinite-queries)
+- [TanStack Virtual Memory Leak Issue](https://github.com/TanStack/virtual/issues/196)
 
 ---
 
-### Pitfall 8: Stale Best Sellers Data (Hourly Update Mismatch)
+### PT-03: IndexedDB Single-Transaction Write Bottleneck
 
-**What goes wrong:**
-Amazon Best Sellers updates hourly. Job takes 90 minutes to complete. Products at start of job reflect 9 AM rankings; products at end reflect 10:30 AM rankings. Data is internally inconsistent. Worse: job runs at 11:55 PM, rankings shift at midnight, introducing discontinuities.
+**What goes wrong:** Inserting 1000 records with one transaction per write takes 2 seconds. Same data in single transaction takes 20ms. 100x performance difference.
 
-**Why it happens:**
-Developers assume Best Sellers is static during collection. It isn't - Amazon updates rankings every hour based on recent sales.
+**Why it happens:** IndexedDB transaction overhead dominates small writes. Each transaction requires disk sync, journaling, and commit. Batching amortizes this overhead.
+
+**Consequences:**
+- Sync operations take minutes instead of seconds
+- UI freezes during bulk writes
+- Users perceive app as slow
+- Battery drain on mobile from constant disk writes
 
 **Warning signs:**
-- Same product appearing with different rankings in same run
-- Analytics showing "rank changed during collection" patterns
-- Products disappearing from list mid-collection
-- Inconsistent category rankings within single dataset
+- Sync progress bar moves slowly
+- `performance.now()` shows write time >> data size
+- Profiler shows many small disk operations
+- Users complain about "saving" taking forever
 
 **Prevention:**
-- Document limitation: "Rankings reflect point-in-time, not atomic snapshot"
-- Consider collection window: finish within 1 hour to minimize drift
-- For critical accuracy: collect only top 20 per category (faster)
-- Store collection timestamp per record for context
-- Accept and document that hourly drift is inherent limitation
+1. **Batch writes into single transactions**: Group 100-1000 records
+2. **Use `durability: 'relaxed'`** in Chrome for non-critical writes
+3. **Shard large datasets** across multiple object stores (28% faster reads)
+4. **Avoid mixing reads and writes** in same transaction when possible
+5. **Profile with realistic data volumes** during development
 
-**Phase to address:** Phase 2 (Amazon Best Sellers Collection) - set expectations in documentation
+**Which phase should address:** Phase 2 (IndexedDB Layer)
+
+**Recovery strategy:** Refactor to batch writes, add write queue that accumulates changes.
+
+**Sources:**
+- [Solving IndexedDB Slowness](https://rxdb.info/slow-indexeddb.html)
+- [Main Limitations of IndexedDB](https://dexie.org/docs/The-Main-Limitations-of-IndexedDB)
 
 ---
 
-### Pitfall 9: eBay Geographic Restrictions Hiding Sellers
+### PT-04: Virtualized List Focus/Accessibility Breakage
 
-**What goes wrong:**
-eBay search API uses IP-based geographic restrictions. Scraper runs from US datacenter, sees US sellers. UK sellers selling same product not returned. Collected seller list is regionally biased without anyone realizing.
+**What goes wrong:** User tabs through virtualized list. Focus moves to item 50. User scrolls down, item 50 unmounts. Focus is lost, keyboard navigation breaks. Screen readers lose context.
 
-**Why it happens:**
-eBay shows different results based on location/marketplace. API might default to US marketplace. Developers test from one location, assume results are global.
+**Why it happens:** Virtualization unmounts DOM elements outside viewport. Browser focus system doesn't know element is "virtually" still there. ARIA live regions don't announce virtualized content changes.
+
+**Consequences:**
+- Keyboard-only users cannot navigate
+- Screen reader users get lost
+- Tab key jumps to unexpected places
+- Accessibility audit failures
+- Potential legal liability (ADA/WCAG)
 
 **Warning signs:**
-- Seller locations heavily skewed to one country
-- Known international sellers not appearing in results
-- Results differ between API and manual eBay.com search
-- Proxy location changes yield different seller sets
+- QA reports "focus jumps to top of page"
+- Keyboard navigation tests fail
+- Screen reader testing shows missing announcements
+- `document.activeElement` is `body` after scroll
 
 **Prevention:**
-- Explicitly specify marketplace in API calls (ebay.com, ebay.co.uk)
-- Document target marketplace: "SellerCollection targets US eBay marketplace"
-- If multi-market needed: separate runs per marketplace
-- Use residential proxies from target region if API allows
-- Compare sample results with manual search to validate
+1. **Manage focus state in component**: Track logical focus, restore on re-mount
+2. **Use roving tabindex pattern**: Only one item tabbable at a time
+3. **Wrap in ARIA landmarks**: `role="feed"` with `aria-busy`
+4. **Announce new content**: `aria-live="polite"` region for loaded items
+5. **Test with keyboard and screen reader** during development
 
-**Phase to address:** Phase 3 (eBay Seller Search) - marketplace specification in API calls
+**Which phase should address:** Phase 4 (Virtualization)
+
+**Recovery strategy:** Implement focus management layer, may require virtualizer wrapper component.
+
+**Sources:**
+- [WAI-ARIA Authoring Practices - Feed Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/feed/)
+- [TanStack Virtual Documentation](https://tanstack.com/virtual/v3/docs/framework/react/examples/infinite-scroll)
 
 ---
 
-### Pitfall 10: No Visibility Into Job Progress
+### PT-05: DESC Cursor Performance Cliff
 
-**What goes wrong:**
-Admin clicks "Start Collection". Button goes to loading state. 90 minutes later, still loading. Is it working? Failed? Stuck? Admin refreshes page, loses context. Clicks button again, now two jobs running in parallel, doubling API costs.
+**What goes wrong:** ASC pagination: 0.3ms per page. Same query with DESC: 300ms per page. 1000x slowdown just from direction change.
 
-**Why it happens:**
-Background jobs are fire-and-forget. No status endpoint exists. UI doesn't poll for progress. Admin has no visibility into long-running operations.
+**Why it happens:** PostgreSQL B-tree indexes are optimized for forward traversal. Backward traversal requires additional operations. Without matching DESC index, query planner may choose inefficient path.
+
+**Consequences:**
+- "Recent first" views are slow
+- Users prefer natural order (newest first) which is slowest
+- Inconsistent performance confuses debugging
+- May hit query timeouts
 
 **Warning signs:**
-- Admin refreshing page repeatedly during collection
-- Multiple parallel jobs discovered in logs
-- Support tickets: "Is the collection running?"
-- No way to cancel a stuck job
+- Same query much slower with `ORDER BY ... DESC`
+- EXPLAIN shows different plan for ASC vs DESC
+- Performance tests pass (ASC) but production is slow (DESC)
 
 **Prevention:**
-- Job status endpoint: `GET /api/collection/status`
-- Response: `{status: "running", progress: 3500, total: 10000, started_at: "..."}`
-- UI polls every 30 seconds, shows progress bar
-- Cancel button to abort job
-- Prevent starting new job while one is running
-- Email/notification on completion or failure
+1. **Create DESC indexes explicitly**: `CREATE INDEX ON table(updated_at DESC, id DESC)`
+2. **Match index direction to query direction**
+3. **Test both directions** with production-scale data
+4. **Consider covering indexes** to avoid heap lookups
 
-**Phase to address:** Phase 1 (Data Collection Infrastructure) - observability before scaling
+**Which phase should address:** Phase 1 (Pagination Infrastructure)
+
+**Recovery strategy:** Add properly-ordered indexes, may require index rebuild.
+
+**Sources:**
+- [Prisma Cursor Pagination DESC Issue](https://github.com/prisma/prisma/issues/12650)
+- [Cursor Pagination with Arbitrary Ordering](https://medium.com/@george_16060/cursor-based-pagination-with-arbitrary-ordering-b4af6d5e22db)
 
 ---
 
-## Minor Pitfalls
+## Technical Debt Patterns
 
-Annoyances that should be addressed but won't block launch.
+Shortcuts that seem fine initially but create compounding problems over time.
 
-### Pitfall 11: Duplicate Products Across Categories
+---
 
-**What goes wrong:**
-Product "Echo Dot" appears in both "Electronics" and "Smart Home" Best Sellers. System processes it twice, searches eBay twice, stores duplicate seller associations. API cost wasted on redundant searches.
+### TD-01: Offset Pagination "Because It's Easier"
+
+**What goes wrong:** Team ships offset pagination (`LIMIT 50 OFFSET 1000`) because it's simpler. Works fine at 10K records. At 1M records, deep pages take 30+ seconds.
+
+**Why it happens:** Offset pagination is familiar, works out of the box, and handles arbitrary page jumps. Cursor pagination requires API design changes and client state management. Deadline pressure favors familiar approach.
+
+**Consequences:**
+- Rewrite pagination system later (breaking API change)
+- Users cannot reliably browse older data
+- Database under constant load from full scans
+- Tech debt compounds as more features depend on pagination
+
+**Warning signs:**
+- Product roadmap says "millions of records" but pagination uses OFFSET
+- Performance tests only use first few pages
+- "We'll optimize later" in code comments
 
 **Prevention:**
-- Track processed ASINs within run
-- Skip duplicate ASINs across categories
-- Deduplicate before eBay search phase
+1. **Start with cursor pagination** even if dataset is small
+2. **Design API with cursors from day one**
+3. **Educate team on scaling characteristics**
+4. **Add pagination performance test to CI** with large synthetic dataset
+
+**Which phase should address:** Phase 1 (Pagination Infrastructure) - non-negotiable
+
+**Recovery strategy:** Full API redesign required. Version API, deprecate offset endpoints, migrate clients.
+
+**Sources:**
+- [Understanding Cursor Pagination](https://www.milanjovanovic.tech/blog/understanding-cursor-pagination-and-why-its-so-fast-deep-dive)
+- [Offset vs Cursor Pagination](https://embedded.gusto.com/blog/api-pagination/)
 
 ---
 
-### Pitfall 12: Unicode/Special Characters in Seller Names
+### TD-02: "Server Is Source of Truth" Without Offline Strategy
 
-**What goes wrong:**
-Seller name contains emoji, Chinese characters, or invisible Unicode. Database stores correctly but comparison/search breaks. UI displays garbled text.
+**What goes wrong:** Team treats IndexedDB as pure cache. When offline, app shows spinner or error. Users expect to work offline with cached data.
+
+**Why it happens:** Offline-first is complex. Conflict resolution is hard. Team defers offline support "until v2" but never addresses it. Users learn app is "online only" despite having local storage.
+
+**Consequences:**
+- Poor UX on flaky connections
+- Users lose work during network blips
+- Competitive disadvantage vs offline-capable apps
+- Massive refactor needed to add offline support later
+
+**Warning signs:**
+- No offline testing in QA process
+- Network errors show generic "Please try again"
+- IndexedDB used only for performance, not resilience
+- No conflict resolution strategy documented
 
 **Prevention:**
-- Normalize to NFD/NFC Unicode form
-- Strip zero-width characters
-- Validate encoding on insert
-- Test with international seller names
+1. **Design offline strategy upfront** even if initial impl is "read-only offline"
+2. **Define conflict resolution policy** (last-write-wins, server-wins, manual)
+3. **Queue mutations when offline**: Sync when connection returns
+4. **Test with network throttling** in QA
+
+**Which phase should address:** Phase 3 (Sync Protocol)
+
+**Recovery strategy:** Add mutation queue, implement retry logic, may require significant state management changes.
+
+**Sources:**
+- [PowerSync Conflict Resolution](https://docs.powersync.com/usage/lifecycle-maintenance/handling-update-conflicts/custom-conflict-resolution)
+- [Optimistic Offline Lock Pattern](https://martinfowler.com/eaaCatalog/optimisticOfflineLock.html)
 
 ---
 
-### Pitfall 13: API Response Format Changes
+### TD-03: Treating Virtualization As "Just Rendering"
 
-**What goes wrong:**
-Third-party API updates response schema. Field `seller_name` renamed to `sellerName`. Parser returns null, silent data loss.
+**What goes wrong:** Team adds react-window to existing list component. Works initially. Then: search breaks, keyboard navigation fails, scroll position resets on data change, ref forwarding fails.
+
+**Why it happens:** Virtualization fundamentally changes component contract. Unmounted items lose state, refs, and event listeners. Existing features assume DOM element persistence.
+
+**Consequences:**
+- Feature-by-feature breakage after virtualization added
+- Regressions in search, filter, selection
+- Scroll position bugs on data updates
+- Eventually revert virtualization or rewrite features
+
+**Warning signs:**
+- "Virtualization broke X" tickets after deployment
+- Features work without virtualization, fail with it
+- Scroll position jumps after re-render
+- Selection state lost on scroll
 
 **Prevention:**
-- Validate expected fields exist in response
-- Alert on unexpected null values
-- Version-pin API client libraries
-- Monitor API provider changelogs
+1. **Design for virtualization from the start**
+2. **Lift all item state to parent component** (selection, expansion, focus)
+3. **Use stable keys** (not array indices)
+4. **Implement scroll position restoration** explicitly
+5. **Test search, filter, select, keyboard nav** with virtualization
+
+**Which phase should address:** Phase 4 (Virtualization)
+
+**Recovery strategy:** Refactor state management to support virtualization assumptions. May require component rewrite.
+
+**Sources:**
+- [Optimizing Large Lists in React](https://www.ignek.com/blog/optimizing-large-lists-in-react-virtualization-vs-pagination/)
+- [React Native VirtualizedList](https://reactnative.dev/docs/virtualizedlist)
 
 ---
 
-## Edge Cases to Handle
+### TD-04: Implicit Version Vectors (Sync Conflicts)
 
-Specific scenarios that need explicit handling logic.
+**What goes wrong:** Team uses `updated_at` timestamp for conflict detection. Two devices modify same record within same second. Last write silently overwrites first write. Users lose data.
 
-| Scenario | Expected Behavior | Implementation |
-|----------|-------------------|----------------|
-| eBay seller has no feedback | Include seller, mark as unverified | Store `feedback_score: null`, flag for review |
-| Amazon product has no brand | Use "Unknown Brand" for eBay search | Fallback search term: category + product type |
-| eBay search times out | Retry 3x with backoff, then mark failed | Store `search_status: "timeout"`, retry in next run |
-| Same seller, multiple eBay accounts | Treat as separate sellers | No fuzzy matching on seller names (too risky) |
-| Best Sellers category empty | Log warning, continue to next category | Don't fail entire job for empty category |
-| API returns HTML instead of JSON | Likely rate-limited or blocked | Parse error, implement backoff, alert |
-| Product delisted mid-collection | Skip gracefully | 404/410 response = mark as unavailable, continue |
-| eBay returns 10,000 results | Cap at first 100 sellers per product | Diminishing returns beyond top sellers |
+**Why it happens:** Timestamps feel intuitive for "which is newer." Clock skew, same-second updates, and timezone bugs make timestamps unreliable. Team doesn't realize data is being lost until users complain.
+
+**Consequences:**
+- Silent data loss
+- Users cannot trust app with important data
+- Debugging sync issues nearly impossible
+- May require explicit versioning retrofit
+
+**Warning signs:**
+- Users report "my changes disappeared"
+- Changes overwrite unexpectedly
+- Audit logs show unexplained overwrites
+- QA cannot reproduce "lost data" reports
+
+**Prevention:**
+1. **Use explicit version numbers or ETags** not timestamps
+2. **Increment version on every write** server-side
+3. **Reject writes with stale version** (optimistic locking)
+4. **Log conflicts** for debugging
+5. **Consider CRDTs** for highly concurrent scenarios
+
+**Which phase should address:** Phase 3 (Sync Protocol)
+
+**Recovery strategy:** Add version column to all synced tables, implement version checking in API, migrate clients.
+
+**Sources:**
+- [Optimistic Concurrency Control](https://en.wikipedia.org/wiki/Optimistic_concurrency_control)
+- [EF Core Handling Concurrency Conflicts](https://learn.microsoft.com/en-us/ef/core/saving/concurrency)
 
 ---
 
-## Cost Estimation Reference
+## Supabase-Specific Pitfalls
 
-Planning guidance for budget allocation.
-
-| Component | Cost per Unit | Units per Run | Est. Cost per Run |
-|-----------|---------------|---------------|-------------------|
-| Amazon Best Sellers scrape | $0.50-2.45/1K | ~4,000 products | $2-10 |
-| eBay search per product | $0.50-2.45/1K | ~4,000 searches | $2-10 |
-| Total (conservative) | - | - | $5-25 |
-| Monthly (4 runs) | - | - | $20-100 |
-
-**Budget safeguards to implement:**
-- Pre-run cost estimate based on category count
-- Hard cap: abort if estimated cost exceeds $30
-- Monthly cap: $150 with alerts at $75, $100, $125
-- Cost tracking per category for optimization
+Issues specific to the Supabase ecosystem that powers this project.
 
 ---
 
-## "Looks Done But Isn't" Checklist
+### SP-01: RLS Preventing Index Usage
 
-Things that appear complete but are missing critical pieces.
+**What goes wrong:** Query uses index in `psql` but Supabase client queries do sequential scan. RLS policy adds conditions that invalidate index.
 
-- [ ] **Job Triggering:** Has progress tracking? Can be cancelled? Prevents duplicate runs?
-- [ ] **Amazon Scraping:** Handles parent ASINs? Dynamic category discovery? Timeout handling?
-- [ ] **eBay Search:** Marketplace specified? Error vs. no-results distinguished? Fallback search terms?
-- [ ] **Deduplication:** Normalized comparison? Handles case differences? Logs decisions?
-- [ ] **Cost Control:** Pre-run estimate? Budget caps? Monthly tracking? Alerts configured?
-- [ ] **Observability:** Progress visible to admin? Failure notifications? Logs searchable?
-- [ ] **Resumability:** Checkpoints saved? Can resume after failure? Doesn't re-process completed items?
+**Why it happens:** Supabase enforces Row-Level Security by adding WHERE clauses to queries. Complex RLS policies can prevent query planner from using intended indexes.
+
+**Prevention:**
+1. **Test queries with RLS enabled** not just raw SQL
+2. **Create indexes that include RLS filter columns**
+3. **Use EXPLAIN with `role = 'authenticated'`** to see actual plan
+4. **Simplify RLS policies** where possible
+
+**Which phase should address:** Phase 1 (Pagination Infrastructure)
+
+---
+
+### SP-02: Realtime Subscription Overhead at Scale
+
+**What goes wrong:** Subscribe to realtime changes on large table. Every INSERT/UPDATE/DELETE broadcasts to all subscribers. Server CPU spikes, clients flood with events.
+
+**Why it happens:** Supabase Realtime broadcasts all changes matching subscription filter. With millions of records and frequent updates, this creates event storm.
+
+**Prevention:**
+1. **Filter subscriptions narrowly**: `filter: 'account_id=eq.${id}'`
+2. **Don't subscribe to full tables** - use specific filters
+3. **Implement debouncing** on client for rapid updates
+4. **Consider polling for high-frequency changes**
+
+**Which phase should address:** Phase 3 (Sync Protocol) if using realtime for sync
+
+---
+
+### SP-03: Multi-Column Cursor with Supabase Client
+
+**What goes wrong:** Supabase JS client doesn't support tuple comparison `(a, b) > (x, y)`. Developer uses `.gt('a', x).gt('b', y)` which is wrong logic.
+
+**Why it happens:** SQL tuple comparison is elegant but Supabase client uses chained filters. Incorrect translation produces wrong results.
+
+**Prevention:**
+1. **Use `.or()` with `and()` syntax** for compound conditions
+2. **Consider RPC function** for complex cursor queries
+3. **Test pagination edge cases** where only second column differs
+4. **Document the query pattern** for team
+
+**Code pattern:**
+```typescript
+// Wrong: AND logic, not tuple comparison
+.gt('updated_at', cursor.ts)
+.gt('id', cursor.id)
+
+// Right: Tuple comparison via OR
+.or(`updated_at.gt.${cursor.ts},and(updated_at.eq.${cursor.ts},id.gt.${cursor.id})`)
+```
+
+**Which phase should address:** Phase 1 (Pagination Infrastructure)
+
+**Sources:**
+- [Supabase Cursor Pagination Discussion](https://github.com/orgs/supabase/discussions/3938)
+- [Multi-Column Cursor Pagination Discussion](https://github.com/orgs/supabase/discussions/21330)
 
 ---
 
 ## Pitfall-to-Phase Mapping
 
-| Pitfall | Severity | Prevention Phase | Verification |
-|---------|----------|------------------|--------------|
-| Unbounded API costs | Critical | Phase 1 | Budget cap blocks run if exceeded |
-| Job timeout without progress | Critical | Phase 1 | Job completes 10K products successfully |
-| Parent ASIN confusion | Critical | Phase 2 | No null prices in collected products |
-| Zero sellers silent failure | Critical | Phase 3 | Distinct `no_results` vs `error` states |
-| Seller name deduplication | Critical | Phase 4 | Same seller doesn't appear twice |
-| Category structure changes | Moderate | Phase 2 | Categories dynamically discovered |
-| Rate limit exhaustion | Moderate | Phase 1 | Job respects quota, queues remainder |
-| Stale Best Sellers data | Moderate | Phase 2 | Documented in user-facing materials |
-| Geographic restrictions | Moderate | Phase 3 | Marketplace param in all API calls |
-| No job progress visibility | Moderate | Phase 1 | Admin sees progress bar during run |
-| Duplicate products | Minor | Phase 2 | ASIN dedup within run |
-| Unicode seller names | Minor | Phase 4 | Test with international names passes |
-| API format changes | Minor | Phase 1 | Validation alerts on missing fields |
+Summary of which pitfalls should be addressed in which v3 phase.
+
+| Phase | Pitfalls to Address | Priority |
+|-------|---------------------|----------|
+| **Phase 1: Pagination Infrastructure** | CP-01 (Non-Unique Cursors), PT-01 (Missing Index), PT-05 (DESC Performance), TD-01 (Offset Pagination), SP-01 (RLS Index), SP-03 (Supabase Client) | CRITICAL |
+| **Phase 2: IndexedDB Layer** | CP-02 (Transaction Auto-Commit), CP-03 (Safari Eviction), CP-05 (Schema Migration), PT-03 (Write Bottleneck) | CRITICAL |
+| **Phase 3: Sync Protocol** | CP-04 (Optimistic Rollback), TD-02 (Offline Strategy), TD-04 (Version Vectors), SP-02 (Realtime Overhead) | HIGH |
+| **Phase 4: Virtualization** | PT-02 (Memory Growth), PT-04 (Focus/Accessibility), TD-03 (Virtualization Integration) | HIGH |
 
 ---
 
-## Sources
+## Pitfall Prevention Checklist
 
-### Amazon Scraping & Best Sellers
-- [Amazon Best Sellers scraping guide - Traject Data](https://trajectdata.com/how-to-scrape-amazon-best-seller/)
-- [Amazon ASIN parent-child relationships - Zquared](https://zquared.com/understanding-amazon-asins-parent-child-relationships-and-variations/)
-- [ScraperAPI Amazon Best Seller scraper](https://www.scraperapi.com/solutions/amazon-best-seller-scraper/)
-- [Best Amazon scraping APIs 2026 - Proxyway](https://proxyway.com/best/best-amazon-scrapers)
+Use during development to verify pitfalls are addressed.
 
-### eBay API & Seller Search
-- [eBay API call limits](https://developer.ebay.com/develop/get-started/api-call-limits)
-- [eBay Browse API search documentation](https://developer.ebay.com/api-docs/buy/browse/resources/item_summary/methods/search)
-- [eBay Finding API pagination - Community discussion](https://community.ebay.com/t5/eBay-APIs-Talk-to-your-fellow/How-do-I-get-a-maximum-of-10000-items-in-a-single-API-query/td-p/34214539)
-- [eBay private listings](https://www.ebay.com/help/selling/listings/listing-tips/private-listings?id=4161)
+### Phase 1 Checklist
+- [ ] Cursor uses compound columns (updated_at, id)
+- [ ] Compound index exists with matching direction
+- [ ] Tested with 1M+ synthetic records
+- [ ] DESC queries use DESC index
+- [ ] RLS doesn't prevent index usage
+- [ ] Supabase client correctly implements tuple comparison
 
-### Data Quality & Deduplication
-- [Fixing inaccurate web scraping data - Bright Data](https://brightdata.com/blog/web-data/fix-inaccurate-web-scraping-data)
-- [Web scraping challenges - Octoparse](https://www.octoparse.com/blog/9-web-scraping-challenges)
-- [Fuzzy matching large datasets - Medium](https://medium.com/@tacettincankrc/fuzzy-matching-with-large-datasets-challenges-and-solutions-901b8446dcdc)
-- [Deduplication using fuzzy scoring - Towards Data Science](https://towardsdatascience.com/deduplication-of-customer-data-using-fuzzy-scoring-3f77bd3bb4dc/)
+### Phase 2 Checklist
+- [ ] No await to external services inside transactions
+- [ ] onversionchange handler closes database
+- [ ] onblocked handler shows user feedback
+- [ ] Batch writes (100+ records per transaction)
+- [ ] Safari storage eviction handled gracefully
+- [ ] Multi-tab scenario tested
 
-### Job Processing & Timeouts
-- [AWS Batch job timeouts](https://docs.aws.amazon.com/batch/latest/userguide/job_timeouts.html)
-- [Scrapy job persistence](https://docs.scrapy.org/en/latest/topics/jobs.html)
-- [Shopify job-iteration for resumable jobs](https://github.com/shopify/job-iteration)
-- [Long running tasks: batch vs queue - Medium](https://medium.com/@logan.young87/long-running-tasks-batch-it-or-queue-it-b261fd5ea4d6)
+### Phase 3 Checklist
+- [ ] Explicit version numbers on synced entities
+- [ ] Conflict resolution policy documented and implemented
+- [ ] Optimistic updates have rollback handling
+- [ ] Offline mutation queue implemented
+- [ ] Realtime subscriptions are filtered narrowly
 
-### Cost Monitoring
-- [Scrapfly billing documentation](https://scrapfly.io/docs/scrape-api/billing)
-- [Web scraping cost analysis - Pangolin](https://www.pangolinfo.com/in-house-web-scraping-cost-analysis/)
-- [Zyte cost estimator](https://www.zyte.com/blog/simplifying-web-scraping-costs-with-web-scraping-apis/)
+### Phase 4 Checklist
+- [ ] maxPages set on infinite queries
+- [ ] Focus management implemented
+- [ ] Keyboard navigation tested
+- [ ] Screen reader tested
+- [ ] Item state lifted to parent
+- [ ] Stable keys used (not indices)
 
 ---
-*Pitfalls research for: SellerCollection v2 milestone (Amazon Best Sellers + eBay seller collection)*
-*Researched: 2026-01-20*
+
+## Sources Summary
+
+### Cursor Pagination
+- [Keyset Cursors for Postgres](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/)
+- [Five Ways to Paginate in Postgres](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/)
+- [Cursor Pagination Deep Dive](https://www.milanjovanovic.tech/blog/understanding-cursor-pagination-and-why-its-so-fast-deep-dive)
+- [Supabase Cursor Pagination](https://github.com/orgs/supabase/discussions/3938)
+
+### IndexedDB
+- [IndexedDB Storage Limits](https://rxdb.info/articles/indexeddb-max-storage-limit.html)
+- [IndexedDB Pain Points](https://gist.github.com/pesterhazy/4de96193af89a6dd5ce682ce2adff49a)
+- [Solving IndexedDB Slowness](https://rxdb.info/slow-indexeddb.html)
+- [Dexie.js Limitations](https://dexie.org/docs/The-Main-Limitations-of-IndexedDB)
+- [MDN Using IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB)
+
+### Sync Protocols
+- [PowerSync Conflict Resolution](https://docs.powersync.com/usage/lifecycle-maintenance/handling-update-conflicts/custom-conflict-resolution)
+- [Optimistic Concurrency Control](https://en.wikipedia.org/wiki/Optimistic_concurrency_control)
+- [Cache Invalidation Patterns](https://algomaster.io/learn/system-design/cache-invalidation)
+- [TkDodo on Optimistic Updates](https://tkdodo.eu/blog/concurrent-optimistic-updates-in-react-query)
+
+### Virtualization
+- [TanStack Query Infinite Queries](https://tanstack.com/query/latest/docs/framework/react/guides/infinite-queries)
+- [TanStack Virtual Examples](https://tanstack.com/virtual/v3/docs/framework/react/examples/infinite-scroll)
+- [TanStack Virtual Memory Issues](https://github.com/TanStack/virtual/issues/196)
+- [Optimizing Large Lists in React](https://www.ignek.com/blog/optimizing-large-lists-in-react-virtualization-vs-pagination/)
+
+---
+
+*Researched: 2026-01-23 | Confidence: HIGH*

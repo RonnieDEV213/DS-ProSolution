@@ -2,56 +2,51 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-23)
+See: .planning/PROJECT.md (updated 2026-01-25)
 
-**Core value:** Automate repetitive eBay operations — from VA task coordination to dropshipper discovery
+**Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
 **Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: N/A (between milestones)
+Phase: Ready for next milestone
 Plan: N/A
-Status: Ready to plan next milestone
-Last activity: 2026-01-23 - Completed v2 SellerCollection milestone
+Status: v3 milestone complete and archived
+Last activity: 2026-01-25 — v3 Storage & Rendering Infrastructure shipped
 
-Progress: v2 complete — 9 phases, 37 plans shipped
+Progress: All milestones complete, ready for v4 planning
 
 ## Shipped Milestones
 
+- **v3 Storage & Rendering Infrastructure** (2026-01-25) - 7 phases, 23 plans
+  - See: .planning/milestones/v3-ROADMAP.md
+
 - **v2 SellerCollection** (2026-01-23) - 9 phases, 37 plans
   - See: .planning/milestones/v2-ROADMAP.md
-  - See: .planning/milestones/v2-REQUIREMENTS.md
-  - See: .planning/milestones/v2-MILESTONE-AUDIT.md
 
 - **v1 Extension Auth & RBAC** (2026-01-20) - 7 phases, 12 plans
   - See: .planning/milestones/v1-ROADMAP.md
-  - See: .planning/milestones/v1-REQUIREMENTS.md
-  - See: .planning/milestones/v1-MILESTONE-AUDIT.md
 
 ## Performance Metrics
 
-**v1 Milestone:**
-- Total plans completed: 12
-- Timeline: 3 days (2026-01-17 -> 2026-01-20)
-- Files modified: 74
-- Lines added: +16,544
+**v3 Velocity:**
+- Total plans completed: 23
+- Commits: 60
+- Total execution time: 2 days
 
-**v2 Milestone:**
-- Total plans completed: 37
-- Timeline: 4 days (2026-01-20 -> 2026-01-23)
-- Files modified: 272
-- Lines changed: +69,166 / -30,926 (net +38,240)
-- Commits: 224
+**Historical:**
+- v2: 37 plans in 4 days
+- v1: 12 plans in 3 days
 
 ## Accumulated Context
 
-### Key Decisions
+### Decisions
 
-See PROJECT.md Key Decisions table for full list.
+See PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-- Run migrations 036-045 in Supabase SQL editor (if not already done)
+None.
 
 ### Blockers/Concerns
 
@@ -59,20 +54,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-23
-Stopped at: Completed v2 milestone archival
+Last session: 2026-01-25
+Stopped at: v3 Milestone Complete
 Resume file: None
-Next action: `/gsd:new-milestone` to plan v2.1 or v3
-
-## Next Milestone Candidates
-
-**v2.1 Seller Filtering Pipeline:**
-- Reverse image search to verify Amazon sourcing
-- Hero image metadata detection
-- Win rate analysis
-- Seller quality scoring
-
-**v3 (TBD):**
-- Multi-marketplace support (UK, DE)
-- Pause/resume for long collections
-- Seller metadata capture
+Next action: Run /gsd:new-milestone to define next milestone

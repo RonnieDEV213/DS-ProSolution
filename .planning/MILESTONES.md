@@ -1,5 +1,32 @@
 # Project Milestones: DS-ProSolution
 
+## v3 Storage & Rendering Infrastructure (Shipped: 2026-01-25)
+
+**Delivered:** Scalable storage and rendering infrastructure enabling millions of records across hundreds of eBay accounts with cursor-based pagination, IndexedDB caching, offline sync, virtualized rendering, and streaming export/import.
+
+**Phases completed:** 15-21 (23 plans total)
+
+**Key accomplishments:**
+- Server storage foundation with composite cursor indexes, soft deletes, and 30-day pg_cron purge
+- Cursor-based pagination APIs for records, accounts, and sellers with server-side filtering
+- TanStack Query integration with stale-while-revalidate caching and optimistic mutations
+- IndexedDB persistence via Dexie.js with sync engine and cache-first data loading
+- Complete sync protocol with offline queue, conflict resolution modal, and row-level sync badges
+- Virtualized rendering using react-window v2 with infinite scroll, keyboard navigation, and quick filter chips
+- Export/Import pipeline with streaming CSV/JSON/Excel, background jobs, and 24-hour rollback
+
+**Stats:**
+- 138 files modified
+- +25,636 / -265 lines of code (net +25,371)
+- 7 phases, 23 plans, 60 commits
+- 2 days from start to ship (2026-01-23 → 2026-01-25)
+
+**Git range:** `docs(15)` → `fix(21)`
+
+**What's next:** TBD — next milestone to be defined
+
+---
+
 ## v2 SellerCollection (Shipped: 2026-01-23)
 
 **Delivered:** Automated dropshipper discovery by cross-referencing Amazon Best Sellers with eBay search results, with 5-worker parallel collection, real-time activity streaming, and comprehensive seller management UI.

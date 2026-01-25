@@ -12,9 +12,12 @@ from app.routers import (
     auth_router,
     automation_router,
     collection_router,
+    export_router,
+    import_router,
     presence_router,
     records_router,
     sellers_router,
+    sync_router,
 )
 from app.background import (
     cleanup_worker,
@@ -71,9 +74,12 @@ app.include_router(amazon_router)
 app.include_router(auth_router)
 app.include_router(automation_router)
 app.include_router(collection_router)
+app.include_router(export_router)
+app.include_router(import_router)
 app.include_router(presence_router)
 app.include_router(records_router)
 app.include_router(sellers_router)
+app.include_router(sync_router)
 
 
 @app.get("/health")

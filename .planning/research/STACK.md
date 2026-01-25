@@ -1,458 +1,573 @@
-# Stack Research: SellerCollection - Third-Party APIs
+# Technology Stack: v3 Data Infrastructure
 
-**Domain:** Amazon Best Sellers scraping + eBay product search APIs
-**Researched:** 2026-01-20
-**Confidence:** MEDIUM (pricing varies by volume, requires trial validation)
-
----
-
-## What EXISTING-TOOLS.md Already Covers
-
-The [EXISTING-TOOLS.md](./EXISTING-TOOLS.md) provides comprehensive coverage of:
-
-- **Browser automation frameworks** (Playwright, Puppeteer, Selenium)
-- **Stealth and anti-detection** techniques
-- **Proxy services** and pricing tiers
-- **CAPTCHA solving** services
-- **HTTP clients** (httpx, aiohttp, tls-client)
-- **Data extraction** libraries (BeautifulSoup, lxml)
-- **General recommendation:** For public data scraping, use third-party APIs like Rainforest or ScraperAPI
-
-**This document supplements EXISTING-TOOLS.md** with specific API recommendations, pricing analysis, and implementation details for:
-1. Amazon Best Sellers data collection
-2. eBay product search for seller identification
-
----
+**Project:** DS-ProSolution v3 Large-Scale Data Pipeline
+**Researched:** 2026-01-23
+**Confidence:** HIGH (verified with official docs and recent sources)
 
 ## Executive Summary
 
-**Recommendation:** Use **Oxylabs E-Commerce Scraper API** for both Amazon and eBay scraping.
+This stack recommendation addresses the v3 milestone requirements: handling millions of records with fast read/write across hundreds of eBay accounts. The recommendations prioritize technologies that integrate cleanly with the existing Supabase/PostgreSQL backend, Next.js 14+ frontend, and Chrome Extension MV3 architecture.
 
-**Rationale:**
-- Best price-to-performance ratio at our scale (~10,000 products/month)
-- Single API for both platforms (simpler integration)
-- 100% success rate in independent tests
-- Amazon-specific pricing: $0.40-0.50/1K requests (no JS rendering needed)
-- eBay-specific pricing: Same tier, ~10 second response time
-- Free trial: 2,000 results to validate before commitment
-
-**Alternative:** If Oxylabs doesn't meet quality needs, **Rainforest API** for Amazon (higher accuracy, premium pricing) + **ScraperAPI** for eBay.
+**Key decisions:**
+- **Server pagination:** Keyset/cursor-based pagination (not offset-based)
+- **Client cache:** Dexie.js 4.x for IndexedDB (not RxDB or raw IndexedDB)
+- **State management:** TanStack Query + Supabase Cache Helpers (not Zustand for server state)
+- **Sync protocol:** Custom incremental sync with Supabase Realtime (not PowerSync/Electric)
 
 ---
 
-## Scale Analysis: What We're Scraping
+## Recommended Stack
 
-### Amazon Best Sellers
+### 1. Server-Side Pagination (PostgreSQL/Supabase)
 
-| Metric | Value | Source |
-|--------|-------|--------|
-| Main departments | ~35-40 | [Amazon Best Sellers page](https://www.amazon.com/Best-Sellers/zgbs) |
-| Products per category | 100 (top 100 only) | Amazon limits public view to top 100 |
-| Products per page | 50 | Requires 2 pages per category |
-| **Total products** | ~4,000 | 40 categories x 100 products |
-| **Total API requests** | ~80 | 40 categories x 2 pages |
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Keyset Pagination | Native PostgreSQL | Navigate large datasets efficiently | Offset pagination degrades 17x at scale; keyset maintains constant performance |
+| Composite Indexes | Native PostgreSQL | Support compound cursor queries | Required for `(timestamp, id)` cursor patterns |
+| Supabase PostgREST | Built-in | REST API with `.gt()`, `.gte()` filters | Native support for cursor conditions |
 
-### eBay Search (per Amazon product)
-
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Products to search | ~4,000 | From Amazon Best Sellers |
-| Search results per product | 1-10 | Filter to most relevant matches |
-| **Total API requests** | ~4,000-10,000 | Depends on matching strategy |
-
-### Monthly Volume Estimate
-
-| Scenario | Amazon Requests | eBay Requests | Total |
-|----------|-----------------|---------------|-------|
-| Main categories only | 80 | 4,000 | 4,080 |
-| With subcategories (10x) | 800 | 40,000 | 40,800 |
-| With deep subcategories | 2,000 | 100,000 | 102,000 |
-
-**Baseline estimate:** ~5,000-10,000 requests/month for MVP scope.
-
----
-
-## API Comparison Matrix
-
-### Amazon Best Sellers APIs
-
-| API | Price/1K Requests | Success Rate | Response Time | Best Sellers Support | Confidence |
-|-----|-------------------|--------------|---------------|----------------------|------------|
-| **Oxylabs** | $0.40-0.50 | 100% | 5.4s | Yes (category scraping) | HIGH |
-| **Rainforest** | ~$1.00-1.50 | 99.9%+ | 2-3s | Dedicated endpoint | HIGH |
-| **Bright Data** | $0.90-1.50 | 100% | 3-5s | Yes | MEDIUM |
-| **Scrapingdog** | $0.20-0.40 | 89-100% | 2.5-3.5s | Yes | MEDIUM |
-| **ScraperAPI** | $0.49-1.49 | 95% | 8-40s | Via e-commerce preset | MEDIUM |
-
-### eBay Search APIs
-
-| API | Price/1K Requests | Success Rate | Response Time | JSON Parsing | Confidence |
-|-----|-------------------|--------------|---------------|--------------|------------|
-| **Oxylabs** | $0.40-0.50 | 100% | 10s | Yes | HIGH |
-| **ScraperAPI** | $0.49-1.49 | 95% | 8-15s | Yes (structured data) | MEDIUM |
-| **Scrapingdog** | $0.20-0.40 | 100% | 5.9s | Yes | MEDIUM |
-| **Bright Data** | $0.90-1.50 | 100% | 5-8s | Yes | MEDIUM |
-
----
-
-## Recommended API: Oxylabs E-Commerce Scraper
-
-### Why Oxylabs
-
-1. **Single integration** for both Amazon and eBay
-2. **Best value** at our volume: $49/month Micro plan = 98,000 Amazon results
-3. **100% success rate** in independent testing
-4. **No JavaScript rendering needed** for e-commerce targets (cheaper tier)
-5. **Free trial** (2,000 results) to validate before commitment
-6. **Success-based billing** - no charge for failed requests
-
-### Pricing Tiers (2026)
-
-| Plan | Monthly Cost | Results Included | Cost/1K (Amazon) | Concurrent |
-|------|--------------|------------------|------------------|------------|
-| Free Trial | $0 | 2,000 | $0 | 10 req/s |
-| Micro | $49 | 98,000 | $0.50 | 50 req/s |
-| Starter | $99 | 220,000 | $0.45 | 50 req/s |
-| Advanced | $249 | 622,500 | $0.40 | 50 req/s |
-| Business | $999 | 3,330,000 | $0.30 | 100 req/s |
-
-**Our fit:** Micro plan ($49/month) covers ~10K requests with significant headroom.
-
-### API Integration
-
-**Amazon Best Sellers:**
-```python
-import httpx
-
-async def scrape_amazon_bestsellers(category_id: str) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://realtime.oxylabs.io/v1/queries",
-            auth=("USERNAME", "PASSWORD"),
-            json={
-                "source": "amazon_bestsellers",
-                "domain": "com",
-                "query": category_id,
-                "start_page": 1,
-                "pages": 2,  # Get full top 100
-                "parse": True,  # Return structured JSON
-            }
-        )
-        return response.json()
-```
-
-**eBay Search:**
-```python
-async def search_ebay_product(product_title: str) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://realtime.oxylabs.io/v1/queries",
-            auth=("USERNAME", "PASSWORD"),
-            json={
-                "source": "ebay_search",
-                "domain": "com",
-                "query": product_title,
-                "parse": True,
-            }
-        )
-        return response.json()
-```
-
-### Response Data Fields
-
-**Amazon Best Sellers (parsed):**
-- `results[].title` - Product name
-- `results[].price` - Current price
-- `results[].asin` - Amazon product ID
-- `results[].url` - Product page URL
-- `results[].image` - Product image URL
-- `results[].rating` - Star rating
-- `results[].reviews_count` - Number of reviews
-
-**eBay Search (parsed):**
-- `results[].title` - Listing title
-- `results[].price` - Current/Buy It Now price
-- `results[].seller.name` - **Seller username** (key field for dropshipper identification)
-- `results[].seller.feedback_score` - Seller rating
-- `results[].url` - Listing URL
-- `results[].condition` - New/Used/Refurbished
-
-### Rate Limits
-
-| Tier | Requests/Second | Daily Soft Limit | Notes |
-|------|-----------------|------------------|-------|
-| Free Trial | 10 | N/A | 2,000 total |
-| Micro-Advanced | 50 | None | Billed per result |
-| Business+ | 100 | None | Dedicated manager |
-
-**For our use case:** 50 req/s is more than sufficient for batch processing.
-
----
-
-## Alternative: Rainforest API (Amazon-specific)
-
-### When to Choose Rainforest Over Oxylabs
-
-- Need **dedicated Best Sellers endpoint** (more reliable parsing)
-- Need **all Amazon page types** (reviews, offers, search, categories)
-- **Data accuracy is critical** (99.9%+ claimed)
-- Budget allows premium pricing
-
-### Rainforest Bestsellers Endpoint
-
-```python
-import httpx
-
-async def scrape_rainforest_bestsellers(category_id: str) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.rainforestapi.com/request",
-            params={
-                "api_key": "YOUR_API_KEY",
-                "type": "bestsellers",
-                "amazon_domain": "amazon.com",
-                "category_id": category_id,
-                "max_page": 2,  # Automatically paginate
-            }
-        )
-        return response.json()
-```
-
-### Rainforest Pricing (Estimated)
-
-| Volume | Cost/Request | Monthly Cost (10K requests) |
-|--------|--------------|----------------------------|
-| Low volume | ~$0.001-0.002 | $10-20 |
-| Medium volume | ~$0.0008-0.001 | $8-10 |
-| High volume | Custom | Contact sales |
-
-**Note:** Rainforest pricing is not publicly listed. Contact sales for exact quotes.
-
-### Rainforest vs Oxylabs for Amazon
-
-| Factor | Rainforest | Oxylabs |
-|--------|------------|---------|
-| Best Sellers support | Dedicated endpoint | Generic e-commerce |
-| Accuracy | 99.9%+ claimed | 100% success rate |
-| eBay support | No | Yes |
-| Pricing transparency | Contact sales | Public tiers |
-| Free trial | Yes (unspecified credits) | 2,000 results |
-| **Recommendation** | Premium choice | Budget choice |
-
----
-
-## Alternative: ScraperAPI (eBay-focused)
-
-### When to Choose ScraperAPI
-
-- **Primary focus is eBay** data
-- Need **structured JSON output** without custom parsing
-- Want **simpler credit-based pricing**
-
-### ScraperAPI eBay Pricing
-
-| Plan | Monthly Cost | API Credits | eBay Searches (5 credits each) |
-|------|--------------|-------------|--------------------------------|
-| Free | $0 | 1,000 | 200 |
-| Hobby | $49 | 100,000 | 20,000 |
-| Startup | $149 | 1,000,000 | 200,000 |
-| Business | $299 | 3,000,000 | 600,000 |
-
-**Credit multipliers:**
-- Basic sites: 1 credit
-- E-commerce (Amazon, eBay): 5 credits
-- Search engines: 25 credits
-
-### ScraperAPI eBay Integration
-
-```python
-import httpx
-
-async def search_ebay_scraperapi(product_title: str) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.scraperapi.com/structured/ebay/search",
-            params={
-                "api_key": "YOUR_API_KEY",
-                "query": product_title,
-                "country": "us",
-            }
-        )
-        return response.json()
-```
-
-### ScraperAPI Limitations
-
-- **Slower response times:** 8-40 seconds (vs 5-10s for Oxylabs)
-- **5% failure rate** in some tests (requires retry logic)
-- **Credit system confusing** - e-commerce costs 5x basic
-
----
-
-## Budget Analysis
-
-### Scenario: 10,000 Requests/Month (MVP)
-
-| API | Plan | Monthly Cost | Coverage |
-|-----|------|--------------|----------|
-| Oxylabs Micro | $49 | 98,000 results | 9.8x headroom |
-| ScraperAPI Hobby | $49 | 20,000 e-commerce | 2x headroom |
-| Rainforest | ~$15-30 | ~10,000 requests | 1x (estimated) |
-| Bright Data Pay-as-you-go | ~$10-15 | ~10,000 requests | 1x |
-
-### Scenario: 100,000 Requests/Month (Full categories)
-
-| API | Plan | Monthly Cost | Notes |
-|-----|------|--------------|-------|
-| Oxylabs Advanced | $249 | 622,500 results | Best value |
-| ScraperAPI Startup | $149 | 200,000 e-commerce | Marginal fit |
-| Bright Data Tier 1 | $499 | 510,000 records | Overkill |
-
----
-
-## Implementation Stack
-
-### Dependencies (New)
-
-```toml
-# apps/api/pyproject.toml additions
-dependencies = [
-    # ... existing ...
-    "httpx>=0.27.0",  # Async HTTP client (may already exist)
-]
-```
-
-### Service Architecture
-
-```
-SellerCollection Service
-├── amazon_scraper.py      # Oxylabs Amazon Best Sellers
-├── ebay_scraper.py        # Oxylabs eBay Search
-├── rate_limiter.py        # Respect API limits
-├── data_processor.py      # Normalize/store results
-└── scheduler.py           # Monthly batch jobs
-```
-
-### Database Schema (New Tables)
+**Implementation Pattern:**
 
 ```sql
--- Amazon Best Sellers snapshots
-CREATE TABLE amazon_bestsellers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    category_id VARCHAR(100) NOT NULL,
-    category_name VARCHAR(255),
-    rank INTEGER NOT NULL,
-    asin VARCHAR(20) NOT NULL,
-    title TEXT NOT NULL,
-    price_cents INTEGER,
-    image_url TEXT,
-    scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(category_id, asin, scraped_at::date)
-);
+-- Required index for cursor pagination
+CREATE INDEX idx_orders_cursor ON orders (updated_at DESC, id DESC);
 
--- eBay seller matches
-CREATE TABLE ebay_seller_matches (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    amazon_asin VARCHAR(20) REFERENCES amazon_bestsellers(asin),
-    ebay_seller_name VARCHAR(255) NOT NULL,
-    ebay_listing_url TEXT,
-    match_score DECIMAL(3,2),  -- 0.00-1.00 title similarity
-    scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- Query pattern (keyset pagination)
+SELECT * FROM orders
+WHERE (updated_at, id) < ($1, $2)  -- cursor from previous page
+ORDER BY updated_at DESC, id DESC
+LIMIT 50;
+```
 
--- Identified dropshippers
-CREATE TABLE identified_dropshippers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ebay_seller_name VARCHAR(255) UNIQUE NOT NULL,
-    match_count INTEGER DEFAULT 1,
-    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+**Supabase Client Usage:**
+
+```typescript
+// Cursor-based pagination with Supabase
+const { data } = await supabase
+  .from('orders')
+  .select('*')
+  .lt('updated_at', lastSeenTimestamp)
+  .or(`updated_at.eq.${lastSeenTimestamp},id.lt.${lastSeenId}`)
+  .order('updated_at', { ascending: false })
+  .order('id', { ascending: false })
+  .limit(50);
+```
+
+**Rationale:**
+- Offset pagination (`OFFSET 10000`) requires scanning 10,000 rows before returning results
+- Keyset pagination jumps directly to the cursor position via index
+- Sources: [Sequin Blog](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/), [Citus Data](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/)
+
+---
+
+### 2. Client-Side IndexedDB (Wrapper Library)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **Dexie.js** | 4.2.x | IndexedDB wrapper | Best DX, bulk performance, React hooks, mature ecosystem |
+| dexie-react-hooks | 4.2.x | React integration | `useLiveQuery()` for reactive UI updates |
+
+**Why Dexie over alternatives:**
+
+| Criterion | Dexie 4.x | RxDB | idb | idb-keyval |
+|-----------|-----------|------|-----|------------|
+| Bundle size | ~40KB | ~200KB+ | ~2KB | ~600B |
+| Learning curve | Low | High | Medium | Very Low |
+| React integration | Excellent | Good | Manual | Manual |
+| Bulk operations | Excellent | Good | Manual | N/A |
+| Schema migrations | Built-in | Built-in | Manual | N/A |
+| Query API | Rich | Very Rich | Basic | Key-value only |
+| MV3 Extension support | Yes | Yes | Yes | Yes |
+
+**Installation:**
+
+```bash
+cd apps/web
+npm install dexie@^4.2.1 dexie-react-hooks@^4.2.1
+```
+
+**Basic Setup:**
+
+```typescript
+// lib/db.ts
+import Dexie, { Table } from 'dexie';
+
+export interface Order {
+  id: string;
+  account_id: string;
+  updated_at: string;
+  // ... other fields
+}
+
+export class AppDatabase extends Dexie {
+  orders!: Table<Order, string>;
+
+  constructor() {
+    super('ds-prosolution');
+    this.version(1).stores({
+      orders: 'id, account_id, updated_at, [account_id+updated_at]'
+    });
+  }
+}
+
+export const db = new AppDatabase();
+```
+
+**React Usage:**
+
+```typescript
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
+
+function OrderList({ accountId }: { accountId: string }) {
+  const orders = useLiveQuery(
+    () => db.orders
+      .where('account_id')
+      .equals(accountId)
+      .sortBy('updated_at'),
+    [accountId]
+  );
+
+  return <>{orders?.map(order => <OrderRow key={order.id} order={order} />)}</>;
+}
+```
+
+**Rationale:**
+- Dexie's bulk methods leverage IndexedDB's lesser-known feature for batch inserts without individual `onsuccess` events
+- Works around browser-specific IndexedDB bugs
+- 100,000+ websites use Dexie in production
+- Sources: [Dexie.org](https://dexie.org/), [GitHub Dexie.js](https://github.com/dexie/Dexie.js)
+
+---
+
+### 3. State Management
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **TanStack Query** | 5.x | Server state management | Caching, deduplication, background refetch, optimistic updates |
+| **@supabase-cache-helpers/postgrest-react-query** | 1.x | Supabase + TanStack integration | Auto-generates cache keys, handles mutations, realtime integration |
+| Zustand | 5.x | Client-only UI state | Lightweight, simple, already proven in ecosystem |
+
+**Why TanStack Query + Supabase Cache Helpers:**
+
+The cache helpers automatically:
+- Generate unique cache keys from Supabase queries
+- Populate cache on mutations (optimistic updates)
+- Integrate with Supabase Realtime for live updates
+- Handle pagination (offset and cursor-based)
+
+**Installation:**
+
+```bash
+cd apps/web
+npm install @tanstack/react-query@^5.64.0 @supabase-cache-helpers/postgrest-react-query@^1.14.0
+```
+
+**Setup:**
+
+```typescript
+// providers/query-provider.tsx
+'use client';
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useState } from 'react';
+
+export function QueryProvider({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes (renamed from cacheTime in v5)
+      },
+    },
+  }));
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+}
+```
+
+**Usage with Supabase Cache Helpers:**
+
+```typescript
+import { useQuery } from '@supabase-cache-helpers/postgrest-react-query';
+import { createClient } from '@/lib/supabase/client';
+
+function OrdersPage({ accountId }: { accountId: string }) {
+  const supabase = createClient();
+
+  const { data, isLoading } = useQuery(
+    supabase
+      .from('orders')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('updated_at', { ascending: false })
+      .limit(50)
+  );
+
+  // Cache key is auto-generated from the query
+  // Mutations automatically update the cache
+}
+```
+
+**Cursor Pagination:**
+
+```typescript
+import { useCursorInfiniteScrollQuery } from '@supabase-cache-helpers/postgrest-react-query';
+
+function InfiniteOrderList({ accountId }: { accountId: string }) {
+  const supabase = createClient();
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useCursorInfiniteScrollQuery(
+    supabase
+      .from('orders')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('updated_at', { ascending: false })
+      .order('id', { ascending: false }),
+    { pageSize: 50 }
+  );
+}
+```
+
+**Rationale:**
+- TanStack Query is the de facto standard for server state in React
+- Supabase Cache Helpers eliminate boilerplate for cache key generation
+- Built-in infinite scroll/pagination hooks
+- Sources: [Supabase Blog](https://supabase.com/blog/react-query-nextjs-app-router-cache-helpers), [Supabase Cache Helpers Docs](https://supabase-cache-helpers.vercel.app/)
+
+---
+
+### 4. Sync Protocol (Client-Server)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **Custom Incremental Sync** | Custom | Track changes since last sync | Full control, no vendor lock-in |
+| **Supabase Realtime** | Built-in | Live updates for active data | Already in stack, no additional infrastructure |
+| `updated_at` checkpoints | Native PostgreSQL | Track sync cursor | Simple, debuggable, works with existing schema |
+
+**Why NOT PowerSync/Electric/RxDB Replication:**
+
+| Solution | Issue for DS-ProSolution |
+|----------|--------------------------|
+| PowerSync | Requires separate service, adds infrastructure complexity |
+| Electric SQL | SQLite sync target (we use IndexedDB), early-stage for production |
+| RxDB Supabase Replication | Heavyweight, requires schema changes, complex setup |
+| Dexie Cloud | Commercial SaaS, vendor lock-in |
+
+**Our constraint:** Must work within existing Supabase ecosystem without adding services.
+
+**Recommended Sync Architecture:**
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   IndexedDB     │◄────│   Sync Layer    │◄────│    Supabase     │
+│   (Dexie.js)    │     │   (Custom)      │     │   PostgreSQL    │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                       │
+        │  useLiveQuery()       │  Pull: checkpoint     │  RLS enforced
+        │                       │  Push: upsert         │
+        ▼                       │  Live: Realtime       │
+    React UI                    │                       │
+                                ▼                       │
+                        TanStack Query             Realtime
+                        (server state)             (WebSocket)
+```
+
+**Database Schema Requirements:**
+
+```sql
+-- Add to existing tables
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE;
+
+-- Trigger for auto-updating timestamp
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER orders_updated_at
+  BEFORE UPDATE ON orders
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Index for sync queries
+CREATE INDEX idx_orders_sync ON orders (updated_at, id);
+```
+
+**Sync Implementation:**
+
+```typescript
+// lib/sync.ts
+import { db } from './db';
+import { createClient } from './supabase/client';
+
+interface SyncCheckpoint {
+  table: string;
+  last_updated_at: string;
+  last_id: string;
+}
+
+export async function syncTable(table: 'orders' | 'listings', accountId: string) {
+  const supabase = createClient();
+
+  // Get checkpoint from IndexedDB
+  const checkpoint = await db.sync_checkpoints.get(`${table}:${accountId}`);
+
+  // Pull changes since checkpoint
+  let query = supabase
+    .from(table)
+    .select('*')
+    .eq('account_id', accountId)
+    .order('updated_at', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(1000);
+
+  if (checkpoint) {
+    query = query.or(
+      `updated_at.gt.${checkpoint.last_updated_at},` +
+      `and(updated_at.eq.${checkpoint.last_updated_at},id.gt.${checkpoint.last_id})`
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  if (data.length > 0) {
+    // Bulk upsert to IndexedDB
+    await db[table].bulkPut(data);
+
+    // Update checkpoint
+    const last = data[data.length - 1];
+    await db.sync_checkpoints.put({
+      id: `${table}:${accountId}`,
+      last_updated_at: last.updated_at,
+      last_id: last.id,
+    });
+
+    // Recurse if we got a full page (more data may exist)
+    if (data.length === 1000) {
+      await syncTable(table, accountId);
+    }
+  }
+}
+
+// Subscribe to realtime updates
+export function subscribeToChanges(table: string, accountId: string) {
+  const supabase = createClient();
+
+  return supabase
+    .channel(`${table}:${accountId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table,
+        filter: `account_id=eq.${accountId}`
+      },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          await db[table].put(payload.new);
+        }
+        // Soft deletes: deleted=true comes as UPDATE
+      }
+    )
+    .subscribe();
+}
+```
+
+**Soft Deletes (Critical):**
+
+```typescript
+// NEVER hard-delete - use soft delete for offline sync
+await supabase
+  .from('orders')
+  .update({ deleted: true })
+  .eq('id', orderId);
+
+// Client filters out deleted records
+const orders = await db.orders
+  .where('account_id').equals(accountId)
+  .and(order => !order.deleted)
+  .toArray();
+```
+
+**Rationale:**
+- Soft deletes ensure offline clients receive deletion notifications
+- Checkpoint-based sync handles interruptions gracefully
+- Supabase Realtime provides instant updates for active sessions
+- Sources: [Supabase Realtime Docs](https://supabase.com/docs/guides/realtime), [RxDB Supabase](https://rxdb.info/replication-supabase.html)
+
+---
+
+## Supporting Libraries
+
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| `idb-keyval` | 6.2.x | Simple key-value IndexedDB | Sync checkpoints, small metadata |
+| `@tanstack/react-query-devtools` | 5.x | Debug TanStack Query | Development only |
+| `date-fns` | 3.x | Date manipulation | Timestamp comparisons in sync |
+
+**Installation:**
+
+```bash
+# Core data infrastructure
+npm install dexie@^4.2.1 dexie-react-hooks@^4.2.1
+npm install @tanstack/react-query@^5.64.0
+npm install @supabase-cache-helpers/postgrest-react-query@^1.14.0
+npm install idb-keyval@^6.2.1
+
+# Dev tools
+npm install -D @tanstack/react-query-devtools@^5.64.0
 ```
 
 ---
 
-## Risk Mitigation
+## Chrome Extension Considerations
 
-### API Reliability
+The extension (`packages/extension`) uses Manifest V3 service workers which have special storage constraints.
 
-| Risk | Mitigation |
-|------|------------|
-| API downtime | Implement retry with exponential backoff |
-| Rate limit exceeded | Track usage, pause if approaching limit |
-| Data format changes | Version response parsers, monitor for errors |
-| Account suspension | Follow ToS, avoid aggressive scraping |
+**IndexedDB in MV3 Service Workers:**
+- localStorage is NOT available (synchronous API)
+- IndexedDB IS available and recommended
+- Data persists across service worker shutdowns
+- Use Dexie.js in both web app AND extension for consistency
 
-### Cost Overruns
+**Best Practice for Extension:**
 
-| Risk | Mitigation |
-|------|------------|
-| Unexpected volume | Set hard monthly limits in code |
-| Category expansion | Require approval for new categories |
-| Failed retries | Only retry 3x, log failures for manual review |
+```javascript
+// packages/extension/service-worker.js
+import Dexie from 'dexie';
 
-### Data Quality
+const db = new Dexie('ds-prosolution-extension');
+db.version(1).stores({
+  jobs: 'id, status, created_at',
+  cache: 'key'
+});
 
-| Risk | Mitigation |
-|------|------------|
-| Incomplete data | Validate required fields, flag incomplete records |
-| Stale data | Track scrape timestamps, re-scrape if >24h old |
-| Duplicate products | Dedupe by ASIN before eBay search |
+// Load data on service worker startup
+let inMemoryData = null;
 
----
+async function ensureLoaded() {
+  if (!inMemoryData) {
+    inMemoryData = await db.cache.get('runtime-data');
+  }
+  return inMemoryData;
+}
 
-## Decision Matrix: Final Recommendation
+// Persist on every change
+async function updateData(newData) {
+  inMemoryData = newData;
+  await db.cache.put({ key: 'runtime-data', ...newData });
+}
+```
 
-| Criterion | Oxylabs | Rainforest + ScraperAPI |
-|-----------|---------|-------------------------|
-| **Cost (10K/mo)** | $49 | ~$60-80 |
-| **Integration complexity** | Single API | Two APIs |
-| **Amazon accuracy** | Good | Excellent |
-| **eBay support** | Included | Separate |
-| **Free trial** | 2,000 results | Varies |
-| **Pricing transparency** | Public | Contact sales |
-
-**Final recommendation: Start with Oxylabs Micro ($49/month)**
-
-Rationale:
-1. Validate concept with free trial (2,000 results)
-2. Single integration for both platforms
-3. Clear upgrade path if volume increases
-4. Switch to Rainforest later if Amazon accuracy insufficient
+**Sources:** [Chrome Developer Docs](https://developer.chrome.com/docs/extensions/develop/migrate/to-service-workers)
 
 ---
 
-## Action Items
+## Alternatives Considered
 
-1. [ ] Sign up for Oxylabs free trial
-2. [ ] Test Amazon Best Sellers scraping with 5 categories
-3. [ ] Test eBay search with 100 product titles
-4. [ ] Validate data quality and response times
-5. [ ] If satisfactory, upgrade to Micro plan
-6. [ ] If not, evaluate Rainforest API trial
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| IndexedDB | Dexie 4.x | RxDB 16.x | Heavier bundle, complex setup, overkill for our sync needs |
+| IndexedDB | Dexie 4.x | idb | Too low-level, no schema migrations, no React hooks |
+| Pagination | Keyset | Offset | 17x slower at scale, inconsistent with concurrent writes |
+| Server State | TanStack Query | SWR | Less feature-rich, no built-in Supabase helpers |
+| Sync | Custom + Realtime | PowerSync | Additional infrastructure, cost, vendor lock-in |
+| Sync | Custom + Realtime | Electric SQL | SQLite target (not IndexedDB), early-stage |
+| Sync | Custom + Realtime | Dexie Cloud | Commercial SaaS, requires their backend |
+
+---
+
+## What NOT to Use
+
+| Technology | Reason |
+|------------|--------|
+| **Offset pagination** | Performance degrades linearly with page depth |
+| **Raw IndexedDB API** | Verbose, callback-based, no migrations |
+| **idb-keyval for large data** | Key-value only, no indexes, no queries |
+| **RxDB for this project** | Overkill complexity, large bundle, we don't need CRDT |
+| **PowerSync/Electric** | Adds infrastructure we don't need; Supabase handles sync |
+| **localStorage for cache** | 5MB limit, blocks main thread, no queries |
+| **chrome.storage.local** | Too slow for large datasets, 10MB limit |
+| **Zustand for server state** | TanStack Query is purpose-built for this |
+| **Hard deletes** | Breaks offline sync - always use soft deletes |
+
+---
+
+## Migration Path from Current State
+
+The current codebase uses full-fetch pattern with no client cache. Here's the incremental migration:
+
+**Phase 1: Add TanStack Query + Supabase Cache Helpers**
+- Wrap existing Supabase queries with `useQuery()`
+- Immediate benefits: caching, deduplication, loading states
+- No schema changes required
+
+**Phase 2: Add Dexie.js for Offline Cache**
+- Create IndexedDB schema mirroring key tables
+- Populate on initial sync
+- Serve reads from IndexedDB, background refresh from server
+
+**Phase 3: Implement Incremental Sync**
+- Add `updated_at` triggers to tables
+- Implement checkpoint-based sync
+- Subscribe to Supabase Realtime for live updates
+
+**Phase 4: Convert to Cursor Pagination**
+- Add composite indexes
+- Replace `.range()` with keyset queries
+- Implement infinite scroll UI
+
+---
+
+## Performance Targets
+
+| Metric | Target | How Achieved |
+|--------|--------|--------------|
+| Initial page load | <1s | IndexedDB cache + skeleton UI |
+| Incremental sync | <5s for 10K records | Bulk insert, checkpoint batching |
+| UI responsiveness | <50ms | useLiveQuery() reactive updates |
+| Memory footprint | <100MB | Paginated loading, not full dataset |
+| Offline capability | Full read | IndexedDB stores all synced data |
 
 ---
 
 ## Sources
 
-### Pricing & Features
-- [Oxylabs Web Scraper API Pricing](https://oxylabs.io/products/scraper-api/web/pricing) - Tier details, rate limits
-- [Oxylabs Amazon Scraper](https://oxylabs.io/products/scraper-api/ecommerce/amazon) - Amazon-specific features
-- [Oxylabs eBay Scraper](https://oxylabs.io/products/scraper-api/ecommerce/ebay) - eBay-specific features
-- [Bright Data Web Scraper Pricing](https://brightdata.com/pricing/web-scraper) - Alternative pricing
-- [ScraperAPI Pricing](https://www.scraperapi.com/pricing/) - Credit-based model
-- [Rainforest API Bestsellers](https://docs.trajectdata.com/rainforestapi/product-data-api/parameters/bestsellers) - Dedicated endpoint docs
+**Server Pagination:**
+- [Keyset Cursors for Postgres Pagination](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/)
+- [Five Ways to Paginate in Postgres](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/)
+- [Cursor Pagination Guide 2025](https://bun.uptrace.dev/guide/cursor-pagination.html)
 
-### Comparisons & Reviews
-- [Scrapingdog: Best Amazon Scraping APIs 2026](https://www.scrapingdog.com/blog/best-amazon-scraping-apis/) - Independent testing
-- [Bright Data: Top 10 Amazon Scrapers 2026](https://brightdata.com/blog/web-data/best-amazon-scrapers) - Feature comparison
-- [Medium: Top 7 Web Scraping APIs 2026](https://medium.com/@datajournal/best-web-scraping-apis-fbbdcf7b88f4) - General overview
+**IndexedDB Libraries:**
+- [Dexie.js Official Docs](https://dexie.org/)
+- [Dexie.js GitHub](https://github.com/dexie/Dexie.js)
+- [idb vs Dexie Comparison](https://npm-compare.com/dexie,idb)
 
-### Amazon Best Sellers Structure
-- [Amazon Best Sellers Page](https://www.amazon.com/Best-Sellers/zgbs) - Category listing
-- [Amazon BSR Guide](https://sell.amazon.com/blog/amazon-best-sellers-rank) - How rankings work
+**State Management:**
+- [Supabase Cache Helpers Docs](https://supabase-cache-helpers.vercel.app/)
+- [Using React Query with Supabase](https://supabase.com/blog/react-query-nextjs-app-router-cache-helpers)
+- [TanStack Query Persist](https://tanstack.com/query/v4/docs/framework/react/plugins/persistQueryClient)
+
+**Sync Protocols:**
+- [RxDB Supabase Replication](https://rxdb.info/replication-supabase.html)
+- [Supabase Realtime Best Practices](https://github.com/orgs/supabase/discussions/21995)
+- [PowerSync JS SDK](https://docs.powersync.com/client-sdk-references/js-web)
+
+**Chrome Extension Storage:**
+- [Migrate to Service Workers](https://developer.chrome.com/docs/extensions/develop/migrate/to-service-workers)
+- [MV3 Storage Learnings](https://devblogs.microsoft.com/engineering-at-microsoft/learnings-from-migrating-accessibility-insights-for-web-to-chromes-manifest-v3/)
 
 ---
 
-*Stack research for: SellerCollection v2 milestone*
-*Researched: 2026-01-20*
+*Stack research: 2026-01-23*
+*Confidence: HIGH - All recommendations verified with official documentation and 2025 sources*

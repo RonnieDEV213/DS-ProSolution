@@ -89,6 +89,69 @@ export interface RemarkUpdate {
   content: string | null;
 }
 
+// ============================================================
+// Sync API Types (for IndexedDB sync)
+// ============================================================
+
+export interface SyncParams {
+  account_id?: string;
+  cursor?: string | null;
+  limit?: number;
+  include_deleted?: boolean;
+  updated_since?: string;
+  status?: BookkeepingStatus;
+  flagged?: boolean;
+}
+
+export interface SyncResponse<T> {
+  items: T[];
+  next_cursor: string | null;
+  has_more: boolean;
+  total_estimate: number | null;
+}
+
+// Sync item types (raw server data without computed fields)
+export interface RecordSyncItem {
+  id: string;
+  account_id: string;
+  ebay_order_id: string;
+  sale_date: string;
+  item_name: string;
+  qty: number;
+  sale_price_cents: number;
+  ebay_fees_cents: number | null;
+  amazon_price_cents: number | null;
+  amazon_tax_cents: number | null;
+  amazon_shipping_cents: number | null;
+  amazon_order_id: string | null;
+  status: BookkeepingStatus;
+  return_label_cost_cents: number | null;
+  order_remark: string | null;
+  service_remark: string | null;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface AccountSyncItem {
+  id: string;
+  account_code: string;
+  name: string | null;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface SellerSyncItem {
+  id: string;
+  display_name: string;
+  normalized_name: string;
+  platform: string;
+  platform_id: string | null;
+  times_seen: number;
+  flagged: boolean;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
@@ -106,7 +169,29 @@ async function fetchAPI<T>(
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(error.detail || "Request failed");
+    const detail = (error as { detail?: unknown }).detail;
+    let message = "Request failed";
+
+    if (typeof detail === "string") {
+      message = detail;
+    } else if (Array.isArray(detail)) {
+      const detailMessages = detail
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (item && typeof item === "object" && "msg" in item) {
+            const msg = (item as { msg?: unknown }).msg;
+            return typeof msg === "string" ? msg : null;
+          }
+          return null;
+        })
+        .filter((item): item is string => Boolean(item));
+
+      if (detailMessages.length > 0) {
+        message = detailMessages.join(", ");
+      }
+    }
+
+    throw new Error(message);
   }
 
   // Handle 204 No Content
@@ -181,6 +266,37 @@ export const api = {
     fetchAPI<{ status: string }>("/access-codes/logout", {
       method: "POST",
     }),
+
+  // Sync API (for IndexedDB sync)
+  syncRecords: async (params: SyncParams): Promise<SyncResponse<RecordSyncItem>> => {
+    const searchParams = new URLSearchParams();
+    if (params.account_id) searchParams.set("account_id", params.account_id);
+    if (params.cursor) searchParams.set("cursor", params.cursor);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.include_deleted) searchParams.set("include_deleted", "true");
+    if (params.updated_since) searchParams.set("updated_since", params.updated_since);
+    if (params.status) searchParams.set("status", params.status);
+    return fetchAPI(`/sync/records?${searchParams}`);
+  },
+
+  syncAccounts: async (params: SyncParams): Promise<SyncResponse<AccountSyncItem>> => {
+    const searchParams = new URLSearchParams();
+    if (params.cursor) searchParams.set("cursor", params.cursor);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.include_deleted) searchParams.set("include_deleted", "true");
+    if (params.updated_since) searchParams.set("updated_since", params.updated_since);
+    return fetchAPI(`/sync/accounts?${searchParams}`);
+  },
+
+  syncSellers: async (params: SyncParams): Promise<SyncResponse<SellerSyncItem>> => {
+    const searchParams = new URLSearchParams();
+    if (params.cursor) searchParams.set("cursor", params.cursor);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.include_deleted) searchParams.set("include_deleted", "true");
+    if (params.updated_since) searchParams.set("updated_since", params.updated_since);
+    if (params.flagged !== undefined) searchParams.set("flagged", String(params.flagged));
+    return fetchAPI(`/sync/sellers?${searchParams}`);
+  },
 };
 
 // Utility functions
@@ -224,6 +340,7 @@ export function displayValue(value: unknown): string {
  */
 export function formatCents(cents: number | null | undefined): string {
   if (cents == null) return "$0.00";
+  if (cents < 0) return `-$${Math.abs(cents / 100).toFixed(2)}`;
   return `$${(cents / 100).toFixed(2)}`;
 }
 
@@ -428,6 +545,280 @@ export function exportToCSV(
 
 // ============================================================
 // Automation API Functions
+// ============================================================
+
+// ============================================================
+// Export Types
+// ============================================================
+
+export type ExportFormat = 'csv' | 'json' | 'excel';
+
+export type ExportJobStatusType = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface ExportParams {
+  account_id: string;
+  format: ExportFormat;
+  columns?: string[];
+  status?: BookkeepingStatus;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface ExportJobStatus {
+  job_id: string;
+  status: ExportJobStatusType;
+  row_count: number | null;
+  file_url: string | null;
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export const EXPORT_COLUMNS = {
+  essential: ['ebay_order_id', 'sale_date', 'item_name', 'sale_price_cents', 'status'],
+  financial: ['ebay_order_id', 'sale_date', 'item_name', 'sale_price_cents', 'ebay_fees_cents', 'earnings_net_cents', 'amazon_price_cents', 'amazon_tax_cents', 'amazon_shipping_cents', 'cogs_total_cents', 'return_label_cost_cents', 'profit_cents', 'status'],
+  all: ['id', 'ebay_order_id', 'sale_date', 'item_name', 'qty', 'sale_price_cents', 'ebay_fees_cents', 'earnings_net_cents', 'amazon_price_cents', 'amazon_tax_cents', 'amazon_shipping_cents', 'cogs_total_cents', 'amazon_order_id', 'status', 'return_label_cost_cents', 'profit_cents', 'order_remark', 'service_remark'],
+} as const;
+
+export const COLUMN_LABELS: Record<string, string> = {
+  id: 'ID',
+  ebay_order_id: 'eBay Order ID',
+  sale_date: 'Sale Date',
+  item_name: 'Item Name',
+  qty: 'Quantity',
+  sale_price_cents: 'Sale Price',
+  ebay_fees_cents: 'eBay Fees',
+  earnings_net_cents: 'Earnings Net',
+  amazon_price_cents: 'Amazon Price',
+  amazon_tax_cents: 'Amazon Tax',
+  amazon_shipping_cents: 'Amazon Shipping',
+  cogs_total_cents: 'COGS Total',
+  amazon_order_id: 'Amazon Order ID',
+  status: 'Status',
+  return_label_cost_cents: 'Return Label Cost',
+  profit_cents: 'Profit',
+  order_remark: 'Order Remark',
+  service_remark: 'Service Remark',
+};
+
+// ============================================================
+// Export API Functions
+// ============================================================
+
+export const exportApi = {
+  // Streaming exports (direct download) - build URL for authenticated fetch
+  getExportUrl: (params: ExportParams): string => {
+    const searchParams = new URLSearchParams();
+    searchParams.set('account_id', params.account_id);
+    if (params.columns?.length) searchParams.set('columns', params.columns.join(','));
+    if (params.status) searchParams.set('status', params.status);
+    if (params.date_from) searchParams.set('date_from', params.date_from);
+    if (params.date_to) searchParams.set('date_to', params.date_to);
+    return `${API_BASE}/export/records/${params.format}?${searchParams}`;
+  },
+
+  // Streaming export with auth - downloads directly
+  streamingExport: async (params: ExportParams): Promise<Blob> => {
+    const token = await getAccessToken();
+    const url = exportApi.getExportUrl(params);
+
+    const res = await fetch(url, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Export failed' }));
+      throw new Error(error.detail || 'Export failed');
+    }
+
+    return res.blob();
+  },
+
+  // Background export (returns job ID)
+  createBackgroundExport: (params: ExportParams) =>
+    fetchAPI<{ job_id: string; status: string }>('/export/records/background', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  // Poll job status
+  getJobStatus: (jobId: string) =>
+    fetchAPI<ExportJobStatus>(`/export/jobs/${jobId}`),
+
+  // List user's export jobs
+  getExportJobs: () =>
+    fetchAPI<{ jobs: ExportJobStatus[] }>('/export/jobs'),
+
+  // Download completed background job file
+  downloadBackgroundExport: async (jobId: string): Promise<Blob> => {
+    const token = await getAccessToken();
+    const res = await fetch(`${API_BASE}/export/jobs/${jobId}/download`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Download failed' }));
+      throw new Error(error.detail || 'Download failed');
+    }
+
+    return res.blob();
+  },
+};
+
+// ============================================================
+// Import Types
+// ============================================================
+
+export type ImportFormat = 'csv' | 'json' | 'excel';
+
+export interface ImportValidationError {
+  row: number;
+  field: string;
+  message: string;
+}
+
+export interface ImportPreviewRow {
+  row_number: number;
+  data: Record<string, unknown>;
+  is_valid: boolean;
+  errors: ImportValidationError[];
+}
+
+export interface ImportValidationResponse {
+  preview: ImportPreviewRow[];
+  errors: ImportValidationError[];
+  total_rows: number;
+  valid_rows: number;
+  suggested_mapping: Record<string, string>;
+}
+
+export interface ImportCommitResponse {
+  batch_id: string;
+  rows_imported: number;
+}
+
+export interface ImportBatch {
+  id: string;
+  account_id: string;
+  filename: string;
+  row_count: number;
+  format: string;
+  created_at: string;
+  can_rollback: boolean;
+  rolled_back_at: string | null;
+}
+
+export interface ImportRollbackWarning {
+  warning: string;
+  modified_count: number;
+  modified_record_ids: string[];
+  requires_confirmation: boolean;
+}
+
+export interface ImportRollbackResponse {
+  success: boolean;
+  rows_deleted: number;
+  warning?: ImportRollbackWarning;
+}
+
+// Known importable fields
+export const IMPORT_FIELDS = [
+  { field: 'ebay_order_id', label: 'eBay Order ID', required: true },
+  { field: 'sale_date', label: 'Sale Date', required: true },
+  { field: 'item_name', label: 'Item Name', required: true },
+  { field: 'qty', label: 'Quantity', required: false },
+  { field: 'sale_price_cents', label: 'Sale Price (cents)', required: true },
+  { field: 'ebay_fees_cents', label: 'eBay Fees (cents)', required: false },
+  { field: 'amazon_price_cents', label: 'Amazon Price (cents)', required: false },
+  { field: 'amazon_tax_cents', label: 'Amazon Tax (cents)', required: false },
+  { field: 'amazon_shipping_cents', label: 'Amazon Shipping (cents)', required: false },
+  { field: 'amazon_order_id', label: 'Amazon Order ID', required: false },
+  { field: 'status', label: 'Status', required: false },
+  { field: 'order_remark', label: 'Order Remark', required: false },
+] as const;
+
+export const importApi = {
+  // Validate file and get preview with suggested mapping
+  validateFile: async (file: File, format: ImportFormat): Promise<ImportValidationResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = await getAccessToken();
+    const res = await fetch(`${API_BASE}/import/records/validate?format=${format}`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Validation failed' }));
+      throw new Error(error.detail || 'Validation failed');
+    }
+
+    return res.json();
+  },
+
+  // Commit import with user-confirmed mapping
+  commitImport: async (
+    file: File,
+    accountId: string,
+    format: ImportFormat,
+    columnMapping: Record<string, string>
+  ): Promise<ImportCommitResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('account_id', accountId);
+    formData.append('filename', file.name);
+    formData.append('format', format);
+    formData.append('column_mapping', JSON.stringify(columnMapping));
+
+    const token = await getAccessToken();
+    const res = await fetch(`${API_BASE}/import/records/commit`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Import failed' }));
+      // Handle both string and object error formats
+      const detail = error.detail;
+      if (typeof detail === 'string') {
+        throw new Error(detail);
+      } else if (detail?.message) {
+        // Object format: { message: string, errors: string[] }
+        const errorList = detail.errors?.join('; ') || '';
+        throw new Error(errorList ? `${detail.message}: ${errorList}` : detail.message);
+      }
+      throw new Error('Import failed');
+    }
+
+    return res.json();
+  },
+
+  // Get import history
+  getImportBatches: (accountId?: string) =>
+    fetchAPI<{ batches: ImportBatch[] }>(
+      `/import/batches${accountId ? `?account_id=${accountId}` : ''}`
+    ),
+
+  // Rollback import
+  rollbackImport: (batchId: string, force: boolean = false) =>
+    fetchAPI<ImportRollbackResponse>(`/import/batches/${batchId}/rollback?force=${force}`, {
+      method: 'POST',
+    }),
+};
+
+// ============================================================
+// Automation Types
 // ============================================================
 
 export const automationApi = {
