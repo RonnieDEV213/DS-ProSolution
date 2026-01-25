@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** Planning next milestone
+**Current focus:** v4 UI/Design System
 
 ## Current Position
 
-Phase: Ready for next milestone
-Plan: N/A
-Status: v3 milestone complete and archived
-Last activity: 2026-01-25 — v3 Storage & Rendering Infrastructure shipped
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements for v4
+Last activity: 2026-01-25 — Milestone v4 UI/Design System started
 
-Progress: All milestones complete, ready for v4 planning
+Progress: Milestone initialized, moving to research/requirements
 
 ## Shipped Milestones
 
@@ -50,11 +50,11 @@ None.
 
 ### Blockers/Concerns
 
-None.
+**v4 constraint:** Performance-neutral minimum, performance-positive preferred. All UI changes must use CSS-first approach to avoid compute overhead.
 
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: v3 Milestone Complete
+Stopped at: v4 milestone started, moving to research
 Resume file: None
-Next action: Run /gsd:new-milestone to define next milestone
+Next action: Research or define requirements

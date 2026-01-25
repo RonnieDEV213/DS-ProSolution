@@ -78,7 +78,15 @@ Automate repetitive eBay operations — from VA task coordination to dropshipper
 
 <!-- Current scope. Building toward these. -->
 
-None — ready for next milestone definition.
+**v4 UI/Design System (in progress):**
+- [ ] Preset theme system with 3-4 themes (CSS variable-based, user-selectable)
+- [ ] Custom scrollbars replacing browser defaults (pure CSS)
+- [ ] Custom form controls with branded styling (inputs, selects, checkboxes)
+- [ ] Custom modals/dialogs replacing default patterns
+- [ ] Modern SaaS aesthetic (Linear/Notion/Vercel style)
+- [ ] Layout/navigation overhaul for Admin, VA, and Client dashboards
+- [ ] Theme persistence (user preference saved)
+- [ ] Architecture supports future data-dense dashboard option
 
 ### Out of Scope
 
@@ -133,7 +141,10 @@ None — ready for next milestone definition.
 - **Scraping**: Use Oxylabs E-Commerce API — don't build scrapers
 - **Cost/Work ratio**: Prefer simple brute-force over complex monitoring systems
 - **Public data only**: No authenticated scraping, no account risk
-- **UI patterns**: Use existing shadcn/ui components
+- **UI patterns**: Build on shadcn/ui with custom theming layer
+- **Performance-neutral minimum**: UI changes must not add compute cost
+- **Performance-positive preferred**: Identify opportunities to reduce render cost
+- **CSS-first theming**: Use CSS variables, avoid runtime JS for theme application
 - **Admin-only**: SellerCollection UI is for Admins only (not VAs or Clients)
 - **Scale**: Architecture supports millions of records with fast read/write
 - **Browser limits**: ~1-2GB max per tab, IndexedDB ~50% of storage quota
@@ -169,5 +180,22 @@ None — ready for next milestone definition.
 | 10K row threshold for background exports | Streaming for smaller exports, background jobs for larger | ✓ Good — v3 |
 | 24-hour rollback window for imports | Per requirements, enforced in code and DB function | ✓ Good — v3 |
 
+## Current Milestone: v4 UI/Design System
+
+**Goal:** Transform DS-ProSolution into a polished Modern SaaS application with custom UI components and preset themes — while maintaining or improving performance.
+
+**Target features:**
+- Preset theme system (3-4 themes initially, CSS variable architecture)
+- Custom UI components (scrollbars, form controls, modals) — pure CSS where possible
+- Modern SaaS aesthetic (Linear/Notion/Vercel style)
+- Layout/navigation overhaul for Admin, VA, and Client dashboards
+- Future-ready architecture for data-dense dashboard option (not implemented this milestone)
+
+**Success criteria:**
+- Visually distinct from current UI — users immediately notice the upgrade
+- Professional, commercial SaaS polish
+- Theme switching works with zero JS overhead at runtime
+- Performance metrics same or better than current
+
 ---
-*Last updated: 2026-01-25 after v3 Storage & Rendering Infrastructure milestone*
+*Last updated: 2026-01-25 after v4 UI/Design System milestone started*
