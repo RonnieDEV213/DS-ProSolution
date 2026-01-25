@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 20 of 21 (Virtualized Rendering)
-Plan: 4 of 4 in current phase
+Plan: 5 of 5 in current phase
 Status: Phase complete
-Last activity: 2026-01-25 - Completed 20-04-PLAN.md
+Last activity: 2026-01-24 - Completed 20-05-PLAN.md
 
-Progress: [██████████████████] 100% (18/18 plans)
+Progress: [██████████████████] 100% (19/19 plans)
 
 ## Shipped Milestones
 
@@ -83,6 +83,8 @@ Recent decisions affecting current work:
 | Expanded rows as fixed-height virtual rows | 20-01 | Avoid variable height measurement while supporting expansion |
 | Persist row density in localStorage | 20-01 | Maintain compact/comfortable preference across sessions |
 | Use List.scrollToRow with smart alignment | 20-02 | Keep focused rows visible without over-scrolling |
+| Row container onClick toggles expand | 20-05 | Better UX - click anywhere on row, not just arrow |
+| Separate Return Label/Return Closed filters | 20-05 | More granular filtering than combined Returns chip |
 
 ### Pending Todos
 
@@ -94,7 +96,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-25 00:00 UTC
-Stopped at: Completed 20-04-PLAN.md
+Last session: 2026-01-24
+Stopped at: Completed 20-05-PLAN.md
 Resume file: None
 Next action: Run /gsd/plan-phase 21
