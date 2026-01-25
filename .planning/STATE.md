@@ -85,6 +85,9 @@ Recent decisions affecting current work:
 | Use List.scrollToRow with smart alignment | 20-02 | Keep focused rows visible without over-scrolling |
 | Row container onClick toggles expand | 20-05 | Better UX - click anywhere on row, not just arrow |
 | Separate Return Label/Return Closed filters | 20-05 | More granular filtering than combined Returns chip |
+| 10K row threshold for background exports | 21-01 | Streaming for smaller exports, background jobs for larger |
+| xlsxwriter constant_memory for Excel | 21-01 | Memory-efficient Excel generation for large files |
+| Currency cents to dollars in Excel | 21-01 | Better readability with $#,##0.00 format |
 | 70% similarity threshold for column mapping | 21-03 | Balances flexibility with accuracy for import column matching |
 | All-or-nothing import transaction | 21-03 | Prevents partial imports, user sees all errors upfront |
 | Soft-delete for import rollback | 21-03 | Follows existing pattern, maintains audit trail |
