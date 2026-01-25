@@ -286,6 +286,7 @@ export function BookkeepingContent() {
               helpOpen={helpModalOpen}
               onHelpOpenChange={setHelpModalOpen}
               accountId={selectedAccountId}
+              totalRecords={totalCount}
             />
 
             <VirtualizedRecordsList

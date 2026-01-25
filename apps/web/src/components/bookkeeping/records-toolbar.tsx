@@ -157,6 +157,16 @@ export function RecordsToolbar({
           accountId={accountId}
         />
       )}
+
+      {accountId && (
+        <ExportDialog
+          open={exportOpen}
+          onOpenChange={setExportOpen}
+          accountId={accountId}
+          totalRecords={totalRecords}
+          filters={filters}
+        />
+      )}
     </div>
   );
 }
