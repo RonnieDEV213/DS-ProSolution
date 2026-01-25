@@ -6,11 +6,8 @@ import { Button } from "@/components/ui/button";
 const QUICK_FILTERS = [
   { id: "all", label: "All" },
   { id: "successful", label: "Successful", status: "SUCCESSFUL" },
-  {
-    id: "returns",
-    label: "Returns",
-    statuses: ["RETURN_LABEL_PROVIDED", "RETURN_CLOSED"],
-  },
+  { id: "return_label", label: "Return Label", status: "RETURN_LABEL_PROVIDED" },
+  { id: "return_closed", label: "Return Closed", status: "RETURN_CLOSED" },
   { id: "refunds", label: "Refunds", status: "REFUND_NO_RETURN" },
 ];
 

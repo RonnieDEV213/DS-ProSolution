@@ -172,12 +172,11 @@ export function BookkeepingContent() {
     if (activeFilter === "successful") {
       return records.filter((record) => record.status === "SUCCESSFUL");
     }
-    if (activeFilter === "returns") {
-      return records.filter(
-        (record) =>
-          record.status === "RETURN_LABEL_PROVIDED" ||
-          record.status === "RETURN_CLOSED"
-      );
+    if (activeFilter === "return_label") {
+      return records.filter((record) => record.status === "RETURN_LABEL_PROVIDED");
+    }
+    if (activeFilter === "return_closed") {
+      return records.filter((record) => record.status === "RETURN_CLOSED");
     }
     if (activeFilter === "refunds") {
       return records.filter((record) => record.status === "REFUND_NO_RETURN");
