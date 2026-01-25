@@ -1,3 +1,13 @@
+# Requirements Archive: v3 Storage & Rendering Infrastructure
+
+**Archived:** 2026-01-25
+**Status:** SHIPPED
+
+This is the archived requirements specification for v3.
+For current requirements, see `.planning/REQUIREMENTS.md` (created for next milestone).
+
+---
+
 # Requirements: DS-ProSolution v3
 
 **Defined:** 2026-01-23
@@ -16,7 +26,7 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 - [x] **PAGI-05**: Lists display row count and result summary ("Showing 1-50 of 2,340,567")
 - [x] **PAGI-06**: Lists show loading states during pagination and filtering
 - [x] **PAGI-07**: Infinite scroll integrates with virtual scroll (hybrid pattern)
-- [ ] **PAGI-08**: User can save and load filter/view presets (OUT OF SCOPE)
+- [x] **PAGI-08**: User can save and load filter/view presets — OUT OF SCOPE (deferred)
 - [x] **PAGI-09**: Common filters available as one-click quick filter chips
 - [x] **PAGI-10**: Lists support keyboard navigation (j/k for rows, Enter to select)
 
@@ -42,13 +52,13 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 
 ### Export/Import
 
-- [ ] **EXPO-01**: CSV export streams data (doesn't load all into memory)
-- [ ] **EXPO-02**: Export UI allows column selection before export
-- [ ] **EXPO-03**: Export shows progress indicator with row count
-- [ ] **EXPO-04**: Large exports run in background with notification when complete
-- [ ] **EXPO-05**: Export supports multiple formats (CSV, JSON, Excel, PDF)
-- [ ] **EXPO-06**: Import shows validation preview before committing
-- [ ] **EXPO-07**: Import supports rollback to undo bad imports
+- [x] **EXPO-01**: CSV export streams data (doesn't load all into memory)
+- [x] **EXPO-02**: Export UI allows column selection before export
+- [x] **EXPO-03**: Export shows progress indicator with row count
+- [x] **EXPO-04**: Large exports run in background with notification when complete
+- [x] **EXPO-05**: Export supports multiple formats (CSV, JSON, Excel) — PDF deferred
+- [x] **EXPO-06**: Import shows validation preview before committing
+- [x] **EXPO-07**: Import supports rollback to undo bad imports
 
 ### Infrastructure
 
@@ -58,37 +68,7 @@ Requirements for v3 Storage & Rendering Infrastructure. Each maps to roadmap pha
 - [x] **INFR-04**: IndexedDB schema mirrors server data structure
 - [x] **INFR-05**: Sync engine tracks local vs server state
 
-## v4+ Requirements
-
-Deferred to future releases. Tracked but not in current roadmap.
-
-### Real-time
-
-- **REAL-01**: Orders stream via SSE (new orders appear without refresh)
-- **REAL-02**: Metrics update in real-time via WebSocket
-
-### Advanced
-
-- **ADVN-01**: Full-text search across all data types
-- **ADVN-02**: Custom dashboard widgets with saved layouts
-
-## Out of Scope
-
-Explicitly excluded. Documented to prevent scope creep.
-
-| Feature | Reason |
-|---------|--------|
-| Offline-first as core architecture | Overkill for internal tool with reliable connectivity |
-| Real-time collaborative editing | Not a document editor, last-write-wins sufficient |
-| CRDTs for conflict resolution | Too complex, simple conflict UI sufficient |
-| GraphQL | REST with cursors is simpler and sufficient |
-| Custom scrollbar implementations | Fighting browser, breaks accessibility |
-| "Load all" option for large datasets | Will crash browser, server export instead |
-| Full offline mode | Brief queue sufficient, not full offline app |
-
 ## Traceability
-
-Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -121,19 +101,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PAGI-08 | Phase 20 | Out of Scope |
 | PAGI-09 | Phase 20 | Complete |
 | PAGI-10 | Phase 20 | Complete |
-| EXPO-01 | Phase 21 | Pending |
-| EXPO-02 | Phase 21 | Pending |
-| EXPO-03 | Phase 21 | Pending |
-| EXPO-04 | Phase 21 | Pending |
-| EXPO-05 | Phase 21 | Pending |
-| EXPO-06 | Phase 21 | Pending |
-| EXPO-07 | Phase 21 | Pending |
-
-**Coverage:**
-- v3 requirements: 36 total
-- Mapped to phases: 36
-- Unmapped: 0
+| EXPO-01 | Phase 21 | Complete |
+| EXPO-02 | Phase 21 | Complete |
+| EXPO-03 | Phase 21 | Complete |
+| EXPO-04 | Phase 21 | Complete |
+| EXPO-05 | Phase 21 | Complete |
+| EXPO-06 | Phase 21 | Complete |
+| EXPO-07 | Phase 21 | Complete |
 
 ---
-*Requirements defined: 2026-01-23*
-*Last updated: 2026-01-25 — Phase 20 complete (PAGI-04, 05, 06, 07, 09, 10)*
+
+## Milestone Summary
+
+**Shipped:** 34 of 35 v3 requirements (PAGI-08 out of scope)
+
+**Adjusted:**
+- EXPO-05: PDF export deferred to future milestone (CSV, JSON, Excel implemented)
+
+**Dropped:**
+- PAGI-08: Filter presets with backend persistence — deferred per CONTEXT.md
+
+---
+*Archived: 2026-01-25 as part of v3 milestone completion*

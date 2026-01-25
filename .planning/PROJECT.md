@@ -2,7 +2,7 @@
 
 ## What This Is
 
-An in-house eBay automation account management platform for agency operations — tracking orders, managing bookkeeping, coordinating VAs, providing client dashboards, and discovering dropshippers at scale. The platform supports three user types (Admin, VA, Client) with role-based access control, a Chrome extension for VA workflows, and an automated seller collection pipeline that cross-references Amazon Best Sellers with eBay to find dropshippers.
+An in-house eBay automation account management platform for agency operations — tracking orders, managing bookkeeping, coordinating VAs, providing client dashboards, and discovering dropshippers at scale. The platform supports three user types (Admin, VA, Client) with role-based access control, a Chrome extension for VA workflows, an automated seller collection pipeline, and a scalable storage/rendering infrastructure handling millions of records.
 
 ## Core Value
 
@@ -10,10 +10,9 @@ Automate repetitive eBay operations — from VA task coordination to dropshipper
 
 ## Current State
 
-**Active:** v3 Storage & Rendering Infrastructure
-**Shipped:** v2 SellerCollection (2026-01-23), v1 Extension Auth & RBAC (2026-01-20)
-**Tech Stack:** Next.js 14+, FastAPI, Supabase, Chrome Extension MV3
-**Codebase:** ~55,000 lines across 346 files (v1: +16,544, v2: +38,240)
+**Shipped:** v3 Storage & Rendering (2026-01-25), v2 SellerCollection (2026-01-23), v1 Extension Auth & RBAC (2026-01-20)
+**Tech Stack:** Next.js 14+, FastAPI, Supabase, Chrome Extension MV3, Dexie.js (IndexedDB), TanStack Query
+**Codebase:** ~80,000 lines across 484 files (v1: +16,544, v2: +38,240, v3: +25,371)
 
 ## Requirements
 
@@ -59,21 +58,35 @@ Automate repetitive eBay operations — from VA task coordination to dropshipper
 - ✓ Scheduled monthly collection with cron configuration — v2
 - ✓ Unified history timeline with inline diff (added/removed sellers) — v2
 
+**v3 Storage & Rendering Infrastructure (shipped 2026-01-25):**
+- ✓ Server storage: Composite cursor indexes, soft deletes, 30-day pg_cron purge — v3
+- ✓ Transport: Cursor-based paginated /sync/records, /sync/accounts, /sync/sellers APIs — v3
+- ✓ Transport: Incremental sync via updated_since parameter — v3
+- ✓ Client caching: TanStack Query with stale-while-revalidate and optimistic mutations — v3
+- ✓ Client storage: IndexedDB via Dexie.js with sync engine and cache-first loading — v3
+- ✓ Sync UX: Status indicator, "last synced X ago", exponential retry, error display — v3
+- ✓ Sync UX: Optimistic updates with rollback, conflict resolution modal — v3
+- ✓ Sync UX: Offline mutation queue, row-level sync badges — v3
+- ✓ Rendering: Virtual scrolling with constant DOM elements (~50 rows) — v3
+- ✓ Rendering: Infinite scroll integration, keyboard navigation (j/k/Enter) — v3
+- ✓ Rendering: Quick filter chips, row count summary, loading skeleton rows — v3
+- ✓ Export: Streaming CSV/JSON/Excel with column selection and progress indicator — v3
+- ✓ Export: Background jobs for large exports (>10K rows) with notifications — v3
+- ✓ Import: Validation preview, column mapping, 24-hour rollback capability — v3
+
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-**v3 Storage & Rendering Infrastructure:**
-- [ ] Server storage: Pagination foundation (indexes, cursor support, query optimization)
-- [ ] Transport: Cursor-based paginated APIs (convert full-fetch endpoints)
-- [ ] Transport: Incremental sync protocol (fetch only changed records)
-- [ ] Client storage: IndexedDB cache layer (schema, read/write operations)
-- [ ] Client storage: Sync manager (track cached vs stale, background refresh)
-- [ ] Rendering: Integration with pagination (virtualization + infinite scroll + cache)
+None — ready for next milestone definition.
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
+
+**Deferred from v3:**
+- PAGI-08: Filter presets with backend persistence — future quality-of-life feature
+- PDF export — future addition to export formats
 
 **Future milestone candidates (deferred from v2):**
 - Seller filtering/quality pipeline (reverse image search, hero image detection, win rate analysis) — candidate for v2.1
@@ -95,23 +108,15 @@ Automate repetitive eBay operations — from VA task coordination to dropshipper
 - Monorepo: `apps/web` (Next.js 14+), `apps/api` (FastAPI), `packages/extension` (Chrome MV3)
 - Supabase for auth, database (PostgreSQL + RLS), and real-time
 - Oxylabs E-Commerce Scraper API ($49/month Micro plan) for Amazon and eBay
+- TanStack Query for server state management with cache invalidation
+- Dexie.js for IndexedDB client-side persistence
+- react-window v2 for virtualized rendering
 
-**v2 SellerCollection Architecture:**
-- Oxylabs handles scraping for both Amazon Best Sellers and eBay search
-- 5-worker parallel collection for optimal throughput
-- SSE (Server-Sent Events) for real-time activity streaming
-- Audit log replay for seller snapshot reconstruction
-- All data is public — no authentication required, no account risk
-
-**Data Flow:**
-```
-Amazon Best Sellers (Oxylabs)
-    → Product titles + prices (5 workers)
-    → eBay search (Oxylabs) with dropshipper filters (5 workers)
-    → Seller names from results
-    → Dedup against Supabase
-    → Store new sellers + audit log
-```
+**v3 Storage Architecture:**
+- Cursor-based pagination with composite indexes (scope_id, updated_at DESC, id DESC)
+- Soft deletes (deleted_at) with 30-day retention and pg_cron purge job
+- IndexedDB mirrors server schema with sync checkpoints for incremental sync
+- Cache-first pattern: load from IndexedDB instantly, background sync from server
 
 **User Types (source of truth = codebase):**
 - Admin: Superuser, bypasses RBAC, full access to web app and extension
@@ -122,16 +127,6 @@ Amazon Best Sellers (Oxylabs)
 - SellerCollection is Admin-only (data sourcing tool, not VA workflow)
 - Extension auth via access codes (4-char prefix + 12-char secret)
 
-**v3 Scale Target:**
-- Agency scale: hundreds of eBay accounts, each with 2-5 Amazon accounts
-- Per account: orders, listings, metrics, messages, feedback, payouts, tracking
-- Data volume: thousands of MB (GBs) across the platform
-- Current bottlenecks:
-  - Transport: Full-fetch pattern won't scale (fetches all records every request)
-  - Client storage: Missing entirely (no IndexedDB cache, every navigation re-fetches)
-  - Server storage: Basic indexes, no pagination support
-  - Rendering: Virtualization exists but not connected to paginated fetch
-
 ## Constraints
 
 - **Tech stack**: Next.js 14+ / FastAPI / Supabase — no new frameworks
@@ -140,7 +135,7 @@ Amazon Best Sellers (Oxylabs)
 - **Public data only**: No authenticated scraping, no account risk
 - **UI patterns**: Use existing shadcn/ui components
 - **Admin-only**: SellerCollection UI is for Admins only (not VAs or Clients)
-- **Scale**: Architecture must support millions of records with fast read/write
+- **Scale**: Architecture supports millions of records with fast read/write
 - **Browser limits**: ~1-2GB max per tab, IndexedDB ~50% of storage quota
 - **Supabase limits**: Connection pooling, row limits on tiers to consider
 
@@ -166,6 +161,13 @@ Amazon Best Sellers (Oxylabs)
 | Client-side metrics aggregation | Reduces backend complexity, real-time updates via SSE | ✓ Good — v2 |
 | Unified History Entry modal | Single modal for runs and edits, simpler UX | ✓ Good — v2 |
 | Delete vs deprecate for unused code | Cleaner codebase, no confusion from deprecated stubs | ✓ Good — v2 |
+| URL-safe base64 cursors with short JSON keys | Short cursors for query parameters, URL-safe characters | ✓ Good — v3 |
+| 30s staleTime for records, 5min for accounts | Records change frequently, accounts rarely | ✓ Good — v3 |
+| SCHEMA_VERSION triggers full resync | Simpler than migration handlers | ✓ Good — v3 |
+| useSyncExternalStore for online/offline | Proper cleanup, SSR-safe browser event subscription | ✓ Good — v3 |
+| Temp ID format temp-{uuid} for optimistic creates | Easy identification of uncommitted records | ✓ Good — v3 |
+| 10K row threshold for background exports | Streaming for smaller exports, background jobs for larger | ✓ Good — v3 |
+| 24-hour rollback window for imports | Per requirements, enforced in code and DB function | ✓ Good — v3 |
 
 ---
-*Last updated: 2026-01-23 after starting v3 Storage & Rendering Infrastructure milestone*
+*Last updated: 2026-01-25 after v3 Storage & Rendering Infrastructure milestone*
