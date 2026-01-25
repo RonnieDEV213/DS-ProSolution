@@ -169,7 +169,29 @@ async function fetchAPI<T>(
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(error.detail || "Request failed");
+    const detail = (error as { detail?: unknown }).detail;
+    let message = "Request failed";
+
+    if (typeof detail === "string") {
+      message = detail;
+    } else if (Array.isArray(detail)) {
+      const detailMessages = detail
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (item && typeof item === "object" && "msg" in item) {
+            const msg = (item as { msg?: unknown }).msg;
+            return typeof msg === "string" ? msg : null;
+          }
+          return null;
+        })
+        .filter((item): item is string => Boolean(item));
+
+      if (detailMessages.length > 0) {
+        message = detailMessages.join(", ");
+      }
+    }
+
+    throw new Error(message);
   }
 
   // Handle 204 No Content
@@ -318,6 +340,7 @@ export function displayValue(value: unknown): string {
  */
 export function formatCents(cents: number | null | undefined): string {
   if (cents == null) return "$0.00";
+  if (cents < 0) return `-$${Math.abs(cents / 100).toFixed(2)}`;
   return `$${(cents / 100).toFixed(2)}`;
 }
 
@@ -522,6 +545,149 @@ export function exportToCSV(
 
 // ============================================================
 // Automation API Functions
+// ============================================================
+
+// ============================================================
+// Export/Import Types
+// ============================================================
+
+export type ImportFormat = 'csv' | 'json' | 'excel';
+
+export interface ImportValidationError {
+  row: number;
+  field: string;
+  message: string;
+}
+
+export interface ImportPreviewRow {
+  row_number: number;
+  data: Record<string, unknown>;
+  is_valid: boolean;
+  errors: ImportValidationError[];
+}
+
+export interface ImportValidationResponse {
+  preview: ImportPreviewRow[];
+  errors: ImportValidationError[];
+  total_rows: number;
+  valid_rows: number;
+  suggested_mapping: Record<string, string>;
+}
+
+export interface ImportCommitResponse {
+  batch_id: string;
+  rows_imported: number;
+}
+
+export interface ImportBatch {
+  id: string;
+  account_id: string;
+  filename: string;
+  row_count: number;
+  format: string;
+  created_at: string;
+  can_rollback: boolean;
+  rolled_back_at: string | null;
+}
+
+export interface ImportRollbackWarning {
+  warning: string;
+  modified_count: number;
+  modified_record_ids: string[];
+  requires_confirmation: boolean;
+}
+
+export interface ImportRollbackResponse {
+  success: boolean;
+  rows_deleted: number;
+  warning?: ImportRollbackWarning;
+}
+
+// Known importable fields
+export const IMPORT_FIELDS = [
+  { field: 'ebay_order_id', label: 'eBay Order ID', required: true },
+  { field: 'sale_date', label: 'Sale Date', required: true },
+  { field: 'item_name', label: 'Item Name', required: true },
+  { field: 'qty', label: 'Quantity', required: false },
+  { field: 'sale_price_cents', label: 'Sale Price (cents)', required: true },
+  { field: 'ebay_fees_cents', label: 'eBay Fees (cents)', required: false },
+  { field: 'amazon_price_cents', label: 'Amazon Price (cents)', required: false },
+  { field: 'amazon_tax_cents', label: 'Amazon Tax (cents)', required: false },
+  { field: 'amazon_shipping_cents', label: 'Amazon Shipping (cents)', required: false },
+  { field: 'amazon_order_id', label: 'Amazon Order ID', required: false },
+  { field: 'status', label: 'Status', required: false },
+  { field: 'order_remark', label: 'Order Remark', required: false },
+] as const;
+
+export const importApi = {
+  // Validate file and get preview with suggested mapping
+  validateFile: async (file: File, format: ImportFormat): Promise<ImportValidationResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = await getAccessToken();
+    const res = await fetch(`${API_BASE}/import/records/validate?format=${format}`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Validation failed' }));
+      throw new Error(error.detail || 'Validation failed');
+    }
+
+    return res.json();
+  },
+
+  // Commit import with user-confirmed mapping
+  commitImport: async (
+    file: File,
+    accountId: string,
+    format: ImportFormat,
+    columnMapping: Record<string, string>
+  ): Promise<ImportCommitResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('account_id', accountId);
+    formData.append('filename', file.name);
+    formData.append('format', format);
+    formData.append('column_mapping', JSON.stringify(columnMapping));
+
+    const token = await getAccessToken();
+    const res = await fetch(`${API_BASE}/import/records/commit`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Import failed' }));
+      throw new Error(error.detail || 'Import failed');
+    }
+
+    return res.json();
+  },
+
+  // Get import history
+  getImportBatches: (accountId?: string) =>
+    fetchAPI<{ batches: ImportBatch[] }>(
+      `/import/batches${accountId ? `?account_id=${accountId}` : ''}`
+    ),
+
+  // Rollback import
+  rollbackImport: (batchId: string, force: boolean = false) =>
+    fetchAPI<ImportRollbackResponse>(`/import/batches/${batchId}/rollback?force=${force}`, {
+      method: 'POST',
+    }),
+};
+
+// ============================================================
+// Automation Types
 // ============================================================
 
 export const automationApi = {
