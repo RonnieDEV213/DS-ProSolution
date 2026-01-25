@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-23)
 
 **Core value:** Handle millions of records with fast read/write across server storage, transport, client storage, and rendering
-**Current focus:** Phase 20 - Virtualized Rendering
+**Current focus:** Phase 21 - Export/Import
 
 ## Current Position
 
-Phase: 20 of 21 (Virtualized Rendering)
-Plan: 5 of 5 in current phase
-Status: Phase complete, verified (15/15 must-haves)
-Last activity: 2026-01-25 - Completed 20-05-PLAN.md (UAT gap closure)
+Phase: 21 of 21 (Export/Import)
+Plan: 3 of ? in current phase
+Status: In progress
+Last activity: 2026-01-25 - Completed 21-03-PLAN.md (Backend Import Infrastructure)
 
-Progress: [██████████████████] 100% (19/19 plans)
+Progress: [████████████████████] 100%+ (22/22+ plans)
 
 ## Shipped Milestones
 
@@ -85,6 +85,11 @@ Recent decisions affecting current work:
 | Use List.scrollToRow with smart alignment | 20-02 | Keep focused rows visible without over-scrolling |
 | Row container onClick toggles expand | 20-05 | Better UX - click anywhere on row, not just arrow |
 | Separate Return Label/Return Closed filters | 20-05 | More granular filtering than combined Returns chip |
+| 70% similarity threshold for column mapping | 21-03 | Balances flexibility with accuracy for import column matching |
+| All-or-nothing import transaction | 21-03 | Prevents partial imports, user sees all errors upfront |
+| Soft-delete for import rollback | 21-03 | Follows existing pattern, maintains audit trail |
+| 24-hour rollback window for imports | 21-03 | Per CONTEXT.md requirement, enforced in code and DB function |
+| Modified record detection via timestamp | 21-03 | Warns user if records edited since import before rollback |
 
 ### Pending Todos
 
@@ -97,6 +102,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Phase 20 complete and verified
+Stopped at: Completed 21-03-PLAN.md (Backend Import Infrastructure)
 Resume file: None
-Next action: Run /gsd:discuss-phase 21 or /gsd:plan-phase 21
+Next action: Continue with Phase 21 remaining plans (frontend import UI)
