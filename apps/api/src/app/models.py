@@ -1438,3 +1438,94 @@ class ActivityEntry(BaseModel):
     seller_found: Optional[str] = None
     new_sellers_count: Optional[int] = None
     error_message: Optional[str] = None
+
+
+# ============================================================
+# Import Models
+# ============================================================
+
+
+class ImportFormat(str, Enum):
+    CSV = "csv"
+    JSON = "json"
+    EXCEL = "excel"
+
+
+class ImportValidationError(BaseModel):
+    """Single validation error for a row."""
+
+    row: int  # Excel row number (1-indexed + header)
+    field: str
+    message: str
+
+
+class ImportPreviewRow(BaseModel):
+    """Single row in import preview."""
+
+    row_number: int
+    data: dict  # Mapped column data
+    is_valid: bool
+    errors: list[ImportValidationError]
+
+
+class ImportValidationResponse(BaseModel):
+    """Response from import validation endpoint."""
+
+    preview: list[ImportPreviewRow]  # First 100 rows
+    errors: list[ImportValidationError]  # All errors from preview
+    total_rows: int
+    valid_rows: int
+    suggested_mapping: dict[str, str]  # CSV header -> DB field
+
+
+class ImportCommitRequest(BaseModel):
+    """Request to commit validated import."""
+
+    account_id: str
+    filename: str
+    format: ImportFormat
+    column_mapping: dict[str, str]  # User-confirmed mapping
+    # File data passed separately via form data
+
+
+class ImportCommitResponse(BaseModel):
+    """Response from import commit."""
+
+    batch_id: str
+    rows_imported: int
+
+
+class ImportBatchResponse(BaseModel):
+    """Import batch details for history/rollback."""
+
+    id: str
+    account_id: str
+    filename: str
+    row_count: int
+    format: str
+    created_at: datetime
+    can_rollback: bool
+    rolled_back_at: Optional[datetime] = None
+
+
+class ImportBatchListResponse(BaseModel):
+    """List of import batches."""
+
+    batches: list[ImportBatchResponse]
+
+
+class ImportRollbackWarning(BaseModel):
+    """Warning about modified records before rollback."""
+
+    warning: str
+    modified_count: int
+    modified_record_ids: list[str]
+    requires_confirmation: bool
+
+
+class ImportRollbackResponse(BaseModel):
+    """Response from rollback (success or warning)."""
+
+    success: bool = False
+    rows_deleted: int = 0
+    warning: Optional[ImportRollbackWarning] = None
