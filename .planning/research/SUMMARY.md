@@ -1,209 +1,318 @@
 # Project Research Summary
 
-**Project:** DS-ProSolution v3 Large-Scale Data Infrastructure
-**Domain:** eBay account management platform with multi-million record data pipeline
-**Researched:** 2026-01-23
+**Project:** DS-ProSolution v4 UI/Design System
+**Domain:** CSS-first theme system, custom UI components, Modern SaaS design
+**Researched:** 2026-01-25
 **Confidence:** HIGH
 
 ## Executive Summary
 
-DS-ProSolution v3 addresses a fundamental scaling problem: the current "full-fetch" pattern crashes when handling millions of records across hundreds of eBay accounts. The research converges on a 4-layer architecture: PostgreSQL with keyset pagination at the server, REST API with cursor-based endpoints, IndexedDB (via Dexie.js) for client-side caching, and virtualized rendering for the UI. This is not a novel architecture but rather a well-established pattern for large-scale data applications, with extensive documentation and production-proven libraries available.
+DS-ProSolution v4 transforms the application from a functional dark-only dashboard into a polished, themeable Modern SaaS experience. The research reveals an unusually favorable starting position: the codebase already runs Tailwind CSS v4 with `@theme inline`, OKLCH color variables in `globals.css`, and 18 shadcn/ui components that use semantic tokens correctly. The theme system infrastructure is essentially 80% built. The primary gap is that application-level code -- layouts, sidebars, bookkeeping tables, admin panels -- bypasses the existing theme system entirely, with 172+ hardcoded gray color classes across 30+ files. The root layout also hardcodes `className="dark"` with no runtime switching capability. Closing this gap is the milestone's critical path.
 
-The recommended approach prioritizes incremental adoption. Start with cursor-based pagination at the API layer (replacing offset pagination), add TanStack Query for server state management, then layer in IndexedDB for offline-capable caching, and finally implement virtualization for smooth UI performance. Each layer can be added independently, allowing the team to ship value incrementally while building toward the full architecture.
+The recommended approach is CSS-first with a single new runtime dependency: `next-themes` (~2KB). Every other capability -- preset themes, scrollbar styling, form theming, color derivation -- is achieved through CSS custom properties, the existing Tailwind `@theme inline` directive, and OKLCH color math (`color-mix()`, relative color syntax). No CSS-in-JS, no theme UI libraries, no JS scrollbar replacements. The theme system changes a single `data-theme` attribute on `<html>`; all downstream styling cascades through CSS variables with zero React re-renders. The three duplicate sidebar implementations should be consolidated into a shared component using shadcn/ui's Sidebar primitive (already supported by existing `--sidebar-*` CSS variables in `globals.css`). The net performance impact is positive: work moves from JavaScript to CSS, the sidebar deduplication reduces bundle size, and `scrollbar-gutter: stable` eliminates existing layout shifts.
 
-The critical risks are well-understood and preventable. Non-unique cursor columns cause duplicate/missing records (use compound cursors). IndexedDB transactions auto-commit during async operations (fetch data before opening transactions). Safari evicts storage after 7 days of inactivity (design for re-sync, not permanent cache). These are not exotic edge cases but documented pitfalls with established prevention patterns.
+The key risks are well-understood and preventable. The hardcoded color migration (172 occurrences, 30 files) is the highest-effort task and must complete before theme switching can work -- partial migration creates a broken two-toned UI. Flash of unstyled content (FOUC) is eliminated by `next-themes`' blocking script. The critical architectural rule is that theme switching must NEVER trigger React re-renders -- CSS variable cascade handles everything. Scrollbar customization must be CSS-only to avoid breaking `react-window` virtualization. And global `transition: *` on theme change is strictly forbidden: it creates 1500+ simultaneous CSS transitions on data-dense pages, causing severe frame drops.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack recommendation prioritizes technologies that integrate cleanly with the existing Supabase/PostgreSQL backend and Next.js 14+ frontend. All recommendations are verified against official documentation and production usage.
+The stack recommendation is minimal by design. Only one new runtime dependency is needed.
 
-**Core technologies:**
+**New dependency:**
+- `next-themes` (^0.4.6): Theme switching, SSR hydration, localStorage persistence, system preference detection -- ~2KB gzipped, sets `data-theme` attribute via inline blocking script, zero runtime style computation. Confirmed compatible with React 19 + Next.js 16.
 
-| Technology | Version | Purpose | Rationale |
-|------------|---------|---------|-----------|
-| Keyset Pagination | PostgreSQL native | Navigate large datasets | Offset pagination degrades 17x at scale; keyset maintains constant O(log n) performance |
-| Dexie.js | 4.2.x | IndexedDB wrapper | Best developer experience, excellent React hooks (`useLiveQuery`), handles browser-specific bugs, 100K+ production sites |
-| TanStack Query | 5.x | Server state management | De facto React standard for caching, deduplication, background refetch, optimistic updates |
-| Supabase Cache Helpers | 1.x | TanStack + Supabase integration | Auto-generates cache keys, handles mutations, cursor pagination hooks built-in |
-| Custom Incremental Sync | Custom | Client-server sync | Full control, no vendor lock-in, works within existing Supabase ecosystem |
+**shadcn/ui components to add (via CLI, no new npm packages):**
+- `Sidebar` -- replaces three hand-rolled sidebar implementations; gains collapsible mode, Cmd+B shortcut, cookie-persisted state, mobile overlay
+- `Sheet` -- required by Sidebar for mobile responsive behavior
+- `Separator` -- visual dividers for sidebar sections
+- `Scroll Area` -- Radix-based scrollable areas for sidebar navigation
+- `Breadcrumb` -- navigation context for deep admin/VA/client views
 
-**Why NOT alternatives:**
-- RxDB: Overkill complexity, larger bundle, unnecessary CRDT features
-- PowerSync/Electric SQL: Adds infrastructure; Supabase already handles what we need
-- Offset pagination: Performance degrades linearly with page depth
-- Raw IndexedDB: Verbose, callback-based, no schema migrations
+**What NOT to add:**
+- No CSS-in-JS (styled-components, Emotion) -- conflicts with CSS-first approach, adds runtime overhead
+- No JS scrollbar libraries (SimpleBar, react-scrollbars-custom) -- breaks react-window virtualization
+- No additional icon libraries -- Lucide React already installed with 562+ icons; sidebar inline SVGs should migrate to Lucide
+- No tailwind-scrollbar plugin -- achievable with ~20 lines of CSS, unnecessary dependency
+- No Radix Themes -- conflicts with shadcn/ui's own styling approach
+- No Storybook, no published npm component package -- overhead exceeds benefit for internal tool
+
+**CSS-only capabilities (zero new dependencies):**
+- Preset theme system via CSS variables + `[data-theme="X"]` selectors
+- Custom scrollbars via `scrollbar-width`, `scrollbar-color`, `::-webkit-scrollbar-*`
+- Form control theming via `accent-color: var(--primary)`
+- Color derivation via `color-mix()` and OKLCH relative color syntax
+- Micro-interactions via CSS `transition` properties (compositor-thread, zero JS)
 
 ### Expected Features
 
-**Must have (table stakes):**
-- Cursor-based pagination API (foundation for scale)
-- Server-side filtering and sorting (cannot do client-side at millions of records)
-- Virtual scrolling (prevent DOM crashes with 10K+ rows)
-- TanStack Query caching with stale-while-revalidate
-- Loading states with determinate progress for long operations
-- Sync status indicator with last-synced timestamp
-- Cache invalidation on mutations (lists must update after create/edit/delete)
+**Must have (table stakes) -- users expect these from any polished SaaS:**
 
-**Should have (competitive):**
-- Optimistic updates for sub-second mutation feedback
-- Streaming CSV export for large datasets
-- Saved views/filters for VA productivity
-- Quick filters (one-click common filter presets)
+- CSS variable-based semantic token system (replace 172 hardcoded gray references)
+- Functional dark/light mode via `next-themes` with anti-flash protection
+- 3-4 preset themes (Midnight, Dawn, Slate, Carbon) as CSS variable overrides
+- Theme persistence across sessions (automatic via `next-themes`)
+- System preference detection (`prefers-color-scheme` support)
+- Theme-aware scrollbar colors (replace hardcoded hex with CSS variables)
+- Unified sidebar component (deduplicate three sidebar implementations)
+- Consistent icon system (migrate inline SVGs to Lucide React)
+- Typography system with documented type scale and weight conventions
+- Monospace font for data values (order IDs, monetary amounts -- already loaded as Geist Mono)
 
-**Defer (v2+):**
-- IndexedDB persistence across browser restarts (session cache sufficient initially)
-- Full incremental sync protocol (paginated full refresh acceptable for MVP)
-- Infinite scroll + virtual scroll hybrid
-- Conflict resolution UI (last-write-wins acceptable for internal tool)
-- Offline mutation queue (users have reliable connectivity)
+**Should have (differentiators -- elevate from "works" to "feels like Linear"):**
+
+- Micro-interactions: sidebar hover transitions (150ms), card hover elevation, button press scale(0.98)
+- Skeleton loading states for dashboard cards, table rows, sidebar
+- Empty state designs (search-no-results, first-time-empty, error-empty)
+- Theme switcher UI in ProfileSettingsDialog with visual theme previews
+- Page transitions (CSS `@starting-style` or minimal Framer Motion)
+- Focus ring audit for consistent accessible focus indicators
+- Selection highlight colors matching theme accent (`::selection`)
+- Command palette (Cmd+K) using `cmdk` library -- lazy-loaded, ~15KB
+
+**Anti-features (do NOT build):**
+
+- Runtime theme generation from user color input (weeks of work for unconstrained palette)
+- JS-based theme engine or CSS-in-JS migration
+- Per-user-role color schemes (admin=blue, VA=green) -- creates confusion
+- Animated backgrounds, parallax, Lottie animations -- inappropriate for productivity tool
+- Theme-per-CSS-file lazy loading -- all 4 themes fit in ~2KB total, not worth code splitting
+- Responsive sidebar hamburger collapse -- desktop-first internal tool
+- Spring physics animations everywhere -- reserve Framer Motion for key moments only
 
 ### Architecture Approach
 
-The architecture follows a 4-layer pattern where each layer has clear responsibilities and data flows downward through well-defined interfaces. Server storage (PostgreSQL) is authoritative with optimized indexes for cursor queries. The transport layer (FastAPI) provides cursor-based pagination and delta sync endpoints. Client storage (IndexedDB via Dexie.js) caches synced data locally with mutation queue for offline resilience. The rendering layer (React with virtualization) displays only visible rows while integrating with pagination triggers.
+The architecture extends the existing CSS variable system rather than replacing it. The `globals.css` already defines ~40 OKLCH tokens for shadcn/ui components. New application-level tokens (`--app-bg`, `--app-sidebar`, `--app-nav-item-*`, `--scrollbar-*`, `--table-*`) are added alongside existing tokens and registered in `@theme inline` to become first-class Tailwind utilities. Theme presets are organized as separate CSS files (`styles/themes/dark.css`, `light.css`, etc.) imported into `globals.css`. The `@custom-variant dark` directive migrates from `(&:is(.dark *))` to `(&:where([data-theme="dark"], [data-theme="dark"] *))` for hydration safety and zero-specificity matching.
 
-**Major components:**
+**Major architectural components:**
 
-1. **Server Storage (PostgreSQL/Supabase)** -- Authoritative data store with `updated_at` tracking, soft deletes, composite indexes for cursor pagination, RLS for multi-tenant security
-2. **Transport API (FastAPI)** -- `GET /records/paginated` with opaque cursor, `GET /records/sync` for delta fetch, `POST /records/bulk` for batched mutations
-3. **Client Storage (Dexie.js IndexedDB)** -- `records` table mirroring server, `syncState` for checkpoint tracking, `pendingMutations` for offline queue
-4. **Sync Engine** -- State machine: IDLE -> CHECK_STATE -> INITIAL_SYNC or DELTA_SYNC -> PUSH_MUTATIONS -> IDLE
-5. **Rendering Layer (React + react-window)** -- Virtualized table with `useLiveQuery()` for reactive updates, `InfiniteLoader` for pagination triggers
+1. **Theme Provider Layer** -- `next-themes` ThemeProvider wrapping the app, managing `data-theme` attribute on `<html>`, handling SSR hydration, persistence, and system preference detection
+2. **CSS Variable System** -- Extended semantic tokens in `globals.css` covering app shell, navigation, scrollbars, and tables, with per-theme overrides under `[data-theme="X"]` selectors
+3. **Layout Primitives** -- `AppShell`, `AppSidebar`, `NavItem`, `SidebarHeader`, `SidebarFooter`, `PageHeader` components replacing three duplicate sidebar implementations with role-based nav items prop
+4. **Theme-Aware Scrollbar** -- Pure CSS scrollbar styling using CSS variables, drop-in replacement for existing `.scrollbar-thin` class
+5. **Component Migration Layer** -- Incremental replacement of 172 hardcoded gray classes with semantic tokens across 30+ files, preserving visual parity in dark mode while enabling theme switching
+
+**Key architectural constraints:**
+
+- Chrome extension keeps its own CSS variable system (different tech stack, no shared build)
+- shadcn/ui `src/components/ui/` files are NOT modified (already using semantic tokens)
+- Theme switching triggers zero React re-renders (CSS-only cascade)
+- Framer Motion usage limited to 3-5 animated elements per page maximum
 
 ### Critical Pitfalls
 
-The research identified 5 critical pitfalls that cause rewrites or major architectural issues if not addressed early:
+1. **Hardcoded colors bypass theme system (CP-01, CRITICAL)** -- 172 occurrences of `bg-gray-*`, `text-gray-*`, `border-gray-*` across 30 files will not respond to CSS variable changes. These elements stay dark gray when theme switches, creating a broken two-toned UI. Prevention: Audit and replace ALL hardcoded colors as the very first task, before any theme definition work. Context-sensitive mapping required (not blind find-and-replace).
 
-1. **Non-Unique Cursor Columns (CP-01)** -- Using `updated_at` alone causes duplicates when rows share timestamps. Prevention: Always use compound cursors `(updated_at, id)` with matching compound index.
+2. **Theme flash (FOUC) on page load (CP-02, CRITICAL)** -- Without a blocking script, users see a flash of the default theme before their preference applies. Prevention: Use `next-themes` which injects an inline `<script>` before React hydration. Remove hardcoded `className="dark"` from `<html>`. Add `suppressHydrationWarning`. Set `defaultTheme="dark"` to match current behavior.
 
-2. **IndexedDB Transaction Auto-Commit (CP-02)** -- Any `await` to external API inside a transaction causes `TransactionInactiveError`. Prevention: Fetch all data BEFORE opening transaction, then write in single transaction.
+3. **React re-render cascade on theme switch (CP-03, CRITICAL)** -- If theme state is passed via React Context/props to styled components, every theme switch re-renders the entire component tree. With react-window virtualized lists, SSE feeds, and complex forms, this causes visible jank and potential data loss. Prevention: CSS-only theming is non-negotiable. Components use CSS variables (`bg-background`), never JS theme values. Only the theme picker UI consumes `useTheme()`.
 
-3. **Safari 7-Day Storage Eviction (CP-03)** -- Safari deletes all IndexedDB after 7 days of inactivity. Prevention: Design for re-sync from server; cache is performance optimization, not permanent storage.
+4. **Custom scrollbar breaks react-window virtualization (CP-04, CRITICAL)** -- JS-based scrollbar libraries intercept scroll events and wrap containers in extra DOM, breaking virtualization measurement, infinite scroll loading, and keyboard navigation. Prevention: CSS-only scrollbar styling (`scrollbar-width` + `scrollbar-color` + `::-webkit-scrollbar-*`). Accept limited customization as worthwhile tradeoff.
 
-4. **Optimistic Update Rollback Races (CP-04)** -- Overlapping optimistic updates create inconsistent UI on rollback. Prevention: Sequence mutations, use mutation queue, cancel in-flight requests before applying new changes.
-
-5. **IndexedDB Schema Migration Conflicts (CP-05)** -- Multi-tab scenario blocks database upgrades. Prevention: Handle `onversionchange` to close database, handle `onblocked` with user prompt.
+5. **Global `transition: *` on theme change (PP-05, HIGH)** -- Adding `* { transition: background-color 300ms, color 300ms }` creates 1500+ simultaneous CSS transitions on data-dense pages (500 elements x 3 properties), causing 200ms+ of jank. Prevention: Use `disableTransitionOnChange` from `next-themes`. If smooth transitions desired, use View Transitions API (single-element crossfade) or opacity fade on `<main>` container.
 
 ## Implications for Roadmap
 
-Based on research, suggested 4-phase structure following the layer dependencies:
+### Phase 1: Theme Foundation and Color Token Migration
 
-### Phase 1: Pagination Infrastructure (Server Foundation)
-
-**Rationale:** Everything else depends on efficient server-side data access. Cannot add client caching or sync until the API supports cursor-based pagination. This phase has zero dependencies.
+**Rationale:** Everything else depends on this. Theme switching cannot work while 172 hardcoded gray classes bypass the CSS variable system. This phase creates the infrastructure (ThemeProvider, expanded tokens) AND does the critical migration work. Grouping these together prevents the "it partially works" anti-pattern.
 
 **Delivers:**
-- `updated_at` and `deleted_at` columns on syncable tables
-- Composite indexes for cursor pagination `(account_id, sale_date DESC, id DESC)`
-- Auto-update trigger for `updated_at`
-- `GET /records/paginated` endpoint with opaque cursor
-- `GET /records/sync` endpoint for delta fetch
+- `next-themes` installed and ThemeProvider added to root layout
+- Hardcoded `className="dark"` removed, `suppressHydrationWarning` added
+- Application-level CSS tokens defined (`--app-bg`, `--app-sidebar`, `--scrollbar-*`, `--table-*`)
+- New tokens registered in `@theme inline`
+- `@custom-variant dark` migrated to `data-theme` attribute pattern
+- Scrollbar CSS migrated from hardcoded hex to CSS variables
+- Universal selector `* {}` impact profiled on virtualized pages
 
-**Features addressed:** Cursor-based pagination, server-side filtering, server-side sorting
-**Pitfalls avoided:** CP-01 (compound cursors), PT-01 (missing index), PT-05 (DESC performance), SP-03 (Supabase client tuple comparison)
+**Addresses features:** Semantic token system, theme-aware scrollbars, `scrollbar-gutter: stable`
+**Avoids pitfalls:** CP-01 (hardcoded colors), IP-01 (scrollbar hex), PP-01 (universal selector)
+**Performance impact:** Positive (eliminates layout shift from scrollbar-gutter, reduces specificity conflicts)
 
-### Phase 2: Client Caching Layer (IndexedDB Foundation)
+### Phase 2: Theme Presets and Switching
 
-**Rationale:** With server endpoints ready, can now build client-side caching. This enables offline reads and instant subsequent loads. Requires Phase 1 endpoints to sync with.
-
-**Delivers:**
-- Dexie.js database schema mirroring key tables
-- Sync state tracking (checkpoints, cursors)
-- Pending mutation queue for offline writes
-- TanStack Query integration for server state
-- Basic sync engine (initial sync + delta sync)
-
-**Uses:** Dexie.js 4.2.x, TanStack Query 5.x, Supabase Cache Helpers
-**Pitfalls avoided:** CP-02 (transaction auto-commit), CP-03 (Safari eviction), CP-05 (schema migration), PT-03 (write bottleneck via batching)
-
-### Phase 3: Sync Protocol (Data Consistency)
-
-**Rationale:** With storage layers complete, can now implement the sync protocol that ties them together. Handles the complex state machine of initial sync, delta sync, and mutation push.
+**Rationale:** With tokens in place, theme definitions and switching UI can be built. This phase delivers the user-visible theme capability.
 
 **Delivers:**
-- Complete sync engine state machine
-- Optimistic update handling with rollback
-- Conflict resolution (last-write-wins with timestamp)
-- Error recovery and retry logic
-- Sync status UI indicators
+- 3-4 preset theme definitions (Midnight, Dawn, Slate, Carbon) as CSS variable sets
+- Theme switcher UI in ProfileSettingsDialog with visual previews
+- `theme-toggle.tsx` component for light/dark/system quick toggle
+- System preference detection (`prefers-color-scheme`)
+- Theme persistence via localStorage (automatic with `next-themes`)
+- `accent-color: var(--primary)` on `:root` for native form controls
+- `::selection` color matching theme accent
+- Sonner toast theme integration
 
-**Features addressed:** Sync status indicator, optimistic updates, retry on failure, error states
-**Pitfalls avoided:** CP-04 (optimistic rollback races), TD-02 (offline strategy), TD-04 (version vectors), SP-02 (realtime subscription overhead)
+**Addresses features:** Preset themes, theme persistence, system preference, theme switcher UI
+**Avoids pitfalls:** CP-02 (FOUC), CP-03 (React re-renders), PP-04 (style recalculation), PP-05 (transition on *)
+**Performance impact:** Neutral (~2KB CSS for 4 theme definitions, zero JS runtime cost)
 
-### Phase 4: Virtualized Rendering (UI Performance)
+### Phase 3: Layout Component Consolidation
 
-**Rationale:** Final layer brings efficient rendering. Requires IndexedDB data source to read from. This phase transforms the UI to handle millions of records smoothly.
+**Rationale:** With themes working, the three duplicate sidebars become the most visible technical debt. Consolidation reduces bundle size, establishes the pattern for semantic token usage, and enables sidebar-specific features (collapsible, keyboard shortcut).
 
 **Delivers:**
-- Virtualized table component with react-window
-- Infinite loader integration for seamless pagination
-- Focus/accessibility management for virtualized content
-- Complete integration replacing existing RecordsTable
-- Memory management with maxPages configuration
+- `AppShell`, `AppSidebar`, `NavItem`, `SidebarHeader`, `SidebarFooter` layout primitives
+- Admin, VA, and Client layouts refactored to use shared components
+- Inline SVG icons replaced with Lucide React icons
+- Theme toggle added to sidebar footer
+- shadcn/ui Sidebar component adopted (collapsible, Cmd+B, cookie-persisted)
+- `PageHeader` component for consistent page titles
+- Breadcrumb navigation component
 
-**Features addressed:** Virtual scrolling, loading states, configurable page size
-**Pitfalls avoided:** PT-02 (unbounded memory growth), PT-04 (focus/accessibility), TD-03 (virtualization integration)
+**Addresses features:** Unified sidebar, icon system, consistent spacing, breadcrumb navigation
+**Avoids pitfalls:** IP-03 (virtualized list height -- test after layout changes), IP-04 (preserve Radix accessibility)
+**Performance impact:** Positive (deduplicates ~400 lines of sidebar code, tree-shaken Lucide icons smaller than inline SVGs)
+
+### Phase 4: Component Color Migration
+
+**Rationale:** The bulk migration phase. With layout components already using semantic tokens (established in Phase 3), the pattern is proven. Migrating the remaining 30+ component files is high-effort but low-risk per file.
+
+**Delivers:**
+- All `src/app/**/page.tsx` files migrated
+- All `src/components/bookkeeping/*.tsx` migrated (~150 occurrences)
+- All `src/components/admin/**/*.tsx` migrated (~300 occurrences)
+- All `src/components/profile/*.tsx` migrated (~40 occurrences)
+- All `src/components/data-management/*.tsx` migrated (~45 occurrences)
+- All `src/components/auth/*.tsx`, `sync/*.tsx`, `va/*.tsx` migrated
+- Visual parity verified in both light and dark themes
+
+**Addresses features:** Full theme switching across entire app, light mode support
+**Avoids pitfalls:** CP-01 completion (all hardcoded colors eliminated)
+**Performance impact:** Neutral (class name swap, no runtime change)
+
+**Migration ordering within phase (lowest risk first):**
+1. Auth and profile components (smallest, simplest)
+2. Data management and sync components (medium complexity)
+3. Bookkeeping components (highest complexity, virtualized list context)
+4. Admin components (highest volume, ~300 references)
+
+### Phase 5: Polish and Micro-Interactions
+
+**Rationale:** With the full theme system working and all components migrated, this phase adds the premium feel that differentiates from "works fine" to "feels like Linear."
+
+**Delivers:**
+- Micro-interactions: sidebar hover transitions, card hover elevation, button press feedback
+- Skeleton loading states for dashboard cards and table rows
+- Empty state designs (3-4 patterns)
+- Focus ring consistency audit
+- Page transitions (CSS or minimal Framer Motion)
+- Dialog/modal animation polish
+- Command palette (Cmd+K) -- lazy-loaded
+- Keyboard shortcut system for common actions
+- Full app walkthrough in all themes verified
+- Performance profiled against baseline
+
+**Addresses features:** Micro-interactions, skeleton states, empty states, command palette
+**Avoids pitfalls:** PP-02 (no backdrop-blur on overlays), PP-03 (prefer CSS over Framer Motion for new work), IP-02 (test theme switch during SSE streaming)
+**Performance impact:** Neutral to positive (CSS transitions are compositor-thread; cmdk is lazy-loaded)
 
 ### Phase Ordering Rationale
 
-1. **Layer dependencies are strict:** API must exist before client can sync; IndexedDB must exist before virtualization can read from it. Violating this order creates blocking dependencies mid-phase.
+1. **Strict dependency chain:** Tokens must exist before themes can reference them. Themes must work before sidebar consolidation makes sense (new components use semantic tokens). Component migration follows the pattern established by layout work. Polish comes last because it requires everything else to be stable.
 
-2. **Each phase delivers standalone value:** Phase 1 immediately improves API performance. Phase 2 adds caching benefits. Phase 3 adds reliability. Phase 4 adds UI smoothness. No wasted work if scope changes.
+2. **Risk frontloading:** The two highest-risk items -- the 172-file color migration (CP-01) and FOUC prevention (CP-02) -- are addressed in Phases 1-2. Getting these right early prevents cascading rework.
 
-3. **Pitfall distribution guides complexity:** Critical pitfalls cluster in Phase 1 (pagination) and Phase 2 (IndexedDB). Addressing these early prevents architectural rework. Phase 3-4 pitfalls are more recoverable.
+3. **Incremental value delivery:** Phase 1 is invisible to users (infrastructure). Phase 2 delivers theme switching. Phase 3 delivers sidebar improvements. Phase 4 completes full-app theming. Phase 5 adds polish. Each phase ships standalone value.
 
-4. **Testing strategy aligns:** Each phase can be tested independently. Server endpoints can be verified before client work begins. Sync engine can be tested with mock endpoints.
+4. **Parallelization opportunity:** Phase 4 (component migration) can begin partially in parallel with Phase 3 (layout consolidation) for non-layout components like auth, profile, and data management.
 
 ### Research Flags
 
 **Phases likely needing deeper research during planning:**
-- **Phase 3 (Sync Protocol):** Optimistic update rollback handling is complex; may need spike to validate TanStack Query's built-in optimistic update patterns work for our mutation patterns
-- **Phase 4 (Virtualization):** Accessibility with virtualized lists is tricky; may need prototype to validate focus management approach
+- **Phase 3 (Layout Consolidation):** The VA layout has role-based conditional nav filtering (`hasAccessProfile`). Need to verify the shared `AppSidebar` component design handles all three dashboard variants correctly. Also need to validate `react-window` height calculations are stable after layout restructuring.
+- **Phase 5 (Polish):** Command palette integration with app-specific entities (orders, accounts, settings) needs design work. Keyboard shortcut conflict avoidance with browser shortcuts needs mapping.
 
-**Phases with standard patterns (skip research-phase):**
-- **Phase 1 (Pagination):** Well-documented PostgreSQL patterns, FastAPI pagination library exists, Supabase examples available
-- **Phase 2 (IndexedDB):** Dexie.js documentation is comprehensive, patterns are established
+**Phases with standard, well-documented patterns (skip deep research):**
+- **Phase 1 (Foundation):** `next-themes` setup is documented by shadcn/ui. Token expansion follows existing `@theme inline` pattern.
+- **Phase 2 (Presets):** CSS variable overrides under `[data-theme]` selectors is a documented Tailwind v4 pattern with multiple community guides.
+- **Phase 4 (Migration):** Mechanical class replacement following established mapping. No novel patterns.
+
+## Performance Assessment
+
+**Net performance impact of entire milestone: POSITIVE.**
+
+| Category | Impact | Detail |
+|----------|--------|--------|
+| CSS bundle | +2KB | 4 theme definitions (~40 vars each). Negligible. |
+| JS bundle | +2KB (next-themes) | Only new runtime JS. Inline blocking script, no React render cost. |
+| JS bundle | -5-10KB estimated | Sidebar deduplication removes ~400 lines of duplicated code + inline SVGs |
+| Layout shifts | Eliminated | `scrollbar-gutter: stable` prevents shifts when scrollbar appears/disappears |
+| Theme switch | <50ms one-time | CSS variable cascade, no React re-renders. Instant. |
+| First paint | Neutral | Blocking theme script runs before paint (<1ms). No FOUC. |
+| Ongoing render | Neutral | CSS transitions use compositor thread. Zero main-thread cost. |
+| Maintenance | Positive | Semantic tokens mean future color changes update once, propagate everywhere |
+
+**Performance-critical constraints to enforce:**
+- No `transition: *` or `transition: all` on `body` or universal selectors
+- No `backdrop-blur` on full-screen overlays
+- No JS scrollbar libraries (CSS-only for react-window compatibility)
+- Framer Motion limited to 3-5 elements per page; prefer CSS transitions for new work
+- Theme switching triggers zero React component re-renders
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All technologies verified with official docs, production usage confirmed, versions pinned |
-| Features | MEDIUM-HIGH | Table stakes well-documented; differentiator complexity estimates are experience-based |
-| Architecture | HIGH | 4-layer pattern is established for offline-capable apps; multiple reference implementations |
-| Pitfalls | HIGH | All critical pitfalls documented with multiple authoritative sources; prevention patterns are clear |
+| Stack | HIGH | Single new dependency (next-themes). All other capabilities from CSS and existing tools. Official docs verified for Tailwind v4, shadcn/ui, next-themes. |
+| Features | HIGH | Codebase thoroughly analyzed. 172 hardcoded color occurrences counted. Three sidebar implementations diffed. Feature priorities grounded in existing state analysis, not speculation. |
+| Architecture | HIGH | Extends the existing `@theme inline` + OKLCH + CSS variable pattern already working in the project. No architectural invention -- pure extension of established patterns. |
+| Pitfalls | HIGH | All critical pitfalls verified against codebase files (`virtualized-records-list.tsx`, `globals.css`, `layout.tsx`, sidebar components). Performance claims cross-referenced with browser rendering documentation and GitHub issues. |
 
 **Overall confidence:** HIGH
 
-The v3 data infrastructure is not novel technology. The patterns are well-established, the libraries are mature, and the pitfalls are documented. Risk comes from implementation complexity, not from uncertainty about the approach.
+This is not novel technology. The patterns are well-established (CSS variables for theming, `next-themes` for SSR, shadcn/ui Sidebar for navigation), the codebase is already 80% there, and the pitfalls are documented with clear prevention strategies.
 
 ### Gaps to Address
 
-- **Performance targets validation:** The research cites targets (<1s initial load, <5s for 10K record sync) but these should be validated with production data volumes during Phase 1
-- **Chrome extension specifics:** The research notes MV3 service workers support IndexedDB but the extension's sync requirements need clarification during planning
-- **Multi-account sync orchestration:** The sync engine handles single-account sync but orchestrating across hundreds of accounts needs design work
-- **Export at scale:** Streaming CSV export is recommended but the exact implementation (server-side vs client-side) needs decision during Phase 3/4
+- **Color mapping requires judgment, not automation:** The `bg-gray-800` in a sidebar means something different than `bg-gray-800` in a table header. The 172-reference migration cannot be a blind find-and-replace. A mapping reference should be created during Phase 1, but each file needs contextual review.
+- **VA layout conditional navigation:** The VA sidebar conditionally shows/hides nav items based on `hasAccessProfile`. The shared `AppSidebar` component design must preserve this logic. Verify during Phase 3 planning.
+- **OKLCH compatibility edge cases:** OKLCH has 92%+ browser support but may cause issues with PDF export tools or html2canvas. If the app adds screenshot/PDF features, provide hex fallbacks. Low-priority concern for an internal tool.
+- **Universal selector audit:** `* { @apply border-border outline-ring/50; }` in `globals.css` applies CSS variable resolution to every DOM element. On pages with 500+ virtualized elements, this may cause measurable style recalculation cost. Profile during Phase 1 and narrow selector if needed.
+- **Chrome extension color alignment:** The extension has its own CSS variable system (`sidepanel.css`) with different color values. Document the OKLCH-to-hex mapping for manual alignment. Do not attempt to share CSS between the web app and extension.
 
 ## Sources
 
-### Primary (HIGH confidence)
-- [Dexie.js Official Documentation](https://dexie.org/) -- IndexedDB wrapper, React hooks, schema migrations
-- [TanStack Query v5 Docs](https://tanstack.com/query/latest) -- Server state, infinite queries, optimistic updates
-- [Supabase Cache Helpers](https://supabase-cache-helpers.vercel.app/) -- TanStack + Supabase integration
-- [PostgreSQL Keyset Pagination](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/) -- Cursor pagination patterns
-- [MDN IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB) -- Browser storage API
+### HIGH Confidence (Official Documentation)
+- [shadcn/ui Theming](https://ui.shadcn.com/docs/theming) -- CSS variable structure, OKLCH conventions
+- [shadcn/ui Dark Mode for Next.js](https://ui.shadcn.com/docs/dark-mode/next) -- next-themes integration
+- [shadcn/ui Sidebar Component](https://ui.shadcn.com/docs/components/sidebar) -- official sidebar docs
+- [shadcn/ui Tailwind v4](https://ui.shadcn.com/docs/tailwind-v4) -- `@theme inline`, `@custom-variant`, `tw-animate-css`
+- [Tailwind CSS v4 Theme Variables](https://tailwindcss.com/docs/theme) -- `@theme` directive
+- [Tailwind CSS v4 Dark Mode](https://tailwindcss.com/docs/dark-mode) -- dark mode configuration
+- [next-themes GitHub](https://github.com/pacocoursey/next-themes) -- multi-theme, data-attribute, FOUC prevention
+- [MDN: scrollbar-width](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/scrollbar-width) -- standardized scrollbar
+- [MDN: scrollbar-gutter](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/scrollbar-gutter) -- layout shift prevention
+- [MDN: accent-color](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/accent-color) -- native form theming
+- [MDN: color-mix()](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/color_value/color-mix) -- CSS color mixing
+- [MDN: CSS Relative Colors](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Colors/Using_relative_colors) -- color derivation
+- [Chrome Scrollbar Styling Guide](https://developer.chrome.com/docs/css-ui/scrollbar-styling) -- cross-browser strategy
+- [Vercel Academy: Extending shadcn/ui](https://vercel.com/academy/shadcn-ui/extending-shadcn-ui-with-custom-components) -- component customization
 
-### Secondary (MEDIUM confidence)
-- [Sentry Pagination at Scale](https://blog.sentry.io/paginating-large-datasets-in-production-why-offset-fails-and-cursors-win/) -- Production experience with cursor pagination
-- [RxDB IndexedDB Limits](https://rxdb.info/articles/indexeddb-max-storage-limit.html) -- Storage eviction, Safari 7-day limit
-- [TkDodo Optimistic Updates](https://tkdodo.eu/blog/concurrent-optimistic-updates-in-react-query) -- Concurrent optimistic update handling
-- [Citus Data Pagination](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/) -- PostgreSQL pagination patterns
+### MEDIUM Confidence (Verified Community Patterns)
+- [Tailwind v4 Multi-Theme Strategy (simonswiss)](https://simonswiss.com/posts/tailwind-v4-multi-theme) -- data-theme pattern
+- [Tailwind GitHub Discussion #16292](https://github.com/tailwindlabs/tailwindcss/discussions/16292) -- `@theme` scoping behavior
+- [Tailwind GitHub Discussion #15600](https://github.com/tailwindlabs/tailwindcss/discussions/15600) -- CSS variable override pattern
+- [Multi-Theme Next.js + shadcn/ui](https://www.vaibhavt.com/blog/multi-theme) -- implementation walkthrough
+- [Linear UI Redesign (Part II)](https://linear.app/now/how-we-redesigned-the-linear-ui) -- LCH theme generation approach
+- [Evil Martians: OKLCH in CSS](https://evilmartians.com/chronicles/oklch-in-css-why-quit-rgb-hsl) -- OKLCH advantages for design systems
+- [web.dev: Color Themes with Baseline CSS](https://web.dev/articles/baseline-in-action-color-theme) -- CSS-only theming patterns
+- [OKLCH Ultimate Guide](https://oklch.org/posts/ultimate-oklch-guide) -- perceptual uniformity
+- [tweakcn Theme Editor](https://tweakcn.com/) -- shadcn/ui theme preset generation tool
 
-### Tertiary (LOW confidence - verify before implementation)
-- 40-60% faster perceived load with offline-first (survey data, not independently verified)
-- IndexedDB sharding provides 28% faster reads (single benchmark source)
+### Codebase Analysis (HIGH Confidence)
+- `globals.css`: OKLCH variables, `@theme inline`, `@custom-variant dark`, hardcoded scrollbar hex, universal selector
+- `layout.tsx`: hardcoded `className="dark"`, provider structure, Geist fonts
+- `app/admin/layout.tsx`: 213-line sidebar with hardcoded grays + inline SVGs
+- `app/va/layout.tsx`: 153-line duplicate sidebar with conditional nav
+- `app/client/layout.tsx`: 95-line duplicate sidebar
+- `virtualized-records-list.tsx`: react-window List with height prop, keyboard nav
+- `sellers-grid.tsx`: react-window Grid with calculated dimensions
+- `components/ui/dialog.tsx`: Radix Dialog with `bg-black/80` overlay (no blur -- correct)
+- `components.json`: shadcn/ui new-york style, CSS variables enabled, Tailwind v4
+- 30+ files with 172 hardcoded gray color class occurrences
 
 ---
-*Research completed: 2026-01-23*
+*Research completed: 2026-01-25*
 *Ready for roadmap: yes*

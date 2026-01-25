@@ -1,699 +1,557 @@
-# Domain Pitfalls: Large-Scale Data Infrastructure (v3)
+# Pitfall Research: UI/Design System (v4)
 
-**Domain:** eBay account management platform - cursor pagination, IndexedDB caching, incremental sync, virtualized rendering
-**Researched:** 2026-01-23
-**Confidence:** HIGH (multiple authoritative sources cross-referenced)
+**Domain:** Adding preset themes, custom UI components, and layout overhaul to existing 80K LOC Next.js/TailwindCSS/shadcn/ui eBay automation platform
+**Researched:** 2026-01-25
+**Confidence:** HIGH (codebase analysis + multiple authoritative sources cross-referenced)
 
----
-
-## Critical Pitfalls
-
-Mistakes that cause rewrites or major architectural issues. Address these in design, not as bugs.
+**Context:** DS-ProSolution has virtualized tables (react-window v2), real-time SSE streaming, IndexedDB sync, and Framer Motion animations. Performance-neutral minimum, performance-positive preferred. CSS-first approach required.
 
 ---
 
-### CP-01: Non-Unique Cursor Columns (Pagination)
+## Critical Pitfalls (Cause Rewrites or Major Regressions)
 
-**What goes wrong:** Using `updated_at` or `created_at` alone as cursor produces duplicate or missing records when multiple rows share the same timestamp. With 1000 rows at the same `updated_at` and page size of 100, there is no safe way to traverse.
+---
 
-**Why it happens:** Developers assume timestamps are unique enough. Batch inserts, concurrent writes, and clock precision (millisecond) create collisions. PostgreSQL can commit rows out-of-order relative to sequence values.
+### CP-01: Hardcoded Tailwind Color Classes Bypass Theme System
 
-**Consequences:**
-- Users see same records on multiple pages
-- Users skip records entirely (never visible)
-- Infinite loops when all visible records share the cursor value
-- Sync processes miss records during incremental fetch
+**Problem:** The codebase contains 172 occurrences of hardcoded color classes (`bg-gray-950`, `bg-gray-900`, `text-gray-400`, `border-gray-800`, etc.) across 30+ files. These classes resolve to fixed hex values at build time and do NOT respond to CSS variable changes. If the theme system is built on top of CSS variables (the correct approach), every component using hardcoded colors will ignore theme switches entirely, creating a two-toned broken UI.
 
-**Warning signs:**
-- QA reports "I saw this item twice"
-- Record counts don't match between paginated fetch and COUNT(*)
-- Automated tests pass but production shows duplicates
+**Warning Signs:**
+- After theme switch, some elements change color while others stay dark gray
+- Layout backgrounds and borders don't respond to theme toggle
+- Components look correct in the default dark theme but broken in any preset theme
+- QA reports "some parts didn't change" after switching themes
 
 **Prevention:**
-1. **Always use compound cursors**: `(updated_at, id)` not just `updated_at`
-2. **Use tuple comparison**: `WHERE (updated_at, id) > ($cursor_ts, $cursor_id)`
-3. **Index both columns together**: `CREATE INDEX idx_compound ON table(updated_at DESC, id DESC)`
-4. **Never use non-unique columns alone** - even UUIDs can collide in edge cases
+1. **Audit and replace ALL hardcoded color classes before building themes.** Map every `bg-gray-*`, `text-gray-*`, `border-gray-*` to semantic CSS variable equivalents (`bg-background`, `bg-card`, `text-muted-foreground`, `border-border`, etc.)
+2. **Create a mapping reference** from gray scale values to semantic tokens: `bg-gray-950 -> bg-background`, `bg-gray-900 -> bg-card`, `text-gray-400 -> text-muted-foreground`, `border-gray-800 -> border-border`
+3. **Add a lint rule or CI check** to prevent new hardcoded color classes from being introduced (e.g., no `gray-*`, `slate-*`, `zinc-*` in component files)
+4. **Prioritize this as the FIRST phase task** -- nothing else works until color abstraction is complete
 
-**Which phase should address:** Phase 1 (Pagination Infrastructure) - must be correct from day one
+**Phase to Address:** Phase 1 (Color Token Migration) -- must be done before any theme definition work
 
-**Recovery strategy:** Requires API contract change if already shipped. Add `cursor_id` field, deprecate old cursor, migrate clients.
+**Performance Impact:** None if done correctly. This is a class name swap, no runtime cost change. But if NOT done, the team will waste days debugging why themes "partially work."
 
-**Sources:**
-- [Keyset Cursors for Postgres Pagination](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/)
-- [Cursor Pagination PostgreSQL Guide](https://bun.uptrace.dev/guide/cursor-pagination.html)
-- [Paginating Large Ordered Datasets](https://brunoscheufler.com/blog/2022-01-01-paginating-large-ordered-datasets-with-cursor-based-pagination)
+**Confidence:** HIGH -- verified via codebase grep: 172 occurrences across 30 files including critical components like `virtualized-records-list.tsx`, `admin/layout.tsx`, `va/layout.tsx`, `sidebar.tsx`.
 
 ---
 
-### CP-02: IndexedDB Transaction Auto-Commit (Async/Await Trap)
+### CP-02: Theme Flash (FOUC) on Page Load with Server-Side Rendering
 
-**What goes wrong:** Transaction commits automatically before async operations complete. Any `await` to external API (fetch, setTimeout) inside a transaction causes `TransactionInactiveError`.
+**Problem:** The root layout currently hardcodes `<html lang="en" className="dark">`. Adding a multi-theme system requires the correct theme class/attribute to be present BEFORE the first paint. If the theme preference is stored client-side (localStorage/cookie) and applied via React hydration, users see a flash of the default theme before their chosen theme applies. This is especially jarring for light-to-dark or color-to-color transitions.
 
-**Why it happens:** IndexedDB transactions have an "active flag" that clears when control returns from the event loop tick. Promise microtasks can keep it alive briefly, but any macrotask (fetch, setTimeout) causes commit. Firefox is stricter than Chrome - even Promise.resolve().then() can trigger premature commit.
-
-**Consequences:**
-- `TransactionInactiveError` thrown mid-operation
-- Partial writes corrupt data integrity
-- Works in Chrome testing, fails in Firefox/Safari production
-- Silent data loss when transactions commit before all writes
-
-**Warning signs:**
-- "Transaction is not active" errors in console
-- Data inconsistency after page refresh
-- Works locally, fails in specific browsers
-- Operations succeed in sequence but fail in parallel
+**Warning Signs:**
+- White flash on page load for dark-theme users
+- Brief color change visible during navigation
+- Users report "flickering" when they refresh the page
+- Hydration mismatch warnings in console (`suppressHydrationWarning` missing)
 
 **Prevention:**
-1. **Never await external operations inside transactions**
-2. **Fetch all data before starting transaction**
-3. **Use explicit `transaction.commit()` when supported**
-4. **Structure code**: gather data -> open transaction -> write all -> close
-5. **Test in Firefox** (stricter transaction timing than Chrome)
+1. **Use `next-themes` library** with `attribute="data-theme"` (or `class`), which injects a blocking `<script>` in `<head>` to set the theme attribute before paint
+2. **Add `suppressHydrationWarning` to `<html>` element** -- next-themes modifies it before hydration
+3. **Remove the hardcoded `className="dark"`** from `layout.tsx` and let next-themes manage it
+4. **Configure `defaultTheme` to match the current dark theme** so the fallback matches what users currently see
+5. **Use `disableTransitionOnChange`** during initial load to prevent animation of the theme application
+6. **Store theme preference in cookie** (not just localStorage) if SSR needs it for server-rendered pages
 
-**Code pattern to avoid:**
-```typescript
-// WRONG - will auto-commit before fetch returns
-const tx = db.transaction('store', 'readwrite');
-const data = await fetch('/api/data'); // Transaction commits here!
-await tx.store.put(data); // TransactionInactiveError
-```
+**Phase to Address:** Phase 2 (Theme Infrastructure) -- foundational, blocks all theme switching UI
 
-**Correct pattern:**
-```typescript
-// RIGHT - gather first, then transact
-const data = await fetch('/api/data');
-const tx = db.transaction('store', 'readwrite');
-await tx.store.put(data);
-await tx.done;
-```
+**Performance Impact:** If done correctly with next-themes' blocking script approach, ZERO performance cost -- the script runs synchronously before paint. If done incorrectly with React state/useEffect, adds visible jank on every page load.
 
-**Which phase should address:** Phase 2 (IndexedDB Layer) - foundation of all client-side caching
-
-**Recovery strategy:** Refactor all transaction code. Use wrapper library (Dexie.js, idb) that handles this correctly.
-
-**Sources:**
-- [IndexedDB Promises Proposal](https://github.com/inexorabletash/indexeddb-promises)
-- [Pain and Anguish of IndexedDB](https://gist.github.com/pesterhazy/4de96193af89a6dd5ce682ce2adff49a)
-- [IDB Transaction Commit Explainer](https://andreas-butler.github.io/idb-transaction-commit/EXPLAINER.html)
+**Confidence:** HIGH -- verified via [next-themes documentation](https://github.com/pacocoursey/next-themes), [Next.js discussion #53063](https://github.com/vercel/next.js/discussions/53063), [FOUC fix guides](https://notanumber.in/blog/fixing-react-dark-mode-flickering).
 
 ---
 
-### CP-03: Safari 7-Day Storage Eviction (Data Loss)
+### CP-03: Theme Context Provider Triggers Full React Re-render Tree
 
-**What goes wrong:** Safari deletes ALL browser storage (IndexedDB, localStorage, WebSQL) after 7 days of user inactivity. Users return to find their cached data gone.
+**Problem:** If theme state is managed via React Context (e.g., a `ThemeProvider` that passes theme values as context), every theme switch triggers re-rendering of ALL consuming components. In an 80K LOC app with virtualized lists, SSE feeds, and complex forms, this causes visible jank and potential data loss (unsaved form state reset).
 
-**Why it happens:** Safari's Intelligent Tracking Prevention (ITP) treats client-side storage as potential tracking mechanism. Unlike other browsers, Safari aggressively evicts even legitimate app data.
-
-**Consequences:**
-- Users lose offline data after vacation/break
-- Re-sync required from scratch (bandwidth, time)
-- Perceived app unreliability
-- Support tickets: "All my data disappeared"
-
-**Warning signs:**
-- Safari users report data loss after not using app
-- Analytics show Safari users have longer initial load times
-- Support tickets cluster around Monday mornings (weekend inactivity)
+**Warning Signs:**
+- Theme toggle causes 200ms+ freeze
+- React DevTools Profiler shows full component tree re-rendering on theme change
+- Virtualized list rows all re-render simultaneously on theme switch
+- Form inputs lose focus or value during theme change
+- SSE feed stutters or drops events during theme transition
 
 **Prevention:**
-1. **Request persistent storage**: `navigator.storage.persist()` (may not work in Safari)
-2. **Design for re-sync**: Assume cache is ephemeral, server is source of truth
-3. **Track last sync time**: Warn users if cache is stale
-4. **Don't store critical data only in IndexedDB** - always recoverable from server
-5. **Document limitation** for users in Safari
+1. **CSS-first theming is NON-NEGOTIABLE.** Theme switching must ONLY change a CSS class or `data-theme` attribute on `<html>`. All downstream styling happens via CSS variable cascade.
+2. **Never pass theme values as React props or context to components.** Components use `var(--background)` in CSS, not `theme.background` in JS.
+3. **The only React context needed is `useTheme()` from next-themes** -- consumed only by the theme picker UI, not by styled components.
+4. **Verify with React DevTools Profiler**: On theme switch, only the theme picker component and `<html>` element should re-render. Zero other components should re-render.
 
-**Which phase should address:** Phase 2 (IndexedDB Layer) and Phase 3 (Sync Protocol)
+**Phase to Address:** Phase 2 (Theme Infrastructure) -- architectural decision, must be correct from start
 
-**Recovery strategy:** Graceful degradation - detect empty cache, trigger full sync, show progress indicator.
+**Performance Impact:** SEVERE if violated. CSS variable changes cascade through the browser's style engine (fast, ~1-5ms). React re-renders cascade through the JS engine (slow, ~50-500ms for large trees). The difference is 10-100x.
 
-**Sources:**
-- [IndexedDB Max Storage Limits](https://rxdb.info/articles/indexeddb-max-storage-limit.html)
-- [MDN Storage Quotas and Eviction](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria)
+**Confidence:** HIGH -- verified via [Epic React CSS Variables article](https://www.epicreact.dev/css-variables), [react-window re-render research](https://web.dev/articles/virtualize-long-lists-react-window).
 
 ---
 
-### CP-04: Optimistic Update Rollback Races (Sync Conflicts)
+### CP-04: Custom Scrollbar Breaks react-window Virtualization
 
-**What goes wrong:** User makes change A, then change B while A is in-flight. A fails and needs rollback, but B's optimistic state is based on A's optimistic state. Rollback creates inconsistent UI.
+**Problem:** The app uses `react-window` v2's `List` and `Grid` components for virtualized rendering of bookkeeping records and seller grids. react-window manages its own scroll container with inline positioning. Replacing the native scrollbar with a JS-based custom scrollbar library (react-scrollbars-custom, SimpleBar, etc.) can break virtualization by: (a) intercepting scroll events, (b) wrapping the scroll container in extra DOM layers, (c) conflicting with `outerRef`/`outerElementType` props.
 
-**Why it happens:** Each optimistic update snapshots "previous state" for rollback. When updates overlap, rollback targets are stale. Without proper sequencing, later updates don't know earlier ones failed.
-
-**Consequences:**
-- UI shows impossible states (rolled back partially)
-- User confusion about what actually saved
-- Data inconsistency between client and server
-- Race conditions create non-reproducible bugs
-
-**Warning signs:**
-- Users report "data jumping around"
-- Quick double-clicks cause weird states
-- Undo/redo behavior is unpredictable
-- QA cannot reproduce user-reported bugs
+**Warning Signs:**
+- Scroll position jumps or stutters in virtualized tables
+- Infinite scroll loading stops working after scrollbar customization
+- Two scrollbars appear (native + custom)
+- Virtual list height calculations become incorrect
+- Keyboard navigation (j/k) stops working in records list
 
 **Prevention:**
-1. **Sequence mutations**: Don't allow overlapping optimistic updates to same entity
-2. **Use mutation queues**: Process changes FIFO, rollback affects entire queue
-3. **Cancel in-flight requests** before applying conflicting optimistic update
-4. **Track dependency chains**: B depends on A, if A fails, invalidate B
-5. **Consider last-write-wins** for simple cases vs complex CRDT
+1. **Use CSS-only scrollbar styling** -- NOT JavaScript scrollbar replacement libraries
+2. **Use `scrollbar-width: thin` + `scrollbar-color`** (Firefox/standard) and `::-webkit-scrollbar` pseudo-elements (Chrome/Safari/Edge) for visual customization
+3. **The existing `scrollbar-thin` class in globals.css is the correct approach** -- extend it, don't replace it with a JS library
+4. **Make scrollbar CSS theme-aware** by using CSS variables: `scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track)` instead of hardcoded `#4b5563 #1f2937`
+5. **Test scrollbar appearance in virtualized lists specifically**, not just regular overflow containers
+6. **Accept that CSS scrollbar styling has limited customization** -- pure CSS cannot create scrollbar overlays, rounded-rect shapes on all browsers, or hover-expand animations. This is an acceptable tradeoff for not breaking virtualization.
 
-**Which phase should address:** Phase 3 (Sync Protocol) - must design mutation flow correctly
+**Phase to Address:** Phase 3 (Custom Components) -- after theme infrastructure is stable
 
-**Recovery strategy:** Implement proper optimistic update library (TanStack Query's optimistic updates, or custom queue).
+**Performance Impact:** CSS-only scrollbars: ZERO performance cost. JS-based scrollbar libraries: can add 2-5ms per scroll event, which at 60fps in a virtualized list with 50+ visible rows compounds to visible stutter.
 
-**Sources:**
-- [Concurrent Optimistic Updates in React Query](https://tkdodo.eu/blog/concurrent-optimistic-updates-in-react-query)
-- [Optimistic State with Rollbacks](https://github.com/perceived-dev/optimistic-state)
+**Confidence:** HIGH -- verified via [react-window issue #110](https://github.com/bvaughn/react-window/issues/110), existing codebase analysis of `virtualized-records-list.tsx` and `sellers-grid.tsx`.
 
 ---
 
-### CP-05: IndexedDB Schema Migration Version Conflicts (Multi-Tab)
+## Performance Pitfalls
 
-**What goes wrong:** User has two tabs open. New deployment upgrades IndexedDB schema. New tab tries to upgrade, old tab blocks it because it has connection open. App deadlocks or corrupts.
+---
 
-**Why it happens:** IndexedDB `onupgradeneeded` requires exclusive access. Old tabs with open connections receive `onversionchange` but may not close connection quickly. New tabs wait on `onblocked` indefinitely.
+### PP-01: Universal Selector `* {}` with CSS Variables on Large DOM
 
-**Consequences:**
-- App freezes on load
-- Old tab crashes or shows stale data
-- Schema migration never completes
-- Data corruption if partial migration
+**Problem:** The current globals.css contains `* { @apply border-border outline-ring/50; }` which applies CSS variable-based styles to EVERY DOM element. On pages with virtualized lists (50+ visible rows, each with 10+ cells = 500+ elements, plus sidebar, modals, etc.), this universal selector forces the browser to resolve CSS variables for every node on any style recalculation. Tailwind's own team has acknowledged this as a real performance issue.
 
-**Warning signs:**
-- Users report "app won't load" after update
-- "Multiple tabs" support tickets
-- Migration works in fresh browser, fails for active users
-- Postman/GitHub had this exact issue
+**Warning Signs:**
+- Chrome DevTools Performance tab shows long "Recalculate Style" times (>10ms)
+- Frame drops during scroll on tables with many columns
+- Slower rendering on mobile/lower-end devices
+- Adding more theme variables to `:root` makes existing pages slower
 
 **Prevention:**
-1. **Handle `onversionchange`**: Force-close database or prompt user to refresh all tabs
-2. **Handle `onblocked`**: Show UI explaining other tabs must close
-3. **Use version-aware connection pooling**: Don't leave connections open
-4. **Test multi-tab scenarios** in CI/QA
-5. **Consider broadcast channel** to coordinate tab shutdown
+1. **Audit the necessity of `* { @apply border-border }`.** Most elements don't have visible borders -- only elements with explicit `border` width need `border-color`.
+2. **Consider replacing universal selector with targeted selectors**: apply `border-border` only to elements that actually use borders (inputs, cards, table cells, dividers)
+3. **Measure before and after** with Chrome DevTools Performance tab on the bookkeeping records page with 50+ visible rows
+4. **If keeping the universal selector**: minimize the number of CSS variable resolutions it triggers. `border-color` alone is less costly than multiple variables.
 
-**Code pattern:**
-```typescript
-db.onversionchange = () => {
-  db.close();
-  alert('Database update required. Please refresh all tabs.');
-};
+**Phase to Address:** Phase 1 (Color Token Migration) -- address during the globals.css refactor
 
-request.onblocked = () => {
-  console.warn('Database upgrade blocked by another tab');
-  // Show UI to user
-};
-```
+**Performance Impact:** On pages with <100 DOM elements: negligible. On virtualized pages with 500+ visible elements: measurable. [Tailwind PR #4850](https://github.com/tailwindlabs/tailwindcss/pull/4850) specifically addressed this issue.
 
-**Which phase should address:** Phase 2 (IndexedDB Layer) - must handle from initial implementation
-
-**Recovery strategy:** Add version change handlers, implement tab coordination, consider service worker for single connection.
-
-**Sources:**
-- [Handling IndexedDB Upgrade Version Conflict](https://dev.to/ivandotv/handling-indexeddb-upgrade-version-conflict-368a)
-- [MDN Using IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB)
+**Confidence:** MEDIUM -- the universal selector cost is real and documented, but whether it's measurable in THIS app depends on actual DOM size during virtualized rendering. Requires profiling.
 
 ---
 
-## Performance Traps
+### PP-02: backdrop-filter on Dialog/Modal Overlay
 
-Mistakes that cause slowness, memory issues, or degraded UX. May not break functionality but harm user experience at scale.
+**Problem:** shadcn/ui's `DialogOverlay` can include `backdrop-blur-sm` (CSS `backdrop-filter: blur()`) which causes severe rendering lag, especially on larger screens. This is a known GPU-intensive operation that affects paint performance. While the current codebase uses `bg-black/80` (good), custom modal designs might introduce backdrop blur.
 
----
-
-### PT-01: Missing Compound Index for Cursor Pagination
-
-**What goes wrong:** Query `WHERE (updated_at, id) > ($1, $2) ORDER BY updated_at, id` does sequential scan instead of index scan. Performance degrades from O(log n) to O(n).
-
-**Why it happens:** Developers create separate indexes on `updated_at` and `id`, but tuple comparison needs compound index. PostgreSQL query planner can't efficiently combine single-column indexes for this pattern.
-
-**Consequences:**
-- First pages fast, deep pages slow (minutes for page 1000)
-- Database CPU spikes during pagination
-- Timeouts on large datasets
-- Users abandon app waiting for "Load More"
-
-**Warning signs:**
-- EXPLAIN shows Seq Scan instead of Index Scan
-- Query time increases linearly with page depth
-- Database monitoring shows high CPU during list views
-- Works fine with 1000 records, crawls at 1M
+**Warning Signs:**
+- Modal open/close animation stutters or drops frames
+- Opening a modal causes visible lag on pages with complex content behind the overlay
+- Chrome DevTools shows high GPU memory during modal display
+- Performance degrades on larger monitors (more pixels to blur)
 
 **Prevention:**
-1. **Create compound index matching query**: `CREATE INDEX ON table(updated_at DESC, id DESC)`
-2. **Match index direction to ORDER BY** - DESC cursor needs DESC index
-3. **Run EXPLAIN ANALYZE** on pagination queries during development
-4. **Test with production-scale data** before shipping
-5. **Supabase**: Verify RLS doesn't prevent index usage
+1. **Never use `backdrop-blur-*` on full-screen overlays.** Use opaque/semi-transparent backgrounds only (`bg-black/80`, `bg-background/90`).
+2. **If blur effect is desired for aesthetics**, limit it to small areas (popovers, dropdown backgrounds), never full-viewport overlays.
+3. **The current `bg-black/80` overlay is performant** -- maintain this pattern in custom modals.
+4. **Test modal performance on the seller collection page** (complex content behind overlay with SSE activity feed).
 
-**Which phase should address:** Phase 1 (Pagination Infrastructure)
+**Phase to Address:** Phase 3 (Custom Components) -- enforce during custom modal implementation
 
-**Recovery strategy:** Add index (may take hours on large tables), consider `CREATE INDEX CONCURRENTLY`.
+**Performance Impact:** `backdrop-blur` on full overlay: 5-50ms per frame on large screens (effectively unusable). Without blur: near-zero paint cost. This is documented in [shadcn/ui issue #327](https://github.com/shadcn-ui/ui/issues/327) and [issue #830](https://github.com/shadcn-ui/ui/issues/830).
 
-**Sources:**
-- [Five Ways to Paginate in Postgres](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/)
-- [Optimizing SQL Pagination in Postgres](https://readyset.io/blog/optimizing-sql-pagination-in-postgres)
+**Confidence:** HIGH -- verified via shadcn/ui GitHub issues with multiple confirmed reports and fixes.
 
 ---
 
-### PT-02: Unbounded Infinite Query Memory Growth
+### PP-03: Framer Motion Individual Transform Animations Use Non-Accelerated CSS Variables
 
-**What goes wrong:** TanStack Query's infinite queries store all fetched pages in memory. After loading 100 pages of 50 items each, 5000 records are in memory. Mobile devices crash.
+**Problem:** The app uses Framer Motion in 6 files (sync indicators, activity feeds, progress bars, waiting states). Framer Motion animates individual transform properties (`x`, `scale`, `rotate`) by setting CSS custom properties under the hood, which are NOT hardware-accelerated. This means these animations run on the main thread, competing with React rendering and SSE event processing.
 
-**Why it happens:** Default infinite query behavior appends pages indefinitely. No automatic pruning. Developers test with few pages, users scroll for hours.
-
-**Consequences:**
-- Browser memory grows without bound
-- Tab crashes on mobile (especially iOS Safari)
-- Entire app becomes sluggish
-- Cannot recover without page refresh
-
-**Warning signs:**
-- Memory profiler shows constant growth during scrolling
-- iOS Safari tab refreshes/crashes
-- "Aw, Snap!" errors in Chrome after extended use
-- Performance degrades over session duration
+**Warning Signs:**
+- Animations stutter when SSE events arrive simultaneously
+- CPU usage spikes during animations (visible in DevTools Performance)
+- Animations smooth when page is idle, janky during data loading
+- Mobile devices show worse animation performance than expected
 
 **Prevention:**
-1. **Use `maxPages` option** in TanStack Query infinite queries
-2. **Implement bidirectional scrolling**: Drop pages when scrolling away
-3. **Virtual window of pages**: Keep only visible pages + buffer
-4. **Monitor memory usage**: `performance.memory` in Chrome
-5. **Test extended scroll sessions** in QA
+1. **For any new animations, prefer CSS transitions/animations over Framer Motion** where possible (CSS transforms ARE hardware-accelerated when not using CSS variables)
+2. **Use `useMotionValue` and `useTransform` instead of state-driven animations** to avoid React re-renders during animation
+3. **Keep Framer Motion usage contained to non-critical UI** (loading indicators, page transitions) -- never on data-rendering paths like table rows
+4. **For the existing 6 files using Framer Motion**: audit whether they animate during data-intensive operations and optimize if needed
+5. **Use `will-change: transform` on animated elements** to hint GPU acceleration where helpful
 
-**Code pattern:**
-```typescript
-useInfiniteQuery({
-  // Only keep 5 pages in memory
-  maxPages: 5,
-  getNextPageParam: (lastPage) => lastPage.nextCursor,
-  getPreviousPageParam: (firstPage) => firstPage.prevCursor,
-});
-```
+**Phase to Address:** Phase 3 (Custom Components) -- audit during component redesign
 
-**Which phase should address:** Phase 4 (Virtualization) - must implement from start
+**Performance Impact:** Main-thread animations: 2-8ms per frame. GPU-accelerated animations: <1ms per frame. The difference matters most when SSE events or IndexedDB operations are running simultaneously.
 
-**Recovery strategy:** Add maxPages, implement page pruning, may require re-architecture if deeply integrated.
-
-**Sources:**
-- [TanStack Query Infinite Queries](https://tanstack.com/query/latest/docs/framework/react/guides/infinite-queries)
-- [TanStack Virtual Memory Leak Issue](https://github.com/TanStack/virtual/issues/196)
+**Confidence:** MEDIUM -- verified via [Motion performance docs](https://motion.dev/docs/performance), but actual impact depends on animation complexity and concurrency with data operations.
 
 ---
 
-### PT-03: IndexedDB Single-Transaction Write Bottleneck
+### PP-04: Theme Switch Triggers Layout Recalculation on All Visible Elements
 
-**What goes wrong:** Inserting 1000 records with one transaction per write takes 2 seconds. Same data in single transaction takes 20ms. 100x performance difference.
+**Problem:** When CSS variables on `:root` change (theme switch), the browser must recalculate styles for every element that references those variables. With the current shadcn/ui setup using ~40 CSS variables and the universal `* { @apply border-border }` selector, a theme switch triggers style recalculation for the ENTIRE page. On a page with a virtualized table showing 50 rows of 10+ columns, this means 500+ element style recalculations simultaneously.
 
-**Why it happens:** IndexedDB transaction overhead dominates small writes. Each transaction requires disk sync, journaling, and commit. Batching amortizes this overhead.
-
-**Consequences:**
-- Sync operations take minutes instead of seconds
-- UI freezes during bulk writes
-- Users perceive app as slow
-- Battery drain on mobile from constant disk writes
-
-**Warning signs:**
-- Sync progress bar moves slowly
-- `performance.now()` shows write time >> data size
-- Profiler shows many small disk operations
-- Users complain about "saving" taking forever
+**Warning Signs:**
+- Visible "flash" or frame drop during theme switch
+- Chrome DevTools shows >16ms "Recalculate Style" event on theme change
+- Theme switch feels laggy on pages with more content
+- Users avoid changing themes because it "freezes the app"
 
 **Prevention:**
-1. **Batch writes into single transactions**: Group 100-1000 records
-2. **Use `durability: 'relaxed'`** in Chrome for non-critical writes
-3. **Shard large datasets** across multiple object stores (28% faster reads)
-4. **Avoid mixing reads and writes** in same transaction when possible
-5. **Profile with realistic data volumes** during development
+1. **This is an inherent cost of CSS variable-based theming -- but it's a ONE-TIME cost per switch, not per frame.** The browser recalculates once, then caches.
+2. **Use `disableTransitionOnChange` in next-themes** to prevent transition animations during the variable swap (avoids rendering intermediate states)
+3. **Do NOT add CSS transitions on background-color or color globally** (`transition: all` on body or `*` is disastrous). Only add transitions to specific interactive elements.
+4. **Accept that theme switch is a "pause" moment** -- users expect a brief instant of processing when actively switching themes. Optimize for <50ms total.
+5. **Test theme switching specifically on the bookkeeping records page** (highest DOM complexity)
 
-**Which phase should address:** Phase 2 (IndexedDB Layer)
+**Phase to Address:** Phase 2 (Theme Infrastructure) -- measure and optimize during theme system setup
 
-**Recovery strategy:** Refactor to batch writes, add write queue that accumulates changes.
+**Performance Impact:** Well-implemented: <50ms one-time cost on switch (imperceptible). Poorly implemented (with transitions on `*`): 200-500ms with visible jank.
 
-**Sources:**
-- [Solving IndexedDB Slowness](https://rxdb.info/slow-indexeddb.html)
-- [Main Limitations of IndexedDB](https://dexie.org/docs/The-Main-Limitations-of-IndexedDB)
+**Confidence:** HIGH -- CSS variable cascade performance is well-documented browser behavior. The concern is proportional to DOM size.
 
 ---
 
-### PT-04: Virtualized List Focus/Accessibility Breakage
+### PP-05: CSS Transition on `*` or `body` During Theme Change
 
-**What goes wrong:** User tabs through virtualized list. Focus moves to item 50. User scrolls down, item 50 unmounts. Focus is lost, keyboard navigation breaks. Screen readers lose context.
+**Problem:** A common "polish" attempt is to add `transition: background-color 200ms, color 200ms` to `body` or `*` so theme changes feel smooth. On an 80K LOC app with 500+ visible DOM elements, this creates 500+ simultaneous CSS transitions. The browser must interpolate colors for every element on every animation frame for 200ms, causing severe frame drops.
 
-**Why it happens:** Virtualization unmounts DOM elements outside viewport. Browser focus system doesn't know element is "virtually" still there. ARIA live regions don't announce virtualized content changes.
-
-**Consequences:**
-- Keyboard-only users cannot navigate
-- Screen reader users get lost
-- Tab key jumps to unexpected places
-- Accessibility audit failures
-- Potential legal liability (ADA/WCAG)
-
-**Warning signs:**
-- QA reports "focus jumps to top of page"
-- Keyboard navigation tests fail
-- Screen reader testing shows missing announcements
-- `document.activeElement` is `body` after scroll
+**Warning Signs:**
+- Theme toggle causes 200ms of frozen/janky UI
+- Chrome DevTools Performance shows continuous "Paint" and "Composite" events for hundreds of milliseconds after theme switch
+- Smooth on small pages, terrible on data-dense pages
+- CPU fans spin up during theme change
 
 **Prevention:**
-1. **Manage focus state in component**: Track logical focus, restore on re-mount
-2. **Use roving tabindex pattern**: Only one item tabbable at a time
-3. **Wrap in ARIA landmarks**: `role="feed"` with `aria-busy`
-4. **Announce new content**: `aria-live="polite"` region for loaded items
-5. **Test with keyboard and screen reader** during development
+1. **Never add color transitions to `*`, `body`, or universal selectors.**
+2. **If you want smooth theme transitions, use `View Transitions API`** (`document.startViewTransition()`) which renders a snapshot and crossfades -- no per-element transitions needed.
+3. **Alternatively, use a brief opacity fade on `<main>` container** -- fade out, swap theme, fade in. This transitions ONE element, not 500+.
+4. **If individual element transitions are desired**, apply ONLY to interactive components (buttons, cards) with explicit transition classes, NOT inherited.
 
-**Which phase should address:** Phase 4 (Virtualization)
+**Phase to Address:** Phase 2 (Theme Infrastructure) -- establish as architectural rule
 
-**Recovery strategy:** Implement focus management layer, may require virtualizer wrapper component.
+**Performance Impact:** `transition: * { color 200ms }` on 500-element page: ~200ms of continuous jank. View Transitions API or opacity fade: ~16ms (single frame). Difference: 12x.
 
-**Sources:**
-- [WAI-ARIA Authoring Practices - Feed Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/feed/)
-- [TanStack Virtual Documentation](https://tanstack.com/virtual/v3/docs/framework/react/examples/infinite-scroll)
+**Confidence:** HIGH -- well-documented browser rendering principle. Each CSS transition is independently tracked by the compositor.
 
 ---
 
-### PT-05: DESC Cursor Performance Cliff
+## Integration Pitfalls
 
-**What goes wrong:** ASC pagination: 0.3ms per page. Same query with DESC: 300ms per page. 1000x slowdown just from direction change.
+---
 
-**Why it happens:** PostgreSQL B-tree indexes are optimized for forward traversal. Backward traversal requires additional operations. Without matching DESC index, query planner may choose inefficient path.
+### IP-01: Existing Scrollbar Classes Use Hardcoded Colors
 
-**Consequences:**
-- "Recent first" views are slow
-- Users prefer natural order (newest first) which is slowest
-- Inconsistent performance confuses debugging
-- May hit query timeouts
+**Problem:** The existing `scrollbar-thin` class in `globals.css` uses hardcoded hex values (`#4b5563`, `#1f2937`, `#6b7280`) that will not respond to theme changes. These colors were chosen for the dark theme and will look wrong on any other theme.
 
-**Warning signs:**
-- Same query much slower with `ORDER BY ... DESC`
-- EXPLAIN shows different plan for ASC vs DESC
-- Performance tests pass (ASC) but production is slow (DESC)
+**Warning Signs:**
+- Scrollbars remain dark gray on light/colored themes
+- Visual inconsistency between scrollbar and adjacent content colors
+- Users report "scrollbar looks out of place" on non-default themes
 
 **Prevention:**
-1. **Create DESC indexes explicitly**: `CREATE INDEX ON table(updated_at DESC, id DESC)`
-2. **Match index direction to query direction**
-3. **Test both directions** with production-scale data
-4. **Consider covering indexes** to avoid heap lookups
+1. **Replace hardcoded hex values with CSS variable references:**
+   ```css
+   .scrollbar-thin {
+     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+   }
+   .scrollbar-thin::-webkit-scrollbar-track {
+     background: var(--scrollbar-track);
+   }
+   .scrollbar-thin::-webkit-scrollbar-thumb {
+     background: var(--scrollbar-thumb);
+   }
+   ```
+2. **Define `--scrollbar-thumb` and `--scrollbar-track` in each theme's variable set**
+3. **Test scrollbar appearance across all preset themes** -- scrollbars are highly visible in the virtualized records list
 
-**Which phase should address:** Phase 1 (Pagination Infrastructure)
+**Phase to Address:** Phase 1 (Color Token Migration) -- part of the globals.css refactor
 
-**Recovery strategy:** Add properly-ordered indexes, may require index rebuild.
+**Performance Impact:** None -- swapping hex values for CSS variables has identical render cost.
 
-**Sources:**
-- [Prisma Cursor Pagination DESC Issue](https://github.com/prisma/prisma/issues/12650)
-- [Cursor Pagination with Arbitrary Ordering](https://medium.com/@george_16060/cursor-based-pagination-with-arbitrary-ordering-b4af6d5e22db)
+**Confidence:** HIGH -- directly observed in `globals.css` lines 128-154.
 
 ---
 
-## Technical Debt Patterns
+### IP-02: SSE Activity Feed Animations Compete with Theme Transition
 
-Shortcuts that seem fine initially but create compounding problems over time.
+**Problem:** The seller collection page has real-time SSE streaming with Framer Motion animations on the activity feed and progress bars. If a user switches themes while a collection is running, the theme recalculation competes with ongoing animations and SSE event processing on the main thread, potentially causing dropped events or animation glitches.
 
----
-
-### TD-01: Offset Pagination "Because It's Easier"
-
-**What goes wrong:** Team ships offset pagination (`LIMIT 50 OFFSET 1000`) because it's simpler. Works fine at 10K records. At 1M records, deep pages take 30+ seconds.
-
-**Why it happens:** Offset pagination is familiar, works out of the box, and handles arbitrary page jumps. Cursor pagination requires API design changes and client state management. Deadline pressure favors familiar approach.
-
-**Consequences:**
-- Rewrite pagination system later (breaking API change)
-- Users cannot reliably browse older data
-- Database under constant load from full scans
-- Tech debt compounds as more features depend on pagination
-
-**Warning signs:**
-- Product roadmap says "millions of records" but pagination uses OFFSET
-- Performance tests only use first few pages
-- "We'll optimize later" in code comments
+**Warning Signs:**
+- SSE feed shows gaps during theme switch on collection page
+- Progress bar animation stutters when theme changes
+- Worker status cards briefly show incorrect state during transition
+- Activity feed items appear in wrong order after theme switch
 
 **Prevention:**
-1. **Start with cursor pagination** even if dataset is small
-2. **Design API with cursors from day one**
-3. **Educate team on scaling characteristics**
-4. **Add pagination performance test to CI** with large synthetic dataset
+1. **Theme switch should be instant (no transitions)** to minimize main-thread contention
+2. **SSE processing should use `requestIdleCallback` or microtask scheduling** to avoid blocking style recalculation
+3. **Test theme switching specifically during active collection** (worst-case concurrency scenario)
+4. **Consider debouncing rapid theme switches** (don't allow switching 10 themes in 1 second)
 
-**Which phase should address:** Phase 1 (Pagination Infrastructure) - non-negotiable
+**Phase to Address:** Phase 2 (Theme Infrastructure) -- validate during integration testing
 
-**Recovery strategy:** Full API redesign required. Version API, deprecate offset endpoints, migrate clients.
+**Performance Impact:** If theme switch is instant (<16ms): negligible interference. If theme switch involves transitions (200ms+): potential SSE event loss during transition.
 
-**Sources:**
-- [Understanding Cursor Pagination](https://www.milanjovanovic.tech/blog/understanding-cursor-pagination-and-why-its-so-fast-deep-dive)
-- [Offset vs Cursor Pagination](https://embedded.gusto.com/blog/api-pagination/)
+**Confidence:** MEDIUM -- theoretical concern based on main-thread contention. Actual impact depends on SSE event frequency during theme switch.
 
 ---
 
-### TD-02: "Server Is Source of Truth" Without Offline Strategy
+### IP-03: Layout Overhaul Breaks Virtualized List Height Calculation
 
-**What goes wrong:** Team treats IndexedDB as pure cache. When offline, app shows spinner or error. Users expect to work offline with cached data.
+**Problem:** `VirtualizedRecordsList` receives a `height` prop that determines the virtual scroll container size. The component is inside `AdminLayout` which uses `flex-1 p-8` for the main content area. If the layout overhaul changes padding, adds a navigation bar, changes the sidebar width, or modifies the flex structure, the calculated `height` value can become wrong -- causing the virtualized list to be too tall (scrollbar extends past viewport) or too short (wasted space, fewer visible rows).
 
-**Why it happens:** Offline-first is complex. Conflict resolution is hard. Team defers offline support "until v2" but never addresses it. Users learn app is "online only" despite having local storage.
-
-**Consequences:**
-- Poor UX on flaky connections
-- Users lose work during network blips
-- Competitive disadvantage vs offline-capable apps
-- Massive refactor needed to add offline support later
-
-**Warning signs:**
-- No offline testing in QA process
-- Network errors show generic "Please try again"
-- IndexedDB used only for performance, not resilience
-- No conflict resolution strategy documented
+**Warning Signs:**
+- Virtualized table extends below the viewport fold
+- Empty space appears below the table that shouldn't be there
+- `height` calculation returns negative or zero values
+- Scroll behavior changes after layout modifications
+- ResizeObserver warnings in console
 
 **Prevention:**
-1. **Design offline strategy upfront** even if initial impl is "read-only offline"
-2. **Define conflict resolution policy** (last-write-wins, server-wins, manual)
-3. **Queue mutations when offline**: Sync when connection returns
-4. **Test with network throttling** in QA
+1. **Use a ResizeObserver-based hook to calculate available height dynamically**, not a static value
+2. **Test layout changes with the bookkeeping records page open** (most complex virtualized view)
+3. **Make virtualized container height responsive to layout changes**: if navbar height changes, table height should adjust automatically
+4. **Document the height calculation chain**: viewport height -> minus navbar -> minus padding -> minus page header -> minus filter bar = table height
+5. **Never use `100vh` for the container** -- it doesn't account for browser chrome on mobile or dynamic navbars
 
-**Which phase should address:** Phase 3 (Sync Protocol)
+**Phase to Address:** Phase 4 (Layout Overhaul) -- critical integration concern
 
-**Recovery strategy:** Add mutation queue, implement retry logic, may require significant state management changes.
+**Performance Impact:** Incorrect height: functional breakage (not performance). But unnecessary ResizeObserver thrashing from layout animations can cause 2-5ms per frame cost.
 
-**Sources:**
-- [PowerSync Conflict Resolution](https://docs.powersync.com/usage/lifecycle-maintenance/handling-update-conflicts/custom-conflict-resolution)
-- [Optimistic Offline Lock Pattern](https://martinfowler.com/eaaCatalog/optimisticOfflineLock.html)
+**Confidence:** HIGH -- `virtualized-records-list.tsx` explicitly requires a `height` prop (line 76), and `admin/layout.tsx` uses specific padding/flex rules.
 
 ---
 
-### TD-03: Treating Virtualization As "Just Rendering"
+### IP-04: Form Control Restyling Breaks Existing Validation and Accessibility
 
-**What goes wrong:** Team adds react-window to existing list component. Works initially. Then: search breaks, keyboard navigation fails, scroll position resets on data change, ref forwarding fails.
+**Problem:** The app has 18 shadcn/ui components in `components/ui/`. These are built on Radix UI primitives with built-in focus management, keyboard handling, and ARIA attributes. Creating "custom form controls" that replace these components (custom selects, custom checkboxes, custom inputs) risks losing the accessibility features that come free with Radix primitives, and may break existing form validation patterns used in bookkeeping record editing, account management, and profile settings.
 
-**Why it happens:** Virtualization fundamentally changes component contract. Unmounted items lose state, refs, and event listeners. Existing features assume DOM element persistence.
-
-**Consequences:**
-- Feature-by-feature breakage after virtualization added
-- Regressions in search, filter, selection
-- Scroll position bugs on data updates
-- Eventually revert virtualization or rewrite features
-
-**Warning signs:**
-- "Virtualization broke X" tickets after deployment
-- Features work without virtualization, fail with it
-- Scroll position jumps after re-render
-- Selection state lost on scroll
+**Warning Signs:**
+- Tab/keyboard navigation stops working on forms
+- Screen readers no longer announce form field labels
+- Custom select doesn't support typeahead search (native select does)
+- Form submission behavior changes after component replacement
+- Existing validation error display breaks
 
 **Prevention:**
-1. **Design for virtualization from the start**
-2. **Lift all item state to parent component** (selection, expansion, focus)
-3. **Use stable keys** (not array indices)
-4. **Implement scroll position restoration** explicitly
-5. **Test search, filter, select, keyboard nav** with virtualization
+1. **Restyle shadcn/ui components, do NOT replace them.** Modify the className props and CSS variables in existing components rather than building new ones from scratch.
+2. **The existing Radix primitives provide**: focus trapping in dialogs, keyboard navigation in selects/dropdowns, proper ARIA roles, typeahead in listboxes. None of this should be reimplemented.
+3. **Custom styling should be additive**: change colors, padding, borders, border-radius via CSS variables. Don't change component structure.
+4. **Test every restyled form with keyboard-only navigation** before shipping
+5. **For truly custom controls** (e.g., branded toggle switch that looks nothing like the current checkbox), extend the existing Radix primitive with new visual layers rather than building from scratch.
 
-**Which phase should address:** Phase 4 (Virtualization)
+**Phase to Address:** Phase 3 (Custom Components) -- establish as design constraint
 
-**Recovery strategy:** Refactor state management to support virtualization assumptions. May require component rewrite.
+**Performance Impact:** Replacing Radix with custom implementations often introduces more DOM elements and event listeners. Radix is already optimized; restyling it is zero-cost compared to reimplementing.
 
-**Sources:**
-- [Optimizing Large Lists in React](https://www.ignek.com/blog/optimizing-large-lists-in-react-virtualization-vs-pagination/)
-- [React Native VirtualizedList](https://reactnative.dev/docs/virtualizedlist)
+**Confidence:** HIGH -- the existing components use Radix (verified in `dialog.tsx`, `select.tsx`, `checkbox.tsx`).
 
 ---
 
-### TD-04: Implicit Version Vectors (Sync Conflicts)
+### IP-05: Multiple `data-theme` Variable Sets Increase CSS Bundle Size
 
-**What goes wrong:** Team uses `updated_at` timestamp for conflict detection. Two devices modify same record within same second. Last write silently overwrites first write. Users lose data.
+**Problem:** Each preset theme requires a complete set of ~40 CSS variables (background, foreground, card, primary, secondary, muted, accent, destructive, border, input, ring, chart-1 through chart-5, sidebar variants, plus any new scrollbar/custom variables). With 4 themes, that's ~160 variable declarations in the CSS bundle. While this is small in absolute terms (~3-5KB), the pattern of adding "just one more variable" to the theme system can compound if not disciplined.
 
-**Why it happens:** Timestamps feel intuitive for "which is newer." Clock skew, same-second updates, and timezone bugs make timestamps unreliable. Team doesn't realize data is being lost until users complain.
-
-**Consequences:**
-- Silent data loss
-- Users cannot trust app with important data
-- Debugging sync issues nearly impossible
-- May require explicit versioning retrofit
-
-**Warning signs:**
-- Users report "my changes disappeared"
-- Changes overwrite unexpectedly
-- Audit logs show unexplained overwrites
-- QA cannot reproduce "lost data" reports
+**Warning Signs:**
+- globals.css grows beyond 300 lines of variable declarations
+- New features add variables without removing unused ones
+- Different themes have different sets of variables (inconsistency)
+- Theme switcher shows visual inconsistencies because some variables are missing from some themes
 
 **Prevention:**
-1. **Use explicit version numbers or ETags** not timestamps
-2. **Increment version on every write** server-side
-3. **Reject writes with stale version** (optimistic locking)
-4. **Log conflicts** for debugging
-5. **Consider CRDTs** for highly concurrent scenarios
+1. **Define a strict variable contract**: EVERY theme must define EXACTLY the same set of variables. No optional variables.
+2. **Use the existing shadcn/ui variable names** (`--background`, `--foreground`, `--primary`, etc.) as the contract. Don't invent new semantic names unless absolutely necessary.
+3. **Add new variables (e.g., `--scrollbar-thumb`, `--scrollbar-track`) to ALL themes simultaneously**
+4. **Keep theme definitions in a single CSS file** for easy auditing
+5. **Target 40-50 variables per theme maximum** -- if you need more, you're over-designing the theme system
 
-**Which phase should address:** Phase 3 (Sync Protocol)
+**Phase to Address:** Phase 2 (Theme Infrastructure) -- establish variable contract
 
-**Recovery strategy:** Add version column to all synced tables, implement version checking in API, migrate clients.
+**Performance Impact:** CSS bundle size impact is minimal (4 themes x 50 variables = ~4KB uncompressed, ~1KB gzipped). The real risk is maintenance burden and visual bugs from missing variables, not performance.
 
-**Sources:**
-- [Optimistic Concurrency Control](https://en.wikipedia.org/wiki/Optimistic_concurrency_control)
-- [EF Core Handling Concurrency Conflicts](https://learn.microsoft.com/en-us/ef/core/saving/concurrency)
+**Confidence:** HIGH -- based on the existing ~40 variables in globals.css.
 
 ---
 
-## Supabase-Specific Pitfalls
+### IP-06: OKLCH Color Values and Third-Party Tool Compatibility
 
-Issues specific to the Supabase ecosystem that powers this project.
+**Problem:** The existing CSS variables use OKLCH color space (`oklch(0.145 0 0)`), which is the modern Tailwind v4 default. While browser support is now ~92% globally, OKLCH values cause issues with: (a) older browsers, (b) PDF export libraries, (c) html2canvas/html2pdf tools, (d) Chrome DevTools color picker in some contexts, and (e) PostCSS plugins that attempt to transform CSS variables.
 
----
-
-### SP-01: RLS Preventing Index Usage
-
-**What goes wrong:** Query uses index in `psql` but Supabase client queries do sequential scan. RLS policy adds conditions that invalidate index.
-
-**Why it happens:** Supabase enforces Row-Level Security by adding WHERE clauses to queries. Complex RLS policies can prevent query planner from using intended indexes.
+**Warning Signs:**
+- PDF/screenshot export shows wrong colors or errors
+- Colors appear as black in some browsers/contexts
+- Build tools emit warnings about unrecognized color functions
+- CSS DevTools shows "invalid value" for some variables
 
 **Prevention:**
-1. **Test queries with RLS enabled** not just raw SQL
-2. **Create indexes that include RLS filter columns**
-3. **Use EXPLAIN with `role = 'authenticated'`** to see actual plan
-4. **Simplify RLS policies** where possible
+1. **Maintain OKLCH as the primary color format** -- it's the correct choice for perceptual uniformity across themes and is already in use
+2. **If the app uses html2pdf or similar export tools**: provide hex/rgb fallback values or ensure export uses a headless browser that supports OKLCH
+3. **Test in the app's minimum supported browser** (check analytics for oldest browser in active use)
+4. **For the v3 streaming CSV/Excel export**: this is data-only and unaffected by CSS colors, so no concern there
+5. **Monitor PostCSS plugin compatibility** -- the current `@tailwindcss/postcss` plugin handles OKLCH natively
 
-**Which phase should address:** Phase 1 (Pagination Infrastructure)
+**Phase to Address:** Phase 2 (Theme Infrastructure) -- note as constraint during theme definition
 
----
+**Performance Impact:** None -- OKLCH parsing performance is identical to hex/rgb in modern browsers.
 
-### SP-02: Realtime Subscription Overhead at Scale
-
-**What goes wrong:** Subscribe to realtime changes on large table. Every INSERT/UPDATE/DELETE broadcasts to all subscribers. Server CPU spikes, clients flood with events.
-
-**Why it happens:** Supabase Realtime broadcasts all changes matching subscription filter. With millions of records and frequent updates, this creates event storm.
-
-**Prevention:**
-1. **Filter subscriptions narrowly**: `filter: 'account_id=eq.${id}'`
-2. **Don't subscribe to full tables** - use specific filters
-3. **Implement debouncing** on client for rapid updates
-4. **Consider polling for high-frequency changes**
-
-**Which phase should address:** Phase 3 (Sync Protocol) if using realtime for sync
+**Confidence:** MEDIUM -- OKLCH browser support is broadly good (92%+), but edge cases with export tools and older browsers depend on the specific user base. [Can I Use OKLCH](https://caniuse.com/?search=oklch) shows current support data.
 
 ---
 
-### SP-03: Multi-Column Cursor with Supabase Client
+## Anti-Patterns
 
-**What goes wrong:** Supabase JS client doesn't support tuple comparison `(a, b) > (x, y)`. Developer uses `.gt('a', x).gt('b', y)` which is wrong logic.
-
-**Why it happens:** SQL tuple comparison is elegant but Supabase client uses chained filters. Incorrect translation produces wrong results.
-
-**Prevention:**
-1. **Use `.or()` with `and()` syntax** for compound conditions
-2. **Consider RPC function** for complex cursor queries
-3. **Test pagination edge cases** where only second column differs
-4. **Document the query pattern** for team
-
-**Code pattern:**
-```typescript
-// Wrong: AND logic, not tuple comparison
-.gt('updated_at', cursor.ts)
-.gt('id', cursor.id)
-
-// Right: Tuple comparison via OR
-.or(`updated_at.gt.${cursor.ts},and(updated_at.eq.${cursor.ts},id.gt.${cursor.id})`)
-```
-
-**Which phase should address:** Phase 1 (Pagination Infrastructure)
-
-**Sources:**
-- [Supabase Cursor Pagination Discussion](https://github.com/orgs/supabase/discussions/3938)
-- [Multi-Column Cursor Pagination Discussion](https://github.com/orgs/supabase/discussions/21330)
+Common approaches that seem good but cause problems in this specific context.
 
 ---
 
-## Pitfall-to-Phase Mapping
+### Anti-Pattern 1: "Theme Provider That Passes Colors as Props"
 
-Summary of which pitfalls should be addressed in which v3 phase.
+**Seems good:** Create a React ThemeContext that provides `{ colors: { background: '#1a1a2e', primary: '#0f3460' } }` so components can use `style={{ backgroundColor: theme.colors.background }}`.
 
-| Phase | Pitfalls to Address | Priority |
-|-------|---------------------|----------|
-| **Phase 1: Pagination Infrastructure** | CP-01 (Non-Unique Cursors), PT-01 (Missing Index), PT-05 (DESC Performance), TD-01 (Offset Pagination), SP-01 (RLS Index), SP-03 (Supabase Client) | CRITICAL |
-| **Phase 2: IndexedDB Layer** | CP-02 (Transaction Auto-Commit), CP-03 (Safari Eviction), CP-05 (Schema Migration), PT-03 (Write Bottleneck) | CRITICAL |
-| **Phase 3: Sync Protocol** | CP-04 (Optimistic Rollback), TD-02 (Offline Strategy), TD-04 (Version Vectors), SP-02 (Realtime Overhead) | HIGH |
-| **Phase 4: Virtualization** | PT-02 (Memory Growth), PT-04 (Focus/Accessibility), TD-03 (Virtualization Integration) | HIGH |
+**Why bad in THIS app:** Every component consuming the context re-renders on theme switch. With react-window virtualized lists, this means all 50+ visible rows re-render simultaneously. With SSE feeds updating every 500ms, this means theme switch + SSE update can create a render storm.
+
+**Do instead:** CSS variables on `:root`, swapped by changing `data-theme` attribute. Components use Tailwind classes (`bg-background`) that resolve via CSS -- zero React re-renders.
 
 ---
 
-## Pitfall Prevention Checklist
+### Anti-Pattern 2: "JS-Based Custom Scrollbar Library"
 
-Use during development to verify pitfalls are addressed.
+**Seems good:** Use react-scrollbars-custom or SimpleBar for beautiful, consistent scrollbars with animations and hover effects.
 
-### Phase 1 Checklist
-- [ ] Cursor uses compound columns (updated_at, id)
-- [ ] Compound index exists with matching direction
-- [ ] Tested with 1M+ synthetic records
-- [ ] DESC queries use DESC index
-- [ ] RLS doesn't prevent index usage
-- [ ] Supabase client correctly implements tuple comparison
+**Why bad in THIS app:** react-window v2 owns the scroll container. JS scrollbar libraries intercept scroll events and wrap the container in extra DOM. This breaks virtualization measurement, infinite scroll loading, keyboard navigation (j/k), and scroll restoration that are all already implemented.
 
-### Phase 2 Checklist
-- [ ] No await to external services inside transactions
-- [ ] onversionchange handler closes database
-- [ ] onblocked handler shows user feedback
-- [ ] Batch writes (100+ records per transaction)
-- [ ] Safari storage eviction handled gracefully
-- [ ] Multi-tab scenario tested
-
-### Phase 3 Checklist
-- [ ] Explicit version numbers on synced entities
-- [ ] Conflict resolution policy documented and implemented
-- [ ] Optimistic updates have rollback handling
-- [ ] Offline mutation queue implemented
-- [ ] Realtime subscriptions are filtered narrowly
-
-### Phase 4 Checklist
-- [ ] maxPages set on infinite queries
-- [ ] Focus management implemented
-- [ ] Keyboard navigation tested
-- [ ] Screen reader tested
-- [ ] Item state lifted to parent
-- [ ] Stable keys used (not indices)
+**Do instead:** CSS `scrollbar-width` + `scrollbar-color` + `::-webkit-scrollbar` pseudo-elements with theme-aware CSS variables. Accept the limited customization as a worthwhile tradeoff.
 
 ---
 
-## Sources Summary
+### Anti-Pattern 3: "Replace shadcn/ui Components with Custom Implementations"
 
-### Cursor Pagination
-- [Keyset Cursors for Postgres](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/)
-- [Five Ways to Paginate in Postgres](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/)
-- [Cursor Pagination Deep Dive](https://www.milanjovanovic.tech/blog/understanding-cursor-pagination-and-why-its-so-fast-deep-dive)
-- [Supabase Cursor Pagination](https://github.com/orgs/supabase/discussions/3938)
+**Seems good:** Build custom Modal, Select, and Checkbox components from scratch to match the exact Figma design spec.
 
-### IndexedDB
-- [IndexedDB Storage Limits](https://rxdb.info/articles/indexeddb-max-storage-limit.html)
-- [IndexedDB Pain Points](https://gist.github.com/pesterhazy/4de96193af89a6dd5ce682ce2adff49a)
-- [Solving IndexedDB Slowness](https://rxdb.info/slow-indexeddb.html)
-- [Dexie.js Limitations](https://dexie.org/docs/The-Main-Limitations-of-IndexedDB)
-- [MDN Using IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB)
+**Why bad in THIS app:** The existing 18 shadcn/ui components are built on Radix UI primitives, which provide focus trapping, keyboard navigation, ARIA semantics, and portal rendering. The bookkeeping inline editing, account management forms, and profile settings all depend on this. Replacing them means reimplementing these behaviors -- and getting them wrong.
 
-### Sync Protocols
-- [PowerSync Conflict Resolution](https://docs.powersync.com/usage/lifecycle-maintenance/handling-update-conflicts/custom-conflict-resolution)
-- [Optimistic Concurrency Control](https://en.wikipedia.org/wiki/Optimistic_concurrency_control)
-- [Cache Invalidation Patterns](https://algomaster.io/learn/system-design/cache-invalidation)
-- [TkDodo on Optimistic Updates](https://tkdodo.eu/blog/concurrent-optimistic-updates-in-react-query)
-
-### Virtualization
-- [TanStack Query Infinite Queries](https://tanstack.com/query/latest/docs/framework/react/guides/infinite-queries)
-- [TanStack Virtual Examples](https://tanstack.com/virtual/v3/docs/framework/react/examples/infinite-scroll)
-- [TanStack Virtual Memory Issues](https://github.com/TanStack/virtual/issues/196)
-- [Optimizing Large Lists in React](https://www.ignek.com/blog/optimizing-large-lists-in-react-virtualization-vs-pagination/)
+**Do instead:** Restyle the existing shadcn/ui components by modifying their className props and CSS variables. Radix primitives are headless -- they don't dictate visual appearance. Change the look, keep the behavior.
 
 ---
 
-*Researched: 2026-01-23 | Confidence: HIGH*
+### Anti-Pattern 4: "Transition All Colors for Smooth Theme Switch"
+
+**Seems good:** Add `* { transition: background-color 300ms, color 300ms, border-color 300ms; }` for a smooth, polished theme transition.
+
+**Why bad in THIS app:** On the bookkeeping records page with 50 virtualized rows of 10+ columns = 500+ elements, this creates 1500+ simultaneous CSS transitions (3 properties x 500 elements). The browser must interpolate every color on every frame for 300ms. Combined with SSE events arriving during the transition, this overwhelms the main thread.
+
+**Do instead:** Use `disableTransitionOnChange` from next-themes for instant switching, or use the View Transitions API (`document.startViewTransition()`) which crossfades a screenshot rather than transitioning individual elements.
+
+---
+
+### Anti-Pattern 5: "Theme Variables in Tailwind Config Instead of CSS"
+
+**Seems good:** Define theme colors in `tailwind.config.ts` using the `extend` mechanism, which feels more "Tailwind-native."
+
+**Why bad in THIS app:** The project uses Tailwind v4 with the CSS-first `@theme inline` pattern already established in `globals.css`. Moving to config-based theming would require: (a) reverting to a config file approach, (b) losing runtime CSS variable switching (config is build-time only), and (c) conflicting with shadcn/ui's CSS variable conventions. The existing approach is correct.
+
+**Do instead:** Keep the CSS-first approach. Define all theme variables in `globals.css` under `:root` and `html[data-theme="..."]` selectors. Use `@theme inline` to register them with Tailwind.
+
+---
+
+## Phase-Specific Warning Summary
+
+| Phase | Likely Pitfall | Severity | Mitigation |
+|-------|---------------|----------|------------|
+| **Phase 1: Color Token Migration** | CP-01 (hardcoded colors bypass themes) | CRITICAL | Audit and replace 172 occurrences across 30 files |
+| **Phase 1: Color Token Migration** | IP-01 (scrollbar hardcoded colors) | HIGH | Replace hex with CSS variables in scrollbar classes |
+| **Phase 1: Color Token Migration** | PP-01 (universal selector cost) | MEDIUM | Audit `* {}` impact on virtualized pages |
+| **Phase 2: Theme Infrastructure** | CP-02 (FOUC on page load) | CRITICAL | Use next-themes with blocking script |
+| **Phase 2: Theme Infrastructure** | CP-03 (React re-render on theme switch) | CRITICAL | CSS-only theming, no React context for colors |
+| **Phase 2: Theme Infrastructure** | PP-04 (style recalculation cost) | MEDIUM | Instant switch, no transitions on variables |
+| **Phase 2: Theme Infrastructure** | PP-05 (transition on * kills performance) | HIGH | Architectural rule: never transition * |
+| **Phase 2: Theme Infrastructure** | IP-05 (CSS bundle variable growth) | LOW | Strict variable contract, 40-50 max |
+| **Phase 2: Theme Infrastructure** | IP-06 (OKLCH compatibility) | LOW | Monitor, provide fallbacks if needed |
+| **Phase 3: Custom Components** | CP-04 (scrollbar breaks virtualization) | CRITICAL | CSS-only scrollbar styling |
+| **Phase 3: Custom Components** | PP-02 (backdrop-blur on modal overlay) | HIGH | No blur on full-screen overlays |
+| **Phase 3: Custom Components** | PP-03 (Framer Motion main-thread) | MEDIUM | Prefer CSS transitions for new work |
+| **Phase 3: Custom Components** | IP-04 (form control accessibility loss) | HIGH | Restyle, don't replace Radix primitives |
+| **Phase 4: Layout Overhaul** | IP-03 (virtualized list height breaks) | HIGH | ResizeObserver-based dynamic height |
+| **Phase 4: Layout Overhaul** | IP-02 (SSE + theme animation contention) | MEDIUM | Instant theme switch, test during collection |
+
+---
+
+## Prevention Checklist
+
+### Before Starting (Phase 0)
+- [ ] Chrome DevTools Performance baseline recorded on bookkeeping records page
+- [ ] DOM element count measured on highest-complexity pages
+- [ ] Current Lighthouse score recorded for reference
+- [ ] Inventory of all hardcoded color classes completed
+
+### Phase 1 Checklist (Color Token Migration)
+- [ ] All `bg-gray-*`, `text-gray-*`, `border-gray-*` classes replaced with semantic tokens
+- [ ] Scrollbar CSS uses CSS variables, not hex values
+- [ ] Universal selector `* {}` impact profiled
+- [ ] Lint rule blocks new hardcoded color classes
+- [ ] Visual parity verified (app looks identical after migration)
+
+### Phase 2 Checklist (Theme Infrastructure)
+- [ ] next-themes configured with blocking script (no FOUC)
+- [ ] `suppressHydrationWarning` on `<html>`
+- [ ] Hardcoded `className="dark"` removed from root layout
+- [ ] Theme switch triggers ZERO React component re-renders (verified with Profiler)
+- [ ] `disableTransitionOnChange` enabled
+- [ ] No `transition` on `*` or `body` for color properties
+- [ ] All themes define identical variable sets
+- [ ] Theme switch measured at <50ms on bookkeeping page
+
+### Phase 3 Checklist (Custom Components)
+- [ ] Scrollbar styling is CSS-only (no JS scrollbar library)
+- [ ] react-window lists still work with custom scrollbar styles
+- [ ] No `backdrop-blur` on full-screen modal overlays
+- [ ] All form controls maintain keyboard navigation after restyling
+- [ ] Radix primitives preserved (not replaced)
+- [ ] New Framer Motion animations use `useMotionValue` where possible
+
+### Phase 4 Checklist (Layout Overhaul)
+- [ ] Virtualized list height recalculates correctly after layout changes
+- [ ] ResizeObserver handles dynamic height for all viewports
+- [ ] Theme switching works during active SSE streaming
+- [ ] Performance profiled matches or improves baseline
+- [ ] No regressions in infinite scroll, keyboard nav, or scroll restoration
+
+---
+
+## Sources
+
+### Verified (HIGH confidence)
+- [shadcn/ui Theming Documentation](https://ui.shadcn.com/docs/theming) -- CSS variable architecture
+- [shadcn/ui issue #327: backdrop-filter performance](https://github.com/shadcn-ui/ui/issues/327) -- confirmed backdrop-blur problem
+- [shadcn/ui issue #830: overlay lag for modals](https://github.com/shadcn-ui/ui/issues/830) -- confirmed fix by removing blur
+- [next-themes GitHub](https://github.com/pacocoursey/next-themes) -- multi-theme support with FOUC prevention
+- [Tailwind CSS PR #4850: universal selector optimization](https://github.com/tailwindlabs/tailwindcss/pull/4850) -- confirmed `*` performance issue
+- [react-window issue #110: custom scrollbar integration](https://github.com/bvaughn/react-window/issues/110) -- scrollbar/virtualization conflict
+- [Motion Performance Guide](https://motion.dev/docs/performance) -- CSS variable transforms not GPU-accelerated
+- [Epic React: CSS Variables over Context](https://www.epicreact.dev/css-variables) -- CSS vs JS theming performance
+- [Next.js Discussion #53063: dark mode with App Router](https://github.com/vercel/next.js/discussions/53063) -- FOUC prevention patterns
+- [Can I Use: OKLCH support](https://caniuse.com/?search=oklch) -- browser compatibility data
+
+### Cross-Referenced (MEDIUM confidence)
+- [Evil Martians: OKLCH dynamic themes](https://evilmartians.com/chronicles/better-dynamic-themes-in-tailwind-with-oklch-color-magic) -- OKLCH theming patterns
+- [web.dev: Virtualize long lists](https://web.dev/articles/virtualize-long-lists-react-window) -- react-window best practices
+- [Multi-Theme Next.js + shadcn/ui guide](https://www.vaibhavt.com/blog/multi-theme) -- implementation walkthrough
+- [FOUC fix in Next.js](https://notanumber.in/blog/fixing-react-dark-mode-flickering) -- multiple FOUC prevention strategies
+
+### Codebase Analysis (HIGH confidence)
+- `globals.css`: 155 lines, OKLCH variables, universal selector, hardcoded scrollbar colors
+- `layout.tsx`: hardcoded `className="dark"` on `<html>`, provider structure
+- `virtualized-records-list.tsx`: react-window List with height prop, keyboard navigation, scroll restoration
+- `sellers-grid.tsx`: react-window Grid with calculated cell dimensions
+- `components/ui/dialog.tsx`: Radix Dialog primitive with `bg-black/80` overlay (no blur -- good)
+- `components.json`: shadcn/ui new-york style, CSS variables enabled, Tailwind v4
+- 30+ files with hardcoded gray color classes (172 total occurrences)
+
+---
+
+*Researched: 2026-01-25 | Domain: UI/Design System for existing production app | Confidence: HIGH*

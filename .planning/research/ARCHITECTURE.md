@@ -1,1222 +1,616 @@
-# Architecture Patterns: 4-Layer Data Infrastructure
+# Architecture Research: UI/Design System
 
-**Domain:** Large-scale data infrastructure for eBay account management
-**Researched:** 2026-01-23
-**Milestone:** v3 (Storage & Rendering)
-
-## Executive Summary
-
-This document defines the architecture for a 4-layer data infrastructure that handles millions of records across hundreds of eBay accounts. The architecture prioritizes:
-
-1. **Scalability** - Cursor-based pagination prevents offset performance degradation
-2. **Offline resilience** - IndexedDB provides local-first data access
-3. **Efficiency** - Delta sync minimizes bandwidth and server load
-4. **Responsiveness** - Virtualization renders only visible rows
-
-## System Overview Diagram
-
-```
-+------------------------------------------------------------------+
-|                         LAYER 4: RENDERING                        |
-|   React Components + react-window + TanStack Virtual              |
-|   - Virtualizes visible rows only                                 |
-|   - Integrates with pagination triggers                           |
-|   - Optimistic UI updates                                         |
-+------------------------------------------------------------------+
-                              |
-                              | useLiveQuery() / React state
-                              v
-+------------------------------------------------------------------+
-|                      LAYER 3: CLIENT STORAGE                      |
-|   IndexedDB via Dexie.js                                          |
-|   - Local cache for all synced data                               |
-|   - Sync metadata tracking (cursors, timestamps)                  |
-|   - Offline mutation queue                                        |
-+------------------------------------------------------------------+
-                              |
-                              | Sync Engine (background)
-                              v
-+------------------------------------------------------------------+
-|                       LAYER 2: TRANSPORT                          |
-|   REST API (FastAPI) with cursor-based pagination                 |
-|   - Cursor endpoints for paginated fetches                        |
-|   - Delta sync endpoints (updated_since)                          |
-|   - Bulk mutation endpoints                                       |
-+------------------------------------------------------------------+
-                              |
-                              | HTTP/HTTPS
-                              v
-+------------------------------------------------------------------+
-|                      LAYER 1: SERVER STORAGE                      |
-|   PostgreSQL (Supabase)                                           |
-|   - Indexed columns for cursor pagination                         |
-|   - updated_at tracking for delta sync                            |
-|   - RLS policies for multi-tenant security                        |
-+------------------------------------------------------------------+
-```
-
-## Layer 1: Server Storage (PostgreSQL/Supabase)
-
-### Purpose
-
-Authoritative data store with optimized query patterns for pagination and sync.
-
-### Schema Requirements
-
-```sql
--- Every syncable table needs these columns
-ALTER TABLE bookkeeping_records ADD COLUMN IF NOT EXISTS
-  updated_at TIMESTAMPTZ DEFAULT NOW();
-
-ALTER TABLE bookkeeping_records ADD COLUMN IF NOT EXISTS
-  deleted_at TIMESTAMPTZ NULL; -- Soft deletes for sync
-
--- Composite index for cursor pagination
-CREATE INDEX IF NOT EXISTS idx_records_cursor
-  ON bookkeeping_records (account_id, sale_date DESC, id DESC);
-
--- Index for delta sync queries
-CREATE INDEX IF NOT EXISTS idx_records_updated_at
-  ON bookkeeping_records (account_id, updated_at);
-
--- Trigger to auto-update updated_at
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_records_updated_at
-  BEFORE UPDATE ON bookkeeping_records
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-```
-
-### Query Patterns
-
-**Cursor-based pagination:**
-```sql
--- First page (no cursor)
-SELECT * FROM bookkeeping_records
-WHERE account_id = $1
-  AND deleted_at IS NULL
-ORDER BY sale_date DESC, id DESC
-LIMIT 50;
-
--- Subsequent pages (with cursor: sale_date + id)
-SELECT * FROM bookkeeping_records
-WHERE account_id = $1
-  AND deleted_at IS NULL
-  AND (sale_date, id) < ($cursor_date, $cursor_id)
-ORDER BY sale_date DESC, id DESC
-LIMIT 50;
-```
-
-**Delta sync:**
-```sql
--- Fetch all changes since last sync
-SELECT * FROM bookkeeping_records
-WHERE account_id = $1
-  AND updated_at > $last_sync_timestamp
-ORDER BY updated_at ASC
-LIMIT 1000;
-```
-
-### Confidence Level
-
-**HIGH** - Cursor pagination and timestamp-based sync are well-established PostgreSQL patterns. Supabase fully supports these query patterns.
+**Domain:** CSS-first theme system and custom UI component layer for Next.js 14+ / TailwindCSS v4 / shadcn/ui
+**Researched:** 2026-01-25
+**Milestone:** v4 (UI/Design System)
+**Overall confidence:** HIGH
 
 ---
 
-## Layer 2: Transport (REST API)
+## Integration Overview
 
-### Purpose
+DS-ProSolution's existing UI layer is built on three foundations:
 
-Provides cursor-based endpoints for initial data fetch and delta sync for ongoing updates.
+1. **TailwindCSS v4** with CSS-first configuration (`@theme inline` directive in `globals.css`)
+2. **shadcn/ui** components (18 components copied into `src/components/ui/`)
+3. **Hardcoded gray-scale colors** scattered across 82 files (~800 occurrences of `bg-gray-9XX`, `text-gray-XXX`, `border-gray-XXX`)
 
-### Endpoint Design
+The current setup is already 80% of the way to a proper theme system. The `globals.css` already defines CSS variables in `:root` and `.dark` selectors using OKLCH color space, and the `@theme inline` block maps them to Tailwind color utilities. The shadcn/ui components already reference these variables (`bg-background`, `text-foreground`, `bg-primary`, etc.).
 
-#### 2.1 Paginated Fetch Endpoint
+**The gap:** Application-level components (layouts, sidebars, pages, bookkeeping tables, admin panels) bypass the theme system entirely and use hardcoded Tailwind gray classes (`bg-gray-950`, `bg-gray-900`, `border-gray-800`, `text-gray-400`). The root layout also hardcodes `className="dark"` on the `<html>` element, meaning there is no runtime theme switching capability.
 
-```
-GET /records/paginated
-```
-
-**Query Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| account_id | string | Required. Filter by account |
-| cursor | string | Optional. Opaque cursor for next page |
-| limit | int | Optional. Page size (default: 50, max: 100) |
-| date_from | date | Optional. Filter start date |
-| date_to | date | Optional. Filter end date |
-| status | string | Optional. Filter by status |
-
-**Response:**
-```json
-{
-  "data": [...],
-  "pagination": {
-    "cursor": "eyJkYXRlIjoiMjAyNi0wMS0xNSIsImlkIjoiYWJjMTIzIn0=",
-    "has_more": true,
-    "total_estimate": 15000
-  },
-  "sync_token": "2026-01-23T10:30:00Z"
-}
-```
-
-**Cursor encoding:**
-```python
-import base64
-import json
-
-def encode_cursor(sale_date: str, record_id: str) -> str:
-    """Encode cursor as opaque base64 string."""
-    data = {"date": sale_date, "id": record_id}
-    return base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
-
-def decode_cursor(cursor: str) -> tuple[str, str]:
-    """Decode cursor to (sale_date, record_id)."""
-    data = json.loads(base64.urlsafe_b64decode(cursor))
-    return data["date"], data["id"]
-```
-
-#### 2.2 Delta Sync Endpoint
-
-```
-GET /records/sync
-```
-
-**Query Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| account_id | string | Required. Filter by account |
-| since | datetime | Required. ISO timestamp of last sync |
-| limit | int | Optional. Max records (default: 1000) |
-
-**Response:**
-```json
-{
-  "changes": [
-    {"action": "upsert", "data": {...}},
-    {"action": "delete", "id": "abc123"}
-  ],
-  "sync_token": "2026-01-23T11:00:00Z",
-  "has_more": false
-}
-```
-
-**Soft delete handling:**
-- Records with `deleted_at` set are returned with `action: "delete"`
-- Client removes from local IndexedDB
-- After sync, server can hard-delete old soft-deleted records
-
-#### 2.3 Bulk Write Endpoint
-
-```
-POST /records/bulk
-```
-
-**Request:**
-```json
-{
-  "operations": [
-    {"action": "create", "data": {...}},
-    {"action": "update", "id": "abc123", "data": {...}},
-    {"action": "delete", "id": "def456"}
-  ],
-  "client_timestamp": "2026-01-23T10:30:00Z"
-}
-```
-
-**Response:**
-```json
-{
-  "results": [
-    {"success": true, "id": "new-id", "data": {...}},
-    {"success": true, "id": "abc123", "data": {...}},
-    {"success": false, "id": "def456", "error": "not_found"}
-  ],
-  "sync_token": "2026-01-23T11:00:05Z"
-}
-```
-
-### FastAPI Implementation Structure
-
-```
-apps/api/src/app/routers/
-  records.py          # Existing CRUD
-  records_paginated.py # New cursor pagination
-  records_sync.py      # New delta sync
-```
-
-### Confidence Level
-
-**HIGH** - Based on [fastapi-pagination library](https://uriyyo-fastapi-pagination.netlify.app/) documentation and [cursor pagination best practices](https://www.speakeasy.com/api-design/pagination).
+**The strategy:** Extend the existing CSS variable system with application-level semantic tokens, introduce `next-themes` for runtime theme switching, and migrate hardcoded colors to semantic tokens incrementally. This is purely additive -- no existing shadcn/ui components need to change.
 
 ---
 
-## Layer 3: Client Storage (IndexedDB)
+## Theme Architecture
 
-### Purpose
+### CSS Variable Strategy
 
-Local-first data cache with sync state tracking and offline mutation queue.
+The project already uses the TailwindCSS v4 pattern: CSS variables in `:root`/`.dark` selectors mapped via `@theme inline`. This is the correct, modern approach. We extend it, not replace it.
 
-### Technology Choice: Dexie.js
+**Current state (already working):**
+```css
+/* globals.css */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  /* ... 30+ semantic color tokens */
+}
 
-**Why Dexie.js:**
-- Mature library with excellent React integration via `useLiveQuery()`
-- Live queries automatically re-render components when data changes
-- Schema versioning and migration support
-- [Next.js 14+ compatible](https://medium.com/dexie-js/dexie-js-next-js-fd15556653e6) with dexie-react-hooks@1.1.3+
+:root {
+  --background: oklch(1 0 0);
+  --primary: oklch(0.205 0 0);
+  /* ... light theme values */
+}
 
-### Schema Design
+.dark {
+  --background: oklch(0.145 0 0);
+  --primary: oklch(0.922 0 0);
+  /* ... dark theme values */
+}
+```
+
+**What to add -- application-level tokens:**
+
+The existing tokens cover shadcn/ui component needs (card, popover, muted, accent, etc.) but NOT the application shell. The admin sidebar uses `bg-gray-900`, the main content area uses `bg-gray-950`, nav items use `text-gray-300` -- none of these map to existing CSS variables.
+
+New semantic tokens needed:
+
+```css
+:root {
+  /* Existing tokens remain unchanged */
+
+  /* NEW: Application shell tokens */
+  --app-bg: oklch(0.985 0 0);              /* Main content area */
+  --app-sidebar: oklch(0.97 0 0);          /* Sidebar background */
+  --app-sidebar-border: oklch(0.922 0 0);  /* Sidebar border */
+  --app-nav-item: oklch(0.4 0 0);          /* Nav link text */
+  --app-nav-item-hover: oklch(0.15 0 0);   /* Nav link hover text */
+  --app-nav-item-hover-bg: oklch(0.95 0 0);/* Nav link hover bg */
+  --app-nav-item-active: oklch(1 0 0);     /* Active nav link text */
+  --app-nav-item-active-bg: oklch(0.47 0.17 260); /* Active nav bg (blue) */
+  --app-heading: oklch(0.15 0 0);          /* Page headings */
+  --app-subtext: oklch(0.45 0 0);          /* Subtitle/description text */
+
+  /* NEW: Scrollbar tokens */
+  --scrollbar-thumb: oklch(0.65 0 0);
+  --scrollbar-track: oklch(0.92 0 0);
+  --scrollbar-thumb-hover: oklch(0.55 0 0);
+
+  /* NEW: Table-specific tokens */
+  --table-header-bg: oklch(0.97 0 0);
+  --table-row-hover: oklch(0.97 0 0);
+  --table-row-selected: oklch(0.95 0 0);
+  --table-border: oklch(0.92 0 0);
+}
+
+.dark {
+  /* Existing dark tokens remain unchanged */
+
+  /* NEW: Application shell tokens (dark) */
+  --app-bg: oklch(0.13 0 0);
+  --app-sidebar: oklch(0.16 0 0);
+  --app-sidebar-border: oklch(0.22 0 0);
+  --app-nav-item: oklch(0.72 0 0);
+  --app-nav-item-hover: oklch(0.98 0 0);
+  --app-nav-item-hover-bg: oklch(0.22 0 0);
+  --app-nav-item-active: oklch(1 0 0);
+  --app-nav-item-active-bg: oklch(0.47 0.17 260);
+  --app-heading: oklch(0.98 0 0);
+  --app-subtext: oklch(0.55 0 0);
+
+  /* NEW: Scrollbar tokens (dark) */
+  --scrollbar-thumb: oklch(0.38 0 0);
+  --scrollbar-track: oklch(0.22 0 0);
+  --scrollbar-thumb-hover: oklch(0.48 0 0);
+
+  /* NEW: Table-specific tokens (dark) */
+  --table-header-bg: oklch(0.18 0 0);
+  --table-row-hover: oklch(0.20 0 0);
+  --table-row-selected: oklch(0.22 0 0);
+  --table-border: oklch(0.25 0 0);
+}
+```
+
+These must also be registered in `@theme inline`:
+
+```css
+@theme inline {
+  /* Existing mappings unchanged */
+
+  /* NEW */
+  --color-app-bg: var(--app-bg);
+  --color-app-sidebar: var(--app-sidebar);
+  --color-app-sidebar-border: var(--app-sidebar-border);
+  --color-app-nav-item: var(--app-nav-item);
+  --color-app-nav-item-hover: var(--app-nav-item-hover);
+  --color-app-nav-item-hover-bg: var(--app-nav-item-hover-bg);
+  --color-app-nav-item-active: var(--app-nav-item-active);
+  --color-app-nav-item-active-bg: var(--app-nav-item-active-bg);
+  --color-app-heading: var(--app-heading);
+  --color-app-subtext: var(--app-subtext);
+  --color-scrollbar-thumb: var(--scrollbar-thumb);
+  --color-scrollbar-track: var(--scrollbar-track);
+  --color-scrollbar-thumb-hover: var(--scrollbar-thumb-hover);
+  --color-table-header-bg: var(--table-header-bg);
+  --color-table-row-hover: var(--table-row-hover);
+  --color-table-row-selected: var(--table-row-selected);
+  --color-table-border: var(--table-border);
+}
+```
+
+Once registered, these become first-class Tailwind utilities: `bg-app-bg`, `text-app-heading`, `border-app-sidebar-border`, etc.
+
+**Confidence:** HIGH -- This is exactly how TailwindCSS v4's `@theme inline` directive works, as verified by the existing `globals.css` in the project and the official shadcn/ui Tailwind v4 documentation.
+
+### Theme Provider Pattern
+
+The app currently hardcodes `className="dark"` on the `<html>` element in `layout.tsx`. To support runtime theme switching, introduce `next-themes`.
+
+**Install:** `npm install next-themes`
+
+**Architecture:**
+
+```
+layout.tsx (root)
+  <html suppressHydrationWarning>
+    <body>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <TooltipProvider>
+          <DatabaseProvider>
+            <QueryProvider>
+              {children}
+            </QueryProvider>
+          </DatabaseProvider>
+          <Toaster />
+        </TooltipProvider>
+      </ThemeProvider>
+    </body>
+  </html>
+```
+
+Key decisions:
+- **`attribute="class"`** -- Uses the `.dark` class on `<html>`, which is exactly what the existing `@custom-variant dark (&:is(.dark *))` in `globals.css` expects. Zero CSS changes needed.
+- **`defaultTheme="dark"`** -- Matches current behavior (always dark). No visual change on day one.
+- **`enableSystem`** -- Allows future "system" option for users who want to match OS preference.
+- **`disableTransitionOnChange`** -- Recommended to prevent flash of colors transitioning when toggling themes.
+
+**The ThemeProvider must be a `"use client"` wrapper component** because `next-themes` uses React context:
 
 ```typescript
-// apps/web/src/lib/db/schema.ts
-import Dexie, { Table } from 'dexie';
-
-export interface LocalRecord {
-  // Primary key
-  id: string;
-
-  // Data fields (match server schema)
-  account_id: string;
-  ebay_order_id: string;
-  sale_date: string;
-  item_name: string;
-  qty: number;
-  sale_price_cents: number;
-  ebay_fees_cents: number | null;
-  amazon_price_cents: number | null;
-  amazon_tax_cents: number | null;
-  amazon_shipping_cents: number | null;
-  amazon_order_id: string | null;
-  status: string;
-  return_label_cost_cents: number | null;
-
-  // Computed fields
-  earnings_net_cents: number;
-  cogs_total_cents: number;
-  profit_cents: number;
-
-  // Remarks
-  order_remark: string | null;
-  service_remark: string | null;
-
-  // Sync metadata
-  _syncedAt: string;      // When this record was synced
-  _localVersion: number;  // Increments on local edits
-}
-
-export interface SyncState {
-  id: string;              // "account:{account_id}"
-  account_id: string;
-  lastSyncToken: string;   // ISO timestamp from server
-  lastFullSync: string;    // When we did full initial sync
-  cursor: string | null;   // Current pagination cursor (null = complete)
-  totalEstimate: number;   // Estimated total records
-  syncedCount: number;     // Records synced so far
-}
-
-export interface PendingMutation {
-  id: string;              // Auto-generated
-  account_id: string;
-  record_id: string | null; // null for creates
-  action: 'create' | 'update' | 'delete';
-  data: Record<string, unknown>;
-  createdAt: string;
-  retryCount: number;
-}
-
-export class AppDatabase extends Dexie {
-  records!: Table<LocalRecord, string>;
-  syncState!: Table<SyncState, string>;
-  pendingMutations!: Table<PendingMutation, string>;
-
-  constructor() {
-    super('ds-prosolution');
-
-    this.version(1).stores({
-      // Compound index for efficient queries
-      records: 'id, account_id, [account_id+sale_date], sale_date, status, _syncedAt',
-      syncState: 'id, account_id',
-      pendingMutations: 'id, account_id, createdAt'
-    });
-  }
-}
-
-export const db = new AppDatabase();
-```
-
-### Sync State Machine
-
-```
-                    +----------------+
-                    |    IDLE        |
-                    +-------+--------+
-                            |
-              User selects account / app loads
-                            |
-                            v
-                    +-------+--------+
-                    | CHECK_STATE    |
-                    +-------+--------+
-                            |
-              +-----------+-+------------+
-              |                          |
-        No local data             Has local data
-              |                          |
-              v                          v
-      +-------+--------+         +-------+--------+
-      | INITIAL_SYNC   |         | DELTA_SYNC     |
-      | (paginated)    |         | (since token)  |
-      +-------+--------+         +-------+--------+
-              |                          |
-              v                          v
-      +-------+--------+         +-------+--------+
-      | SYNCING        |<------->| SYNCING        |
-      | fetch pages    |         | apply deltas   |
-      +-------+--------+         +-------+--------+
-              |                          |
-              +----------+---------------+
-                         |
-                         v
-                 +-------+--------+
-                 | PUSH_MUTATIONS |
-                 | (if any)       |
-                 +-------+--------+
-                         |
-                         v
-                 +-------+--------+
-                 | IDLE           |
-                 +----------------+
-```
-
-### Sync Engine Implementation
-
-```typescript
-// apps/web/src/lib/db/sync-engine.ts
-import { db, SyncState } from './schema';
-import { api } from '../api';
-
-export interface SyncProgress {
-  phase: 'idle' | 'initial' | 'delta' | 'pushing';
-  account_id: string;
-  progress: number; // 0-100
-  syncedCount: number;
-  totalEstimate: number;
-  error?: string;
-}
-
-export class SyncEngine {
-  private abortController: AbortController | null = null;
-  private onProgress: (progress: SyncProgress) => void;
-
-  constructor(onProgress: (progress: SyncProgress) => void) {
-    this.onProgress = onProgress;
-  }
-
-  async syncAccount(accountId: string): Promise<void> {
-    this.abortController = new AbortController();
-
-    try {
-      // 1. Check local sync state
-      const syncState = await db.syncState.get(`account:${accountId}`);
-
-      if (!syncState || !syncState.lastSyncToken) {
-        // Initial sync - paginate through all records
-        await this.initialSync(accountId);
-      } else {
-        // Delta sync - fetch only changes
-        await this.deltaSync(accountId, syncState.lastSyncToken);
-      }
-
-      // 2. Push pending mutations
-      await this.pushMutations(accountId);
-
-    } finally {
-      this.abortController = null;
-    }
-  }
-
-  private async initialSync(accountId: string): Promise<void> {
-    let cursor: string | null = null;
-    let syncedCount = 0;
-    let totalEstimate = 0;
-
-    do {
-      const response = await api.getRecordsPaginated({
-        account_id: accountId,
-        cursor: cursor ?? undefined,
-        limit: 100
-      });
-
-      // Upsert records to IndexedDB
-      await db.records.bulkPut(
-        response.data.map(record => ({
-          ...record,
-          _syncedAt: new Date().toISOString(),
-          _localVersion: 0
-        }))
-      );
-
-      cursor = response.pagination.cursor;
-      totalEstimate = response.pagination.total_estimate;
-      syncedCount += response.data.length;
-
-      // Update sync state
-      await db.syncState.put({
-        id: `account:${accountId}`,
-        account_id: accountId,
-        lastSyncToken: response.sync_token,
-        lastFullSync: new Date().toISOString(),
-        cursor: cursor,
-        totalEstimate,
-        syncedCount
-      });
-
-      this.onProgress({
-        phase: 'initial',
-        account_id: accountId,
-        progress: Math.round((syncedCount / totalEstimate) * 100),
-        syncedCount,
-        totalEstimate
-      });
-
-    } while (cursor);
-  }
-
-  private async deltaSync(accountId: string, since: string): Promise<void> {
-    let hasMore = true;
-    let currentSince = since;
-
-    while (hasMore) {
-      const response = await api.getRecordsSync({
-        account_id: accountId,
-        since: currentSince,
-        limit: 1000
-      });
-
-      // Apply changes to IndexedDB
-      for (const change of response.changes) {
-        if (change.action === 'delete') {
-          await db.records.delete(change.id);
-        } else {
-          await db.records.put({
-            ...change.data,
-            _syncedAt: new Date().toISOString(),
-            _localVersion: 0
-          });
-        }
-      }
-
-      currentSince = response.sync_token;
-      hasMore = response.has_more;
-
-      // Update sync state
-      await db.syncState.update(`account:${accountId}`, {
-        lastSyncToken: currentSince
-      });
-
-      this.onProgress({
-        phase: 'delta',
-        account_id: accountId,
-        progress: hasMore ? 50 : 100,
-        syncedCount: response.changes.length,
-        totalEstimate: response.changes.length
-      });
-    }
-  }
-
-  private async pushMutations(accountId: string): Promise<void> {
-    const pending = await db.pendingMutations
-      .where('account_id')
-      .equals(accountId)
-      .sortBy('createdAt');
-
-    if (pending.length === 0) return;
-
-    this.onProgress({
-      phase: 'pushing',
-      account_id: accountId,
-      progress: 0,
-      syncedCount: 0,
-      totalEstimate: pending.length
-    });
-
-    // Batch mutations
-    const operations = pending.map(m => ({
-      action: m.action,
-      id: m.record_id ?? undefined,
-      data: m.data
-    }));
-
-    const results = await api.bulkWriteRecords({
-      operations,
-      client_timestamp: new Date().toISOString()
-    });
-
-    // Process results
-    for (let i = 0; i < results.results.length; i++) {
-      const result = results.results[i];
-      const mutation = pending[i];
-
-      if (result.success) {
-        // Remove from pending
-        await db.pendingMutations.delete(mutation.id);
-
-        // Update local record with server data
-        if (result.data) {
-          await db.records.put({
-            ...result.data,
-            _syncedAt: new Date().toISOString(),
-            _localVersion: 0
-          });
-        }
-      } else {
-        // Increment retry count
-        await db.pendingMutations.update(mutation.id, {
-          retryCount: mutation.retryCount + 1
-        });
-      }
-    }
-  }
-
-  abort(): void {
-    this.abortController?.abort();
-  }
-}
-```
-
-### Confidence Level
-
-**HIGH** - Based on [Dexie.js documentation](https://dexie.org/docs/Tutorial/React) and [useLiveQuery() reference](https://dexie.org/docs/dexie-react-hooks/useLiveQuery()).
-
----
-
-## Layer 4: Rendering (React/Next.js)
-
-### Purpose
-
-Efficiently render large datasets with virtualization while integrating with paginated IndexedDB data.
-
-### Technology Stack
-
-- **react-window** (already installed) - Windowing/virtualization
-- **react-window-infinite-loader** (already installed) - Infinite scroll with pagination
-- **Dexie useLiveQuery()** - Reactive data binding
-
-### Component Architecture
-
-```
-apps/web/src/components/bookkeeping/
-  records-table-virtualized.tsx    # Main virtualized table
-  records-row.tsx                  # Individual row component
-  records-header.tsx               # Fixed header
-  sync-status-indicator.tsx        # Sync progress UI
-
-apps/web/src/hooks/
-  use-paginated-records.ts         # Combines IndexedDB + pagination
-  use-sync-engine.ts               # Sync engine React wrapper
-```
-
-### Virtualized Table Implementation
-
-```typescript
-// apps/web/src/hooks/use-paginated-records.ts
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db, LocalRecord } from '@/lib/db/schema';
-import { useCallback, useMemo } from 'react';
-
-interface UsePaginatedRecordsOptions {
-  accountId: string;
-  dateFrom?: string;
-  dateTo?: string;
-  status?: string;
-}
-
-interface UsePaginatedRecordsResult {
-  records: LocalRecord[];
-  totalCount: number;
-  isLoading: boolean;
-  loadMore: () => Promise<void>;
-  hasMore: boolean;
-}
-
-export function usePaginatedRecords(
-  options: UsePaginatedRecordsOptions
-): UsePaginatedRecordsResult {
-  const { accountId, dateFrom, dateTo, status } = options;
-
-  // Live query from IndexedDB - automatically re-renders on changes
-  const records = useLiveQuery(
-    async () => {
-      let query = db.records
-        .where('account_id')
-        .equals(accountId);
-
-      // Note: Complex filtering may need to be done in memory
-      // IndexedDB compound indexes are limited
-      let results = await query.toArray();
-
-      // Apply filters
-      if (dateFrom) {
-        results = results.filter(r => r.sale_date >= dateFrom);
-      }
-      if (dateTo) {
-        results = results.filter(r => r.sale_date <= dateTo);
-      }
-      if (status) {
-        results = results.filter(r => r.status === status);
-      }
-
-      // Sort by sale_date DESC, id DESC
-      results.sort((a, b) => {
-        const dateCompare = b.sale_date.localeCompare(a.sale_date);
-        if (dateCompare !== 0) return dateCompare;
-        return b.id.localeCompare(a.id);
-      });
-
-      return results;
-    },
-    [accountId, dateFrom, dateTo, status],
-    [] // Default value while loading
-  );
-
-  // Sync state for this account
-  const syncState = useLiveQuery(
-    () => db.syncState.get(`account:${accountId}`),
-    [accountId]
-  );
-
-  const hasMore = useMemo(
-    () => syncState?.cursor !== null,
-    [syncState]
-  );
-
-  return {
-    records: records ?? [],
-    totalCount: syncState?.totalEstimate ?? 0,
-    isLoading: records === undefined,
-    loadMore: async () => {
-      // Trigger sync engine to fetch next page
-      // This is handled by SyncEngine, not individual component
-    },
-    hasMore
-  };
-}
-```
-
-```typescript
-// apps/web/src/components/bookkeeping/records-table-virtualized.tsx
+// src/components/providers/theme-provider.tsx
 "use client";
 
-import { FixedSizeList as List } from 'react-window';
-import InfiniteLoader from 'react-window-infinite-loader';
-import { usePaginatedRecords } from '@/hooks/use-paginated-records';
-import { useSyncEngine } from '@/hooks/use-sync-engine';
-import { RecordsRow } from './records-row';
-import { RecordsHeader } from './records-header';
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import type { ThemeProviderProps } from "next-themes";
 
-interface RecordsTableVirtualizedProps {
-  accountId: string;
-  dateFrom?: string;
-  dateTo?: string;
-  status?: string;
-  height: number;
-}
-
-const ROW_HEIGHT = 48;
-
-export function RecordsTableVirtualized({
-  accountId,
-  dateFrom,
-  dateTo,
-  status,
-  height
-}: RecordsTableVirtualizedProps) {
-  const { records, totalCount, isLoading, hasMore } = usePaginatedRecords({
-    accountId,
-    dateFrom,
-    dateTo,
-    status
-  });
-
-  const { syncProgress, triggerSync } = useSyncEngine(accountId);
-
-  // InfiniteLoader requires knowing if an item is loaded
-  const isItemLoaded = (index: number) => {
-    return index < records.length;
-  };
-
-  // Load more items when scrolling near the end
-  const loadMoreItems = async (startIndex: number, stopIndex: number) => {
-    if (hasMore && !syncProgress) {
-      await triggerSync();
-    }
-  };
-
-  // Item count includes placeholder for "loading more" if needed
-  const itemCount = hasMore ? records.length + 1 : records.length;
-
-  return (
-    <div className="flex flex-col">
-      <RecordsHeader />
-
-      {isLoading ? (
-        <div className="flex items-center justify-center h-48">
-          <div className="text-gray-400">Loading...</div>
-        </div>
-      ) : (
-        <InfiniteLoader
-          isItemLoaded={isItemLoaded}
-          itemCount={itemCount}
-          loadMoreItems={loadMoreItems}
-          threshold={10}
-        >
-          {({ onItemsRendered, ref }) => (
-            <List
-              ref={ref}
-              height={height}
-              itemCount={itemCount}
-              itemSize={ROW_HEIGHT}
-              width="100%"
-              onItemsRendered={onItemsRendered}
-            >
-              {({ index, style }) => {
-                if (!isItemLoaded(index)) {
-                  return (
-                    <div style={style} className="flex items-center justify-center">
-                      <div className="text-gray-500">Loading more...</div>
-                    </div>
-                  );
-                }
-                return (
-                  <RecordsRow
-                    key={records[index].id}
-                    record={records[index]}
-                    style={style}
-                  />
-                );
-              }}
-            </List>
-          )}
-        </InfiniteLoader>
-      )}
-    </div>
-  );
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
 }
 ```
 
-### Optimistic Updates
+**Confidence:** HIGH -- This is the exact pattern recommended by shadcn/ui's official dark mode documentation and the `next-themes` GitHub repository. The `@custom-variant dark (&:is(.dark *))` already in `globals.css` is the TailwindCSS v4 equivalent of `darkMode: "class"` in v3.
 
+### Theme Persistence
+
+`next-themes` handles persistence automatically:
+- Stores user preference in `localStorage` (key: `theme`)
+- Injects a `<script>` before hydration to prevent FOUC (flash of unstyled content)
+- Falls back to `defaultTheme` when no preference is stored
+
+No additional persistence logic is needed. The existing app will default to dark mode (matching current behavior) and users who toggle to light mode will have that preference remembered across sessions.
+
+### TailwindCSS Integration
+
+The integration is seamless because:
+
+1. **Existing shadcn/ui components** already use semantic tokens (`bg-background`, `text-foreground`, etc.) that resolve via CSS variables. They will automatically respond to theme changes.
+2. **New application tokens** follow the same pattern and are registered in `@theme inline`.
+3. **The `dark:` variant** works via `@custom-variant dark (&:is(.dark *))` which checks for the `.dark` class on any ancestor -- exactly what `next-themes` sets on `<html>`.
+
+**No changes to tailwind configuration files or postcss config needed.**
+
+---
+
+## Component Architecture
+
+### Custom Scrollbar Approach
+
+**Current state:** Hardcoded hex colors in `globals.css`:
+```css
+.scrollbar-thin {
+  scrollbar-color: #4b5563 #1f2937;  /* hardcoded dark-only */
+}
+```
+
+**Target state:** Theme-aware scrollbar using CSS variables:
+```css
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+```
+
+This is a drop-in replacement. The `.scrollbar-thin` class is already used throughout the app. By changing the CSS definition to use variables, all existing usages automatically become theme-aware.
+
+**Confidence:** HIGH -- Standard CSS variables in scrollbar styles. The `scrollbar-color` property with CSS variables is well-supported in modern browsers.
+
+### Form Control Customization
+
+The existing shadcn/ui form controls (Input, Select, Textarea, Checkbox, Switch, Slider) already use semantic tokens and do NOT need modification. They reference `bg-background`, `border-input`, `text-foreground`, etc.
+
+**What needs attention:** Some form controls in the bookkeeping area use inline hardcoded colors. For example, `add-record-form.tsx` has 26 occurrences of hardcoded gray classes. These need to be migrated to semantic tokens.
+
+**Strategy:** Do not modify the `src/components/ui/` files. They are already correct. Focus migration effort on:
+- `src/components/bookkeeping/` (heaviest usage: ~150 hardcoded color references)
+- `src/components/admin/` (~300 hardcoded color references)
+- `src/app/` layouts and pages (~100 hardcoded color references)
+- `src/components/profile/` (~40 hardcoded color references)
+- `src/components/data-management/` (~45 hardcoded color references)
+
+### Modal/Dialog System
+
+The Dialog component (`src/components/ui/dialog.tsx`) already uses semantic tokens (`bg-background`, `border`, animation classes). No modification needed.
+
+However, the `DialogContent` has a custom `hideCloseButton` prop already added by the team -- this is a good pattern. Any future design system customizations to dialogs should follow the same approach: extend the existing shadcn/ui component with additional props rather than creating parallel components.
+
+**Pattern to follow:**
 ```typescript
-// apps/web/src/hooks/use-record-mutations.ts
-import { db, PendingMutation } from '@/lib/db/schema';
-import { v4 as uuidv4 } from 'uuid';
+// GOOD: Extend shadcn component with additional variants
+const DialogContent = React.forwardRef<...>(
+  ({ className, hideCloseButton, size = "default", ...props }, ref) => (
+    // Use data-slot attributes (already present in newer shadcn components)
+    // Add size variants via CVA if needed
+  )
+);
 
-export function useRecordMutations(accountId: string) {
-  const updateRecord = async (
-    recordId: string,
-    updates: Partial<LocalRecord>
-  ) => {
-    // 1. Update local IndexedDB immediately (optimistic)
-    await db.records.update(recordId, {
-      ...updates,
-      _localVersion: (await db.records.get(recordId))?._localVersion ?? 0 + 1
-    });
-
-    // 2. Queue mutation for sync
-    await db.pendingMutations.add({
-      id: uuidv4(),
-      account_id: accountId,
-      record_id: recordId,
-      action: 'update',
-      data: updates,
-      createdAt: new Date().toISOString(),
-      retryCount: 0
-    });
-
-    // 3. Trigger background sync (debounced)
-    // SyncEngine will pick this up
-  };
-
-  const deleteRecord = async (recordId: string) => {
-    // 1. Delete from local IndexedDB immediately
-    await db.records.delete(recordId);
-
-    // 2. Queue mutation for sync
-    await db.pendingMutations.add({
-      id: uuidv4(),
-      account_id: accountId,
-      record_id: recordId,
-      action: 'delete',
-      data: {},
-      createdAt: new Date().toISOString(),
-      retryCount: 0
-    });
-  };
-
-  return { updateRecord, deleteRecord };
-}
+// BAD: Create parallel MyDialog component that duplicates logic
 ```
 
-### Confidence Level
+### Layout Component Hierarchy
 
-**HIGH** - react-window and react-window-infinite-loader are already in package.json. Pattern based on [TanStack Virtual with React Query](https://dev.to/ainayeem/building-an-efficient-virtualized-table-with-tanstack-virtual-and-react-query-with-shadcn-2hhl) and [react-window documentation](https://blog.openreplay.com/virtualizing-large-data-lists-with-react-window/).
+**Current state:** Three separate layout files with duplicated sidebar code:
+
+| Layout | File | Duplicated Code |
+|--------|------|-----------------|
+| Admin | `app/admin/layout.tsx` | Sidebar structure, nav items, SVG icons |
+| VA | `app/va/layout.tsx` | Same sidebar structure, different nav items |
+| Client | `app/client/layout.tsx` | Same sidebar structure, minimal nav items |
+
+All three share:
+- Same `bg-gray-950` main background
+- Same `bg-gray-900` sidebar background
+- Same `border-gray-800` borders
+- Same nav item styling (active: `bg-blue-600 text-white`, inactive: `text-gray-300 hover:bg-gray-800`)
+- Same profile settings button at bottom
+- Same inline SVG icon pattern (no icon component abstraction)
+
+**Target architecture:** Extract shared layout primitives:
+
+```
+src/components/layout/
+  app-shell.tsx        # Flex container with sidebar + main content
+  app-sidebar.tsx      # Sidebar with header, nav, footer slots
+  nav-item.tsx         # Single nav link with icon + label + active state
+  sidebar-header.tsx   # Brand name + subtitle
+  sidebar-footer.tsx   # Profile settings button + sync indicator
+  page-header.tsx      # Page title + description + actions slot
+
+src/components/icons/
+  index.tsx            # Centralized icon exports (from lucide-react)
+```
+
+**Key design decisions:**
+
+1. **AppShell as the outermost layout primitive:**
+   ```tsx
+   <AppShell>
+     <AppSidebar header={...} nav={...} footer={...} />
+     <main className="flex-1 p-8">{children}</main>
+   </AppShell>
+   ```
+
+2. **NavItem replaces 150+ lines of duplicated SVG icons:**
+   ```tsx
+   <NavItem href="/admin/users" icon={UsersIcon} label="Users" />
+   ```
+   Uses `lucide-react` (already installed) instead of inline SVG paths. The existing codebase already imports from `lucide-react` in many components but the sidebar manually renders SVG paths.
+
+3. **All layout components use semantic tokens:**
+   ```tsx
+   // AppShell
+   <div className="flex min-h-screen bg-app-bg">
+
+   // AppSidebar
+   <aside className="w-64 bg-app-sidebar border-r border-app-sidebar-border flex flex-col">
+
+   // NavItem (inactive)
+   <Link className="text-app-nav-item hover:bg-app-nav-item-hover-bg hover:text-app-nav-item-hover">
+
+   // NavItem (active)
+   <Link className="bg-app-nav-item-active-bg text-app-nav-item-active">
+   ```
+
+**Confidence:** HIGH -- This is standard React component extraction. The three layout files contain clearly duplicated patterns with only the nav items and header subtitle differing.
 
 ---
 
-## Data Flow Diagrams
+## File Structure
 
-### Flow 1: Initial Load (First Time User Opens Account)
-
-```
-User selects account
-        |
-        v
-+------------------+
-| Check IndexedDB  |  No local data found
-| syncState        |
-+--------+---------+
-         |
-         v
-+------------------+
-| Fetch page 1     |  GET /records/paginated?account_id=X&limit=100
-| from API         |
-+--------+---------+
-         |
-         v
-+------------------+
-| Store in         |  db.records.bulkPut(page1)
-| IndexedDB        |  db.syncState.put({cursor: "..."})
-+--------+---------+
-         |
-         v
-+------------------+
-| useLiveQuery()   |  Component re-renders with data
-| triggers render  |
-+--------+---------+
-         |
-         v
-+------------------+
-| User scrolls     |  InfiniteLoader detects near end
-| near end         |
-+--------+---------+
-         |
-         v
-+------------------+
-| Fetch page 2     |  GET /records/paginated?cursor=eyJ...
-| from API         |
-+--------+---------+
-         |
-         v
-+------------------+
-| Append to        |  db.records.bulkPut(page2)
-| IndexedDB        |  useLiveQuery() auto-updates
-+------------------+
-```
-
-### Flow 2: Returning User (Has Local Data)
+### New Files to Create
 
 ```
-User selects account
-        |
-        v
-+------------------+
-| Check IndexedDB  |  Found: lastSyncToken = "2026-01-22T10:00:00Z"
-| syncState        |
-+--------+---------+
-         |
-         v
-+------------------+
-| Render from      |  useLiveQuery() returns cached data
-| local cache      |  UI is immediately responsive
-+--------+---------+
-         |
-         v (background)
-+------------------+
-| Delta sync       |  GET /records/sync?since=2026-01-22T10:00:00Z
-| from API         |
-+--------+---------+
-         |
-         v
-+------------------+
-| Apply changes    |  Upserts and deletes in IndexedDB
-| to IndexedDB     |  useLiveQuery() auto-updates UI
-+------------------+
+src/
+  components/
+    providers/
+      theme-provider.tsx              # NEW: next-themes wrapper
+
+    layout/
+      app-shell.tsx                   # NEW: Main layout container
+      app-sidebar.tsx                 # NEW: Reusable sidebar
+      nav-item.tsx                    # NEW: Navigation link component
+      sidebar-header.tsx              # NEW: Brand header
+      sidebar-footer.tsx              # NEW: Profile + sync footer
+      page-header.tsx                 # NEW: Page title bar
+
+    theme/
+      theme-toggle.tsx                # NEW: Light/dark/system toggle button
+      theme-customizer.tsx            # NEW: (Optional, dev-only) live theme preview
+
+  lib/
+    theme.ts                          # NEW: Theme constants, type definitions
 ```
 
-### Flow 3: User Edits Record (Optimistic Update)
+### Files to Modify
 
 ```
-User clicks edit
-        |
-        v
-+------------------+
-| Update local     |  db.records.update(id, changes)
-| IndexedDB        |  UI immediately reflects change
-+--------+---------+
-         |
-         v
-+------------------+
-| Queue mutation   |  db.pendingMutations.add({action: 'update'})
-+--------+---------+
-         |
-         v (background, debounced)
-+------------------+
-| Push to server   |  POST /records/bulk
-+--------+---------+
-         |
-    +----+----+
-    |         |
- Success    Failure
-    |         |
-    v         v
-+-------+ +------------------+
-| Clear | | Show error toast |
-| queue | | Keep in queue    |
-|       | | Retry later      |
-+-------+ +------------------+
+src/app/globals.css                   # MODIFY: Add app-level semantic tokens + scrollbar variables
+src/app/layout.tsx                    # MODIFY: Add ThemeProvider, remove hardcoded "dark" class
+
+src/app/admin/layout.tsx              # MODIFY: Use AppShell + AppSidebar
+src/app/va/layout.tsx                 # MODIFY: Use AppShell + AppSidebar
+src/app/client/layout.tsx             # MODIFY: Use AppShell + AppSidebar
+src/components/admin/sidebar.tsx      # MODIFY: Refactor to use NavItem + semantic tokens
+
+# Hardcoded color migration (82 files, ~800 occurrences):
+src/components/bookkeeping/*.tsx      # MIGRATE: gray-XXX -> semantic tokens
+src/components/admin/**/*.tsx         # MIGRATE: gray-XXX -> semantic tokens
+src/components/profile/*.tsx          # MIGRATE: gray-XXX -> semantic tokens
+src/components/data-management/*.tsx  # MIGRATE: gray-XXX -> semantic tokens
+src/components/sync/*.tsx             # MIGRATE: gray-XXX -> semantic tokens
+src/components/auth/*.tsx             # MIGRATE: gray-XXX -> semantic tokens
+src/app/**/page.tsx                   # MIGRATE: gray-XXX -> semantic tokens
 ```
 
-### Flow 4: Offline Then Online
+### Files NOT to Modify
 
 ```
-User goes offline
-        |
-        v
-+------------------+
-| User makes edits |  All changes go to IndexedDB + pendingMutations
-| locally          |  UI works normally
-+--------+---------+
-         |
-         v
-+------------------+
-| Network restored |  navigator.onLine or periodic check
-+--------+---------+
-         |
-         v
-+------------------+
-| Push pending     |  POST /records/bulk with all queued mutations
-| mutations        |
-+--------+---------+
-         |
-         v
-+------------------+
-| Delta sync       |  GET /records/sync to get any server changes
-+--------+---------+
-         |
-         v
-+------------------+
-| Conflict?        |  Last-write-wins or prompt user
-+------------------+
+src/components/ui/*.tsx               # DO NOT TOUCH - already using semantic tokens
+src/lib/utils.ts                      # No changes needed
+src/components/providers/database-provider.tsx  # No changes needed
+src/components/providers/query-provider.tsx     # No changes needed
+src/components/providers/sync-provider.tsx      # No changes needed
 ```
 
 ---
 
-## Component Responsibilities
+## Chrome Extension Considerations
 
-### Layer 1: PostgreSQL/Supabase
+### Current Extension Architecture
 
-| Component | Responsibility |
-|-----------|---------------|
-| `bookkeeping_records` table | Store authoritative record data |
-| `updated_at` column | Track last modification time |
-| `deleted_at` column | Soft delete for sync |
-| Composite index | Enable efficient cursor queries |
-| RLS policies | Multi-tenant security |
-| Trigger | Auto-update `updated_at` |
+The Chrome extension (`packages/extension/`) is a plain HTML/CSS/JS side panel -- no React, no Tailwind, no build system. It uses:
 
-### Layer 2: FastAPI API
+- **Vanilla CSS** (`sidepanel.css`, 906 lines) with its own CSS variable system
+- **Its own color tokens** (e.g., `--bg-primary: #0f0f0f`, `--accent-blue: #3b82f6`)
+- **No dark/light toggle** -- always dark theme
+- **Content scripts** (`overlay.js`) with fully inlined CSS using `!important`
 
-| Component | Responsibility |
-|-----------|---------------|
-| `GET /records/paginated` | Return page of records with cursor |
-| `GET /records/sync` | Return changes since timestamp |
-| `POST /records/bulk` | Process batch mutations |
-| Cursor encoder/decoder | Create opaque pagination tokens |
-| Rate limiting | Prevent abuse |
+### Recommendation: Keep Extension Theming Separate
 
-### Layer 3: IndexedDB (Dexie.js)
+**Do NOT share theme files between the web app and the Chrome extension.** Here is why:
 
-| Component | Responsibility |
-|-----------|---------------|
-| `db.records` | Local record cache |
-| `db.syncState` | Track sync progress per account |
-| `db.pendingMutations` | Queue offline edits |
-| `SyncEngine` | Orchestrate sync flow |
-| `useLiveQuery()` | Reactive data binding |
+1. **Different technology stacks:** The extension is vanilla JS/CSS. The web app is React/Tailwind. Sharing would require a build step for the extension, which currently has none.
 
-### Layer 4: React Components
+2. **Different rendering context:** The extension side panel runs in Chrome's side panel, not in a Next.js page. CSS variables defined in the web app's `globals.css` are not available to the extension.
 
-| Component | Responsibility |
-|-----------|---------------|
-| `RecordsTableVirtualized` | Render visible rows only |
-| `InfiniteLoader` | Trigger pagination on scroll |
-| `usePaginatedRecords` | Combine IndexedDB with pagination |
-| `useRecordMutations` | Handle optimistic updates |
-| `SyncStatusIndicator` | Show sync progress |
+3. **Content scripts are fully isolated:** `overlay.js` injects CSS with `!important` into third-party pages (eBay, Amazon). These styles must be self-contained and hardcoded to avoid conflicts with host page styles.
+
+4. **The extension's CSS variable system already works well.** It defines `--bg-primary`, `--bg-secondary`, `--accent-blue`, etc. in `:root` of `sidepanel.css`.
+
+**What to do instead:**
+
+- **Document shared design values** in a `src/lib/theme.ts` file that lists the canonical color palette, brand colors, and spacing scale. This serves as a reference for anyone updating extension styles manually.
+- **If the extension ever moves to a React-based build** (e.g., using CRXJS or Plasmo), then shared theming becomes feasible. But that is a separate milestone decision.
+- **Align color values** between `globals.css` and `sidepanel.css` by documenting the mapping (e.g., `--accent-blue: #3b82f6` in extension maps to `oklch(0.47 0.17 260)` in the web app). This is a documentation task, not a code-sharing task.
+
+**Confidence:** HIGH -- The extension is plain JS with no build pipeline. Attempting to share CSS between Next.js and a Chrome MV3 extension without a shared build system would create unnecessary complexity.
 
 ---
 
-## Suggested Build Order
+## Build Order
 
-The layers have dependencies that dictate build order:
+The design system has clear dependency layers. Here is the recommended phase sequence:
 
-### Phase A: Server Foundation (Layer 1)
+### Phase 1: Theme Foundation (No Visual Changes)
 
-**Depends on:** Nothing (foundational)
-**Delivers:** Schema changes, indexes, triggers
+**Creates the infrastructure. Zero visual regressions.**
 
-1. Add `updated_at` and `deleted_at` columns to tables
-2. Create composite indexes for cursor pagination
-3. Create trigger for auto-updating `updated_at`
-4. Test queries directly in Supabase
+1. Install `next-themes` (`npm install next-themes`)
+2. Create `theme-provider.tsx` wrapper component
+3. Add ThemeProvider to root `layout.tsx` (with `defaultTheme="dark"` to match current behavior)
+4. Add `suppressHydrationWarning` to `<html>` tag
+5. Remove hardcoded `className="dark"` from `<html>` (next-themes handles this)
+6. Create `src/lib/theme.ts` with theme type definitions and color constants
+7. Verify: App looks identical, dark mode still works
 
-### Phase B: API Endpoints (Layer 2)
+**Depends on:** Nothing
+**Risk:** LOW -- Adding a provider wrapper with `defaultTheme="dark"` produces identical behavior
+**Test:** Visual regression test -- app should look exactly the same
 
-**Depends on:** Phase A (database schema)
-**Delivers:** New pagination and sync endpoints
+### Phase 2: Semantic Token Expansion
 
-1. Create `records_paginated.py` router with cursor pagination
-2. Create `records_sync.py` router for delta sync
-3. Add bulk write endpoint
-4. Test with curl/Postman
+**Adds new CSS variables. No component changes yet.**
 
-### Phase C: Client Storage (Layer 3)
+1. Add application-level tokens to `:root` and `.dark` in `globals.css`
+2. Register new tokens in `@theme inline` block
+3. Migrate scrollbar styles from hardcoded hex to CSS variables
+4. Create `theme-toggle.tsx` component (but don't add it to any layout yet)
+5. Verify: New Tailwind utilities available (`bg-app-bg`, `text-app-heading`, etc.)
 
-**Depends on:** Phase B (API endpoints to sync with)
-**Delivers:** IndexedDB schema, sync engine
+**Depends on:** Phase 1 (ThemeProvider must exist for light/dark to work)
+**Risk:** LOW -- Adding CSS variables is purely additive; existing hardcoded classes still work
+**Test:** Toggle theme via browser devtools (add/remove `.dark` class), verify new variables respond correctly
 
-1. Install Dexie.js: `npm install dexie dexie-react-hooks`
-2. Create database schema (`lib/db/schema.ts`)
-3. Build SyncEngine class
-4. Create React hooks for sync
+### Phase 3: Layout Component Extraction
 
-### Phase D: Rendering Integration (Layer 4)
+**Creates reusable layout primitives. Refactors the three dashboards.**
 
-**Depends on:** Phase C (data source from IndexedDB)
-**Delivers:** Virtualized table, complete integration
+1. Create `app-shell.tsx`, `app-sidebar.tsx`, `nav-item.tsx`, `sidebar-header.tsx`, `sidebar-footer.tsx`
+2. All new components use semantic tokens (NOT hardcoded grays)
+3. Refactor `app/admin/layout.tsx` to use new layout components
+4. Refactor `app/va/layout.tsx` to use new layout components
+5. Refactor `app/client/layout.tsx` to use new layout components
+6. Add theme toggle to sidebar footer
 
-1. Create virtualized table component
-2. Integrate with usePaginatedRecords hook
-3. Add optimistic mutation handling
-4. Add sync status UI
-5. Replace existing `RecordsTable` component
+**Depends on:** Phase 2 (semantic tokens must exist for new components to reference)
+**Risk:** MEDIUM -- Refactoring three layouts. Must preserve all existing behavior (nav item active states, role-based nav filtering in VA layout, provider hierarchy in admin layout)
+**Test:** All three dashboards render correctly in both themes. Navigation, active states, and profile dialog all work.
+
+### Phase 4: Component Color Migration
+
+**The large migration phase. Converts hardcoded colors to semantic tokens across ~82 files.**
+
+1. Migrate `src/app/**/page.tsx` files (lowest risk -- simple pages)
+2. Migrate `src/components/auth/login-form.tsx`
+3. Migrate `src/components/profile/*.tsx` (~40 occurrences)
+4. Migrate `src/components/data-management/*.tsx` (~45 occurrences)
+5. Migrate `src/components/sync/*.tsx`
+6. Migrate `src/components/bookkeeping/*.tsx` (~150 occurrences, highest complexity)
+7. Migrate `src/components/admin/**/*.tsx` (~300 occurrences, highest volume)
+8. Migrate `src/components/va/*.tsx`
+
+**Depends on:** Phase 2 (semantic tokens) and Phase 3 (layout components done first to establish patterns)
+**Risk:** MEDIUM-HIGH -- Touching 82 files with ~800 color references. Risk of visual regressions.
+**Test:** Visual inspection of every page/component in both light and dark themes. Consider taking screenshots before migration to compare.
+
+**Migration pattern for each file:**
+```
+BEFORE:  bg-gray-950  ->  AFTER:  bg-app-bg
+BEFORE:  bg-gray-900  ->  AFTER:  bg-app-sidebar (or bg-card, depending on context)
+BEFORE:  bg-gray-800  ->  AFTER:  bg-muted (or bg-accent, depending on context)
+BEFORE:  text-gray-400 ->  AFTER:  text-muted-foreground (or text-app-subtext)
+BEFORE:  text-gray-300 ->  AFTER:  text-app-nav-item (in nav) or text-muted-foreground (elsewhere)
+BEFORE:  border-gray-800 -> AFTER: border-app-sidebar-border (in sidebar) or border-border (elsewhere)
+BEFORE:  text-white    ->  AFTER:  text-foreground (usually) or text-app-heading
+```
+
+**Important:** Not every `gray-XXX` maps to the same semantic token. Context matters. A `bg-gray-800` in a sidebar means something different than `bg-gray-800` in a table header. This phase requires judgment, not find-and-replace.
+
+### Phase 5: Polish and Documentation
+
+1. Add `page-header.tsx` component for consistent page titles
+2. Create `theme-customizer.tsx` (dev-only) for live preview of token changes
+3. Update `src/lib/theme.ts` with extension color mapping documentation
+4. Verify all Framer Motion animations work in both themes (6 components use motion)
+5. Test with `prefers-color-scheme` system preference
+
+**Depends on:** Phase 4 (all components migrated)
+**Risk:** LOW
+**Test:** Full app walkthrough in light mode, dark mode, and system preference mode
 
 ### Dependency Diagram
 
 ```
-Phase A -----> Phase B -----> Phase C -----> Phase D
-(DB)           (API)          (IndexedDB)    (React)
-
-No dependencies   Needs DB      Needs API     Needs IndexedDB
+Phase 1 -----> Phase 2 -----> Phase 3 -----> Phase 4 -----> Phase 5
+(Provider)     (Tokens)       (Layouts)      (Migration)    (Polish)
+                                  |
+                                  +--> Phase 4 can start partially
+                                       in parallel with Phase 3
+                                       (pages and non-layout components)
 ```
 
 ---
 
-## File Structure Recommendation
+## Migration Strategy
 
-```
-apps/api/src/app/
-  routers/
-    records.py               # Existing (keep for now)
-    records_paginated.py     # NEW: Cursor pagination
-    records_sync.py          # NEW: Delta sync
-  services/
-    sync/
-      __init__.py
-      cursor.py              # Cursor encode/decode
-      delta.py               # Delta detection logic
+### Principle: Incremental, Zero-Regression
 
-apps/web/src/
-  lib/
-    db/
-      index.ts               # NEW: Export database
-      schema.ts              # NEW: Dexie schema
-      sync-engine.ts         # NEW: Sync orchestration
-      migrations.ts          # NEW: Schema migrations
-    api.ts                   # Existing (extend with new endpoints)
+The migration must be incremental. At no point should the app look broken. The strategy:
 
-  hooks/
-    use-paginated-records.ts # NEW: IndexedDB + pagination
-    use-sync-engine.ts       # NEW: Sync engine React wrapper
-    use-record-mutations.ts  # NEW: Optimistic updates
-    use-online-status.ts     # NEW: Network detection
+1. **Phase 1-2 are invisible.** They add infrastructure without changing any visual output.
+2. **Phase 3 refactors layouts.** The visual output should be identical -- same colors, same spacing. The only change is that colors come from CSS variables instead of hardcoded classes.
+3. **Phase 4 migrates components.** Each file migration should produce identical dark-mode output. Light-mode support is a bonus, not the goal of migration.
+4. **After Phase 4, toggle the theme.** Both themes should work.
 
-  components/
-    bookkeeping/
-      records-table.tsx             # Existing (deprecate later)
-      records-table-virtualized.tsx # NEW: Virtualized version
-      records-row.tsx               # NEW: Row component
-      records-header.tsx            # NEW: Fixed header
-    sync/
-      sync-status-indicator.tsx     # NEW: Sync progress
-      offline-banner.tsx            # NEW: Offline indicator
-      pending-changes-badge.tsx     # NEW: Mutation queue count
-```
+### Handling Edge Cases
+
+**Components that render differently per role:**
+The VA layout conditionally shows/hides nav items based on `hasAccessProfile`. This logic must be preserved in the new layout components. Use a `navItems` prop on `AppSidebar`, not hardcoded items.
+
+**Components with Framer Motion animations:**
+Six components use `framer-motion`. Motion components use `className` for styling, so they will pick up theme changes automatically. No special handling needed.
+
+**The `sonner` toast library:**
+The `<Toaster>` component in `layout.tsx` uses `richColors` which automatically adapts to the page background. However, verify it respects the `.dark` class after migrating to `next-themes`.
+
+**react-window virtualized lists:**
+The virtualized bookkeeping table renders rows with inline `style` props (for positioning). Only `className`-based colors need migration. The `style` prop is only used for `top`, `height`, `position` -- no colors.
+
+### What NOT to Change
+
+- **Do not modify shadcn/ui components** (`src/components/ui/`). They already use semantic tokens correctly.
+- **Do not add Tailwind plugins.** The CSS-first approach in TailwindCSS v4 handles everything via `globals.css`.
+- **Do not add a CSS-in-JS solution.** Tailwind + CSS variables is the established pattern.
+- **Do not attempt to share CSS between web app and Chrome extension.** Different technology stacks.
+- **Do not convert the app to light-mode-first.** Keep `defaultTheme="dark"` to match existing user expectations. Light mode is an opt-in feature.
 
 ---
 
-## Anti-Patterns to Avoid
+## Integration Points Summary
 
-### Anti-Pattern 1: Offset Pagination for Large Datasets
-
-**What:** Using `OFFSET 1000 LIMIT 50` for pagination
-**Why bad:** Performance degrades linearly; O(n) for page n
-**Instead:** Use cursor-based pagination with indexed columns
-
-### Anti-Pattern 2: Full Refresh on Every Load
-
-**What:** Fetching all records from server every time
-**Why bad:** Wastes bandwidth, slow initial loads
-**Instead:** Delta sync with `updated_since` timestamp
-
-### Anti-Pattern 3: Keeping All Data in React State
-
-**What:** Storing millions of records in `useState`
-**Why bad:** Memory pressure, re-render performance
-**Instead:** IndexedDB for storage, virtualization for rendering
-
-### Anti-Pattern 4: Synchronous IndexedDB Access
-
-**What:** Blocking main thread waiting for IndexedDB
-**Why bad:** Janky UI, unresponsive scrolling
-**Instead:** Async operations, Web Workers for heavy processing
-
-### Anti-Pattern 5: No Conflict Resolution Strategy
-
-**What:** Assuming offline edits never conflict
-**Why bad:** Data loss when concurrent edits occur
-**Instead:** Implement last-write-wins or merge strategy
+| Integration Point | Current State | Target State | Risk |
+|-------------------|---------------|--------------|------|
+| Root layout | Hardcoded `className="dark"` | `next-themes` ThemeProvider | LOW |
+| CSS variables | shadcn/ui tokens only | + app-level semantic tokens | LOW |
+| Scrollbar styles | Hardcoded hex in `.scrollbar-thin` | CSS variable references | LOW |
+| Admin sidebar | 213 lines of hardcoded colors + inline SVGs | Layout primitives + semantic tokens + lucide-react | MEDIUM |
+| VA layout | 153 lines of duplicated sidebar code | Shared AppSidebar component | MEDIUM |
+| Client layout | 95 lines of duplicated sidebar code | Shared AppSidebar component | LOW |
+| Bookkeeping components | ~150 hardcoded gray references | Semantic tokens | MEDIUM-HIGH |
+| Admin components | ~300 hardcoded gray references | Semantic tokens | MEDIUM-HIGH |
+| Chrome extension | Separate CSS with own variables | Keep separate, document mapping | NONE |
+| Framer Motion | Uses className (6 components) | No changes needed | NONE |
+| react-window | Uses style prop for positioning only | No changes needed | NONE |
 
 ---
 
 ## Sources
 
-### Cursor Pagination
-- [Speakeasy - Pagination Best Practices](https://www.speakeasy.com/api-design/pagination)
-- [JSON API Cursor Pagination Profile](https://jsonapi.org/profiles/ethanresnick/cursor-pagination/)
-- [FastAPI Pagination Library](https://uriyyo-fastapi-pagination.netlify.app/)
-
-### IndexedDB and Dexie.js
-- [Dexie.js React Tutorial](https://dexie.org/docs/Tutorial/React)
-- [useLiveQuery() Documentation](https://dexie.org/docs/dexie-react-hooks/useLiveQuery())
-- [Dexie.js with Next.js](https://medium.com/dexie-js/dexie-js-next-js-fd15556653e6)
-
-### Delta Sync and Offline-First
-- [AWS AppSync Delta Sync](https://docs.aws.amazon.com/appsync/latest/devguide/tutorial-delta-sync.html)
-- [Offline-First Frontend Apps 2025](https://blog.logrocket.com/offline-first-frontend-apps-2025-indexeddb-sqlite/)
-- [Android Offline-First Architecture Guide](https://developer.android.com/topic/architecture/data-layer/offline-first)
-
-### Virtualization
-- [react-window Documentation](https://blog.openreplay.com/virtualizing-large-data-lists-with-react-window/)
-- [TanStack Virtual with React Query](https://dev.to/ainayeem/building-an-efficient-virtualized-table-with-tanstack-virtual-and-react-query-with-shadcn-2hhl)
-- [Syncfusion - Rendering Large Datasets](https://www.syncfusion.com/blogs/post/render-large-datasets-in-react)
+- [shadcn/ui Tailwind v4 Documentation](https://ui.shadcn.com/docs/tailwind-v4) -- HIGH confidence (official)
+- [shadcn/ui Dark Mode with Next.js](https://ui.shadcn.com/docs/dark-mode/next) -- HIGH confidence (official)
+- [shadcn/ui Theming Documentation](https://ui.shadcn.com/docs/theming) -- HIGH confidence (official)
+- [next-themes GitHub Repository](https://github.com/pacocoursey/next-themes) -- HIGH confidence (official)
+- [Tailwind CSS v4 Dark Mode Documentation](https://tailwindcss.com/docs/dark-mode) -- HIGH confidence (official)
+- [TailwindCSS v4 + shadcn/ui Migration Guide](https://www.shadcnblocks.com/blog/tailwind4-shadcn-themeing/) -- MEDIUM confidence (community blog, verified against official docs)
+- [DeepWiki shadcn/ui Architecture](https://deepwiki.com/shadcn-ui/ui/2-architecture) -- MEDIUM confidence (third-party analysis)
+- [Vercel Academy: Extending shadcn/ui](https://vercel.com/academy/shadcn-ui/extending-shadcn-ui-with-custom-components) -- HIGH confidence (Vercel official)
+- [CSS `light-dark()` function](https://medium.com/front-end-weekly/forget-javascript-achieve-dark-mode-effortlessly-with-brand-new-css-function-light-dark-2024-94981c61756b) -- MEDIUM confidence (future consideration, not used in recommended approach)
+- [Tailwind CSS Scrollbar Styling Discussion](https://github.com/tailwindlabs/tailwindcss/discussions/14031) -- MEDIUM confidence (community discussion)
 
 ---
 
-*Architecture research: 2026-01-23*
+*Architecture research for UI/Design System milestone: 2026-01-25*
