@@ -1188,6 +1188,120 @@ class CursorPage(BaseModel, Generic[T]):
 
 
 # ============================================================
+# Export/Import Models
+# ============================================================
+
+
+class ExportFormat(str, Enum):
+    CSV = "csv"
+    JSON = "json"
+    EXCEL = "excel"
+
+
+class ExportJobStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+# Valid columns for export
+EXPORT_COLUMNS = [
+    "id",
+    "ebay_order_id",
+    "sale_date",
+    "item_name",
+    "qty",
+    "sale_price_cents",
+    "ebay_fees_cents",
+    "earnings_net_cents",
+    "amazon_price_cents",
+    "amazon_tax_cents",
+    "amazon_shipping_cents",
+    "cogs_total_cents",
+    "amazon_order_id",
+    "status",
+    "return_label_cost_cents",
+    "profit_cents",
+    "order_remark",
+    "service_remark",
+]
+
+
+class ExportRequest(BaseModel):
+    """Request for streaming export."""
+
+    account_id: str
+    format: ExportFormat
+    columns: Optional[list[str]] = None  # Defaults to all columns
+    status: Optional[BookkeepingStatus] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+
+    @field_validator("columns")
+    @classmethod
+    def validate_columns(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        if v is not None:
+            invalid = [c for c in v if c not in EXPORT_COLUMNS]
+            if invalid:
+                raise ValueError(f"Invalid columns: {invalid}")
+        return v
+
+
+class ExportJobCreate(BaseModel):
+    """Request for background export job."""
+
+    account_id: str
+    format: ExportFormat
+    columns: Optional[list[str]] = None
+    status: Optional[BookkeepingStatus] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+
+    @field_validator("columns")
+    @classmethod
+    def validate_columns(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        if v is not None:
+            invalid = [c for c in v if c not in EXPORT_COLUMNS]
+            if invalid:
+                raise ValueError(f"Invalid columns: {invalid}")
+        return v
+
+
+class ExportJobResponse(BaseModel):
+    """Response for export job status."""
+
+    job_id: str
+    status: ExportJobStatus
+    row_count: Optional[int] = None
+    file_url: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class ExportJobListItem(BaseModel):
+    """Item for export job list."""
+
+    job_id: str
+    account_id: str
+    format: ExportFormat
+    status: ExportJobStatus
+    row_count: Optional[int] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class ExportJobListResponse(BaseModel):
+    """Paginated export job list response."""
+
+    jobs: list[ExportJobListItem]
+    total: int
+    page: int
+    page_size: int
+
+
+# ============================================================
 # Sync Response Models
 # ============================================================
 
@@ -1208,11 +1322,18 @@ class RecordSyncItem(BaseModel):
     amazon_order_id: Optional[str] = None
     status: BookkeepingStatus
     return_label_cost_cents: Optional[int] = None
+    order_remark: Optional[str] = None
+    service_remark: Optional[str] = None
     updated_at: datetime
     deleted_at: Optional[datetime] = None  # For sync: null = active, set = deleted
 
     @classmethod
-    def from_db(cls, data: dict) -> "RecordSyncItem":
+    def from_db(
+        cls,
+        data: dict,
+        order_remark: Optional[str] = None,
+        service_remark: Optional[str] = None,
+    ) -> "RecordSyncItem":
         """Create RecordSyncItem from database row."""
         return cls(
             id=data["id"],
@@ -1229,6 +1350,8 @@ class RecordSyncItem(BaseModel):
             amazon_order_id=data.get("amazon_order_id"),
             status=data["status"],
             return_label_cost_cents=data.get("return_label_cost_cents"),
+            order_remark=order_remark,
+            service_remark=service_remark,
             updated_at=data["updated_at"],
             deleted_at=data.get("deleted_at"),
         )
