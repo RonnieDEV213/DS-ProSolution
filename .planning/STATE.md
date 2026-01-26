@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 
 ## Current Position
 
-Phase: 23 of 26 (Theme Presets & Switching)
-Plan: 4 of 4 complete
-Status: Phase complete — all 4 themes, picker UI, transitions, system detection verified
-Last activity: 2026-01-26 — Completed 23-04-PLAN.md (Human verification passed)
+Phase: 24 of 26 (Layout Component Consolidation)
+Plan: 1 of estimated 3
+Status: In progress — foundation primitives complete (sidebar, breadcrumb, navigation configs)
+Last activity: 2026-01-26 — Completed 24-01-PLAN.md
 
-Progress: [█████░░░░░] 50% (v4 milestone, 8 of ~16 plans estimated)
+Progress: [█████░░░░░] 56% (v4 milestone, 9 of ~16 plans estimated)
 
 ## Shipped Milestones
 
@@ -48,6 +48,12 @@ Phase 23 decisions:
 - SystemThemeMapper manipulates DOM attributes directly (not setTheme) to preserve "system" in localStorage
 - Each theme has unique accent hue: Midnight=blue(250), Dawn=indigo(264), Slate=teal(175), Carbon=purple(300)
 
+Phase 24 decisions:
+- Manually created shadcn/ui components (sidebar, breadcrumb) due to Windows CLI prompt issues
+- Cookie persistence for sidebar state with 7-day max age (cookie: "sidebar:state")
+- Cmd+B/Ctrl+B keyboard shortcut for sidebar toggle
+- Lucide icon names stored as PascalCase strings in navigation configs
+
 ### Pending Todos
 
 None.
@@ -60,7 +66,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26
-Stopped at: Phase 23 complete — all verification checks passed
+Last session: 2026-01-26 09:06 UTC
+Stopped at: Completed 24-01-PLAN.md (Layout Foundation)
 Resume file: None
-Next action: Plan Phase 24 (Layout Component Consolidation)
+Next action: Continue Phase 24 (next plan: composite layout components)
