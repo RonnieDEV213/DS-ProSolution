@@ -42,12 +42,12 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 22-02-PLAN.md -- Install next-themes, create ThemeProvider, integrate into root layout
   - [x] 22-03-PLAN.md -- Gap closure: fix hardcoded colors, scrollbar class migration
   - [x] 22-04-PLAN.md -- Gap closure: dual class+attribute ThemeProvider for Turbopack compatibility
-- [ ] **Phase 23: Theme Presets & Switching** - 4 preset themes, switcher UI, persistence, system preference detection
+- [x] **Phase 23: Theme Presets & Switching** - 4 preset themes, switcher UI, persistence, system preference detection ✓ 2026-01-26
   **Plans:** 4 plans
-  - [ ] 23-01-PLAN.md -- CSS theme presets (Midnight/Dawn/Slate/Carbon), selection/accent-color styles, view transition CSS, theme metadata & utility modules
-  - [ ] 23-02-PLAN.md -- ThemeProvider multi-theme config, system preference mapping (OS dark->Carbon, light->Dawn), themed Sonner toasts
-  - [ ] 23-03-PLAN.md -- Theme picker component with preview cards, ProfileSettingsDialog Theme tab, sidebar footer popover toggle
-  - [ ] 23-04-PLAN.md -- Human verification: all themes, transitions, picker UI, persistence, system detection
+  - [x] 23-01-PLAN.md -- CSS theme presets (Midnight/Dawn/Slate/Carbon), selection/accent-color styles, view transition CSS, theme metadata & utility modules
+  - [x] 23-02-PLAN.md -- ThemeProvider multi-theme config, system preference mapping (OS dark->Carbon, light->Dawn), themed Sonner toasts
+  - [x] 23-03-PLAN.md -- Theme picker component with preview cards, ProfileSettingsDialog Theme tab, sidebar footer popover toggle
+  - [x] 23-04-PLAN.md -- Human verification: all themes, transitions, picker UI, persistence, system detection
 - [ ] **Phase 24: Layout Component Consolidation** - Unified sidebar, breadcrumbs, page headers, spacing conventions
 - [ ] **Phase 25: Component Color Migration** - All 30+ files migrated from hardcoded grays to semantic tokens
 - [ ] **Phase 26: Polish & Micro-interactions** - Transitions, skeletons, empty states, command palette, keyboard shortcuts
@@ -60,13 +60,13 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 8-14  | v2 | 37/37 | Complete | 2026-01-23 |
 | 15-21 | v3 | 23/23 | Complete | 2026-01-25 |
 | 22 | v4 | 4/4 | Complete | 2026-01-25 |
-| 23 | v4 | 0/4 | Planned | - |
+| 23 | v4 | 4/4 | Complete | 2026-01-26 |
 | 24 | v4 | 0/TBD | Not started | - |
 | 25 | v4 | 0/TBD | Not started | - |
 | 26 | v4 | 0/TBD | Not started | - |
 
-**Total:** 4 milestones, 26 phases, 76 plans (76 shipped)
+**Total:** 4 milestones, 26 phases, 80 plans (80 shipped)
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-26 - Phase 23 planned (4 plans in 4 waves)*
+*Last updated: 2026-01-26 - Phase 23 complete (4 plans shipped)*

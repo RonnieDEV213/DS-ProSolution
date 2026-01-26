@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** v4 UI/Design System - Phase 22 complete, next: Phase 23 Theme Presets & Switching
+**Current focus:** v4 UI/Design System - Phase 23 complete, next: Phase 24 Layout Component Consolidation
 
 ## Current Position
 
 Phase: 23 of 26 (Theme Presets & Switching)
-Plan: 3 of 4 complete
-Status: In progress — Theme switcher UI complete
-Last activity: 2026-01-26 — Completed 23-03-PLAN.md (Theme Switcher UI)
+Plan: 4 of 4 complete
+Status: Phase complete — all 4 themes, picker UI, transitions, system detection verified
+Last activity: 2026-01-26 — Completed 23-04-PLAN.md (Human verification passed)
 
-Progress: [████░░░░░░] 44% (v4 milestone, 7 of ~16 plans estimated)
+Progress: [█████░░░░░] 50% (v4 milestone, 8 of ~16 plans estimated)
 
 ## Shipped Milestones
 
@@ -40,6 +40,14 @@ Progress: [████░░░░░░] 44% (v4 milestone, 7 of ~16 plans est
 
 See PROJECT.md Key Decisions table.
 
+Phase 23 decisions:
+- Used oklch() color space consistently across all 4 theme presets
+- True #000000 black in Carbon theme for OLED battery savings with near-white text (oklch 0.97) to reduce halation
+- Hardcoded hex preview colors in theme metadata for preview cards (not CSS variables)
+- View Transitions API with progressive enhancement (instant fallback on unsupported browsers)
+- SystemThemeMapper manipulates DOM attributes directly (not setTheme) to preserve "system" in localStorage
+- Each theme has unique accent hue: Midnight=blue(250), Dawn=indigo(264), Slate=teal(175), Carbon=purple(300)
+
 ### Pending Todos
 
 None.
@@ -53,6 +61,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Completed 23-03-PLAN.md — Theme Switcher UI with preview cards and sidebar popover
+Stopped at: Phase 23 complete — all verification checks passed
 Resume file: None
-Next action: Execute 23-04-PLAN.md (Theme CSS Variables)
+Next action: Plan Phase 24 (Layout Component Consolidation)
