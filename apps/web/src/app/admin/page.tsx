@@ -32,8 +32,8 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-        <p className="text-gray-400 mt-2">
+        <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+        <p className="text-muted-foreground mt-2">
           Welcome to the DS-ProSolution admin panel
         </p>
       </div>
@@ -45,22 +45,22 @@ export default async function AdminDashboardPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-          <h3 className="text-sm font-medium text-gray-400">Total Invites</h3>
-          <p className="text-3xl font-bold text-white mt-2">
+        <div className="bg-card rounded-lg p-6 border border-border">
+          <h3 className="text-sm font-medium text-muted-foreground">Total Invites</h3>
+          <p className="text-3xl font-bold font-mono text-foreground mt-2">
             {inviteCount !== null ? inviteCount : "—"}
           </p>
         </div>
 
-        <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-          <h3 className="text-sm font-medium text-gray-400">Total Members</h3>
-          <p className="text-3xl font-bold text-white mt-2">
+        <div className="bg-card rounded-lg p-6 border border-border">
+          <h3 className="text-sm font-medium text-muted-foreground">Total Members</h3>
+          <p className="text-3xl font-bold font-mono text-foreground mt-2">
             {memberCount !== null ? memberCount : "—"}
           </p>
         </div>
 
-        <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-          <h3 className="text-sm font-medium text-gray-400">Status</h3>
+        <div className="bg-card rounded-lg p-6 border border-border">
+          <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
           <p className="text-3xl font-bold text-green-400 mt-2">Active</p>
         </div>
       </div>

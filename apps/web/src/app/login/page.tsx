@@ -1,3 +1,4 @@
+// Fixed dark appearance - do not migrate to semantic tokens
 import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 

@@ -72,7 +72,7 @@ function StateIcon({ state, className }: { state: WorkerState; className?: strin
     case "complete":
       return <CheckCircle className={cn(baseClass, "text-emerald-400")} />;
     default:
-      return <User className={cn(baseClass, "text-gray-500")} />;
+      return <User className={cn(baseClass, "text-muted-foreground")} />;
   }
 }
 
@@ -120,16 +120,16 @@ export function WorkerCard({
       className={cn(
         "p-3 rounded-lg border-2 cursor-pointer transition-all",
         workerColors[colorIdx],
-        isIdle ? "bg-gray-800/30" : workerBgColors[colorIdx],
-        "hover:bg-gray-800/50"
+        isIdle ? "bg-muted/30" : workerBgColors[colorIdx],
+        "hover:bg-accent/50"
       )}
     >
       {/* Row 1: Worker ID + Phase + Status + Duration */}
       <div className="flex items-center gap-2 mb-2">
         {/* Worker badge with larger presence */}
         <div className={cn(
-          "flex items-center justify-center w-8 h-8 rounded-md font-bold text-sm",
-          isIdle ? "bg-gray-700 text-gray-400" : "bg-gray-800 " + workerAccentColors[colorIdx]
+          "flex items-center justify-center w-8 h-8 rounded-md font-bold text-sm font-mono",
+          isIdle ? "bg-muted text-muted-foreground" : "bg-card " + workerAccentColors[colorIdx]
         )}>
           W{worker_id}
         </div>
@@ -156,7 +156,7 @@ export function WorkerCard({
         {/* Status text */}
         <span className={cn(
           "text-sm font-medium flex-1",
-          isIdle ? "text-gray-500" : "text-white"
+          isIdle ? "text-muted-foreground" : "text-foreground"
         )}>
           {stateLabel(state)}
         </span>
@@ -164,7 +164,7 @@ export function WorkerCard({
         {/* Duration + State icon */}
         <div className="flex items-center gap-1.5">
           {lastActivity?.duration_ms && (
-            <span className="text-[10px] text-gray-500">
+            <span className="text-[10px] text-muted-foreground font-mono">
               {lastActivity.duration_ms}ms
             </span>
           )}
@@ -174,7 +174,7 @@ export function WorkerCard({
 
       {/* Row 2: Search query / product name - full width */}
       {!isIdle && (params?.query || lastActivity?.product_name || lastActivity?.category) && (
-        <div className="text-xs text-gray-300 truncate mb-2">
+        <div className="text-xs text-muted-foreground truncate mb-2">
           {params?.query || lastActivity?.product_name || lastActivity?.category}
         </div>
       )}
@@ -186,21 +186,21 @@ export function WorkerCard({
           {isEbay && params?.amazon_price && (
             <>
               <div className="flex items-center gap-1">
-                <span className="text-orange-400">{formatPrice(params.amazon_price)}</span>
-                <ArrowRight className="h-2.5 w-2.5 text-gray-500" />
-                <span className="text-emerald-400">
-                  {params.price_min ? formatPrice(params.price_min) : "$0"}-{params.price_max ? formatPrice(params.price_max) : "∞"}
+                <span className="text-orange-400 font-mono">{formatPrice(params.amazon_price)}</span>
+                <ArrowRight className="h-2.5 w-2.5 text-muted-foreground" />
+                <span className="text-emerald-400 font-mono">
+                  {params.price_min ? formatPrice(params.price_min) : "$0"}-{params.price_max ? formatPrice(params.price_max) : "..."}
                 </span>
               </div>
-              <span className="text-gray-600">|</span>
+              <span className="text-border">|</span>
             </>
           )}
 
           {/* Page */}
           {isEbay && params?.page && (
             <>
-              <span className="text-gray-400">Page {params.page}</span>
-              <span className="text-gray-600">|</span>
+              <span className="text-muted-foreground font-mono">Page {params.page}</span>
+              <span className="text-border">|</span>
             </>
           )}
 
@@ -212,18 +212,18 @@ export function WorkerCard({
                 <span title="Free Shipping"><Truck className="h-3 w-3 text-blue-400" /></span>
                 <span title="US Only"><Globe className="h-3 w-3 text-purple-400" /></span>
               </div>
-              <span className="text-gray-600">|</span>
+              <span className="text-border">|</span>
             </>
           )}
 
           {/* Amazon: Node ID */}
           {isAmazon && params?.node_id && (
             <>
-              <div className="flex items-center gap-1 text-gray-400">
+              <div className="flex items-center gap-1 text-muted-foreground">
                 <Tag className="h-3 w-3" />
-                <span>Node: {params.node_id}</span>
+                <span className="font-mono">Node: {params.node_id}</span>
               </div>
-              <span className="text-gray-600">|</span>
+              <span className="text-border">|</span>
             </>
           )}
 
@@ -240,7 +240,7 @@ export function WorkerCard({
                 <ExternalLink className="h-3 w-3" />
                 <span className="hover:underline">View</span>
               </a>
-              {hasResult && <span className="text-gray-600">|</span>}
+              {hasResult && <span className="text-border">|</span>}
             </>
           )}
 
@@ -248,7 +248,7 @@ export function WorkerCard({
           {hasResult && (
             <span
               className={cn(
-                "font-medium",
+                "font-medium font-mono",
                 lastActivity?.action === "error" ? "text-red-400" : "text-green-400"
               )}
             >

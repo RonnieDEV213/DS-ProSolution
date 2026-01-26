@@ -37,8 +37,8 @@ export default function AdminDepartmentRolesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-white">Access Profiles</h1>
-          <p className="text-gray-400 mt-2">Loading...</p>
+          <h1 className="text-3xl font-bold text-foreground">Access Profiles</h1>
+          <p className="text-muted-foreground mt-2">Loading...</p>
         </div>
       </div>
     );
@@ -47,8 +47,8 @@ export default function AdminDepartmentRolesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Access Profiles</h1>
-        <p className="text-gray-400 mt-2">
+        <h1 className="text-3xl font-bold text-foreground">Access Profiles</h1>
+        <p className="text-muted-foreground mt-2">
           Create and manage access profiles for VAs. Each profile can have specific permissions.
         </p>
       </div>

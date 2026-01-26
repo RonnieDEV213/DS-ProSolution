@@ -114,14 +114,14 @@ export default function AutomationPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Extension Hub</h1>
-        <p className="text-gray-400 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Extension Hub</h1>
+        <p className="text-muted-foreground mt-1">
           Manage Chrome Extension agents, pairing requests, automation jobs, and seller collections.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-800">
+      <div className="border-b border-border">
         <nav className="flex gap-4" aria-label="Tabs">
           {tabs.map((tab) => (
             <button
@@ -130,8 +130,8 @@ export default function AutomationPage() {
               className={cn(
                 "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
                 activeTab === tab.id
-                  ? "border-blue-500 text-blue-400"
-                  : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
               )}
             >
               {tab.label}

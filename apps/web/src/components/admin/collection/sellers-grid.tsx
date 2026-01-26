@@ -134,8 +134,8 @@ function SellerCell({
     >
       <div
         className={cn(
-          "group relative w-full h-full px-2 flex items-center bg-gray-800 rounded text-sm text-gray-200",
-          "hover:bg-gray-700 transition-colors cursor-pointer select-none",
+          "group relative w-full h-full px-2 flex items-center bg-muted rounded text-sm text-foreground",
+          "hover:bg-accent transition-colors cursor-pointer select-none",
           showAsFlagged && "ring-1 ring-yellow-500 bg-yellow-900/20",
           isNew && !showAsFlagged && "ring-1 ring-green-500 bg-green-900/20",
           isInShiftPreview && !isSelected && "ring-1 ring-blue-400/50 bg-blue-900/20",
@@ -156,14 +156,14 @@ function SellerCell({
             onChange={(e) => onEditValueChange(e.target.value)}
             onBlur={onSaveEdit}
             onKeyDown={(e) => e.key === "Enter" && onSaveEdit()}
-            className="w-full bg-gray-700 px-1 rounded outline-none text-white text-sm"
+            className="w-full bg-accent px-1 rounded outline-none text-foreground text-sm"
             autoFocus
             onClick={(e) => e.stopPropagation()}
             data-no-drag
           />
         ) : (
           <>
-            <span className="text-gray-500 mr-1 text-xs flex-shrink-0">{index + 1}.</span>
+            <span className="text-muted-foreground mr-1 text-xs flex-shrink-0">{index + 1}.</span>
             <span className="truncate flex-1">{seller.display_name}</span>
           </>
         )}
@@ -177,31 +177,31 @@ function SellerDetailPanel({ seller }: { seller: Seller | null }) {
   if (!seller) return null;
 
   return (
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 p-3 bg-gray-800 border border-gray-700 rounded-lg shadow-xl pointer-events-none">
-      <h4 className="text-sm font-semibold text-white truncate mb-2">
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 p-3 bg-popover border border-border rounded-lg shadow-xl pointer-events-none">
+      <h4 className="text-sm font-semibold text-foreground truncate mb-2">
         {seller.display_name}
       </h4>
-      <div className="text-xs text-gray-400 space-y-1">
+      <div className="text-xs text-muted-foreground space-y-1">
         {seller.feedback_percent !== undefined && (
           <div className="flex justify-between">
             <span>Feedback:</span>
-            <span className="text-gray-200">{seller.feedback_percent}%</span>
+            <span className="text-foreground font-mono">{seller.feedback_percent}%</span>
           </div>
         )}
         {seller.feedback_count !== undefined && (
           <div className="flex justify-between">
             <span>Reviews:</span>
-            <span className="text-gray-200">{seller.feedback_count.toLocaleString()}</span>
+            <span className="text-foreground font-mono">{seller.feedback_count.toLocaleString()}</span>
           </div>
         )}
         <div className="flex justify-between">
           <span>Times seen:</span>
-          <span className="text-gray-200">{seller.times_seen}</span>
+          <span className="text-foreground font-mono">{seller.times_seen}</span>
         </div>
         {seller.created_at && (
           <div className="flex justify-between">
             <span>Discovered:</span>
-            <span className="text-gray-200">
+            <span className="text-foreground font-mono text-sm">
               {new Date(seller.created_at).toLocaleDateString()}
             </span>
           </div>
@@ -1258,7 +1258,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   }), [filteredSellers, columnCount, cellWidth, selectedIds, newSellerIds, rightDragPreviewIds, rightDragMode, shiftPreviewIds, selectionAnchor, editingId, editValue, handleSellerClick, saveEdit]);
 
   if (loading) {
-    return <div className="text-gray-400 p-4">Loading sellers...</div>;
+    return <div className="text-muted-foreground p-4">Loading sellers...</div>;
   }
 
   return (
@@ -1293,7 +1293,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                 }}
                 placeholder="Search or add seller(s)..."
                 rows={1}
-                className="bg-gray-800 border border-gray-700 text-white w-96 px-3 py-2 rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="bg-muted border border-border text-foreground w-96 px-3 py-2 rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                 style={{ minHeight: '38px', maxHeight: '100px' }}
               />
             );
@@ -1312,9 +1312,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
           <Checkbox
             checked={allSelected ? true : someSelected ? "indeterminate" : false}
             onCheckedChange={toggleSelectAll}
-            className="border-gray-600 data-[state=checked]:bg-blue-600"
+            className="border-border data-[state=checked]:bg-primary"
           />
-          <span className="text-gray-500 text-sm">
+          <span className="text-muted-foreground text-sm">
             {selectedIds.size > 0
               ? `${selectedIds.size.toLocaleString()} selected / `
               : ""}
@@ -1342,7 +1342,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                 <ChevronDown className="h-4 w-4 ml-1" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 bg-gray-800 border-gray-700 p-4">
+            <PopoverContent align="end" className="w-72 bg-popover border-border p-4">
               <div className="space-y-4">
                 {/* Flag on export checkbox */}
                 <div className="flex items-center gap-2">
@@ -1350,16 +1350,16 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                     id="flag-on-export"
                     checked={exportFlagOnExport}
                     onCheckedChange={(checked) => setExportFlagOnExport(checked === true)}
-                    className="border-gray-600 data-[state=checked]:bg-yellow-600"
+                    className="border-border data-[state=checked]:bg-yellow-600"
                   />
-                  <Label htmlFor="flag-on-export" className="text-gray-300 text-sm cursor-pointer">
+                  <Label htmlFor="flag-on-export" className="text-foreground text-sm cursor-pointer">
                     Flag exported sellers
                   </Label>
                 </div>
 
                 {/* First N input */}
                 <div className="space-y-1">
-                  <Label className="text-gray-400 text-xs">First N (optional)</Label>
+                  <Label className="text-muted-foreground text-xs">First N (optional)</Label>
                   <Input
                     type="number"
                     min="1"
@@ -1372,13 +1372,13 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                         setExportRangeEnd("");
                       }
                     }}
-                    className="bg-gray-900 border-gray-600 text-white h-8 text-sm"
+                    className="bg-card border-border text-foreground h-8 text-sm"
                   />
                 </div>
 
                 {/* Range inputs */}
                 <div className="space-y-1">
-                  <Label className="text-gray-400 text-xs">Range (optional)</Label>
+                  <Label className="text-muted-foreground text-xs">Range (optional)</Label>
                   <div className="flex gap-2 items-center">
                     <Input
                       type="number"
@@ -1389,9 +1389,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                         setExportRangeStart(e.target.value);
                         if (e.target.value) setExportFirstN("");
                       }}
-                      className="bg-gray-900 border-gray-600 text-white h-8 text-sm"
+                      className="bg-card border-border text-foreground h-8 text-sm"
                     />
-                    <span className="text-gray-500 text-sm">to</span>
+                    <span className="text-muted-foreground text-sm">to</span>
                     <Input
                       type="number"
                       min="1"
@@ -1401,13 +1401,13 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
                         setExportRangeEnd(e.target.value);
                         if (e.target.value) setExportFirstN("");
                       }}
-                      className="bg-gray-900 border-gray-600 text-white h-8 text-sm"
+                      className="bg-card border-border text-foreground h-8 text-sm"
                     />
                   </div>
                 </div>
 
                 {/* Preview count */}
-                <div className="text-sm text-gray-400 text-center py-1 bg-gray-900 rounded">
+                <div className="text-sm text-muted-foreground text-center py-1 bg-card rounded font-mono">
                   {exportPreviewCount.toLocaleString()} sellers
                 </div>
 
@@ -1451,7 +1451,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       <div
         ref={gridContainerRef}
         id="sellers-grid-container"
-        className="relative flex-1 min-h-0 bg-gray-900 border border-gray-800 rounded-lg overflow-hidden"
+        className="relative flex-1 min-h-0 bg-card border border-border rounded-lg overflow-hidden"
         onMouseDown={handleMouseDown}
         onContextMenu={(e) => e.preventDefault()}
       >
@@ -1488,7 +1488,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
         )}
 
         {filteredSellers.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="flex items-center justify-center h-full text-muted-foreground">
             {sellers.length === 0
               ? "No sellers yet. Add one above or run a collection."
               : "No sellers match your search."}

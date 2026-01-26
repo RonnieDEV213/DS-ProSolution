@@ -14,7 +14,7 @@ export default function SuspendedPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950">
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-md space-y-8 p-8 text-center">
         <div className="mx-auto w-16 h-16 bg-red-900/50 rounded-full flex items-center justify-center">
           <svg
@@ -33,12 +33,12 @@ export default function SuspendedPage() {
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold text-white">Account Suspended</h1>
-          <p className="mt-4 text-gray-400">
+          <h1 className="text-2xl font-bold text-destructive">Account Suspended</h1>
+          <p className="mt-4 text-muted-foreground">
             Your account has been suspended. You no longer have access to this
             application.
           </p>
-          <p className="mt-2 text-gray-500 text-sm">
+          <p className="mt-2 text-muted-foreground text-sm">
             If you believe this is a mistake, please contact an administrator.
           </p>
         </div>
@@ -46,7 +46,7 @@ export default function SuspendedPage() {
         <Button
           onClick={handleSignOut}
           variant="outline"
-          className="border-gray-700 text-gray-300 hover:bg-gray-800"
+          className="border-border text-muted-foreground hover:bg-accent"
         >
           Sign Out
         </Button>

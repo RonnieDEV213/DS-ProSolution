@@ -74,11 +74,11 @@ export function WorkerDetailView({
           variant="ghost"
           size="sm"
           onClick={onBack}
-          className="text-gray-400 hover:text-white"
+          className="text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <Badge className={cn("text-sm", workerBgColors[colorIdx])}>
+        <Badge className={cn("text-sm font-mono", workerBgColors[colorIdx])}>
           <User className="h-3 w-3 mr-1" />
           Worker {workerId}
         </Badge>
@@ -88,49 +88,49 @@ export function WorkerDetailView({
       <div className="space-y-3 mb-4">
         {/* API Requests Section */}
         <div className={cn("p-3 rounded-lg", workerBgColors[colorIdx])}>
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
             API Requests
           </div>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1.5">
-              <span className="text-gray-400">Sent:</span>
-              <span className="text-white font-medium">{metrics?.api_requests_total || 0}</span>
+              <span className="text-muted-foreground">Sent:</span>
+              <span className="text-foreground font-medium font-mono">{metrics?.api_requests_total || 0}</span>
             </div>
-            <span className="text-gray-600">|</span>
+            <span className="text-border">|</span>
             <div className="flex items-center gap-1.5">
-              <span className="text-gray-400">Completed:</span>
-              <span className="text-blue-400 font-medium">{metrics?.api_requests_success || 0}</span>
+              <span className="text-muted-foreground">Completed:</span>
+              <span className="text-blue-400 font-medium font-mono">{metrics?.api_requests_success || 0}</span>
             </div>
-            <span className="text-gray-600">|</span>
+            <span className="text-border">|</span>
             <div className="flex items-center gap-1.5">
-              <span className="text-gray-400">Errors:</span>
-              <span className="text-red-400 font-medium">{metrics?.api_requests_failed || 0}</span>
+              <span className="text-muted-foreground">Errors:</span>
+              <span className="text-red-400 font-medium font-mono">{metrics?.api_requests_failed || 0}</span>
             </div>
-            <span className="text-gray-600">|</span>
+            <span className="text-border">|</span>
             <div className="flex items-center gap-1.5">
-              <span className="text-gray-400">Rate Limited:</span>
-              <span className="text-yellow-400 font-medium">{rateLimitedCount}</span>
+              <span className="text-muted-foreground">Rate Limited:</span>
+              <span className="text-yellow-400 font-medium font-mono">{rateLimitedCount}</span>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
-            <span>Retries: {metrics?.api_retries || 0}</span>
-            <span>Avg: {avgResponseTime}ms</span>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+            <span>Retries: <span className="font-mono">{metrics?.api_retries || 0}</span></span>
+            <span>Avg: <span className="font-mono">{avgResponseTime}ms</span></span>
           </div>
         </div>
 
         {/* Results Section */}
-        <div className="p-3 rounded-lg bg-gray-800/50">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
+        <div className="p-3 rounded-lg bg-muted/50">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
             Results Found
           </div>
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">Sellers:</span>
-              <span className="text-green-400 font-medium text-lg">{metrics?.sellers_found || 0}</span>
+              <span className="text-muted-foreground">Sellers:</span>
+              <span className="text-green-400 font-medium text-lg font-mono">{metrics?.sellers_found || 0}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">Products:</span>
-              <span className="text-orange-400 font-medium text-lg">{metrics?.products_found || 0}</span>
+              <span className="text-muted-foreground">Products:</span>
+              <span className="text-orange-400 font-medium text-lg font-mono">{metrics?.products_found || 0}</span>
             </div>
           </div>
         </div>
@@ -148,7 +148,7 @@ export function WorkerDetailView({
               <Badge
                 key={type}
                 variant="outline"
-                className="text-red-300 border-red-700"
+                className="text-red-300 border-red-700 font-mono"
               >
                 {type}: {count}
               </Badge>
@@ -159,7 +159,7 @@ export function WorkerDetailView({
 
       {/* Filter dropdown */}
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-medium text-gray-300 flex items-center gap-2">
+        <div className="text-sm font-medium text-foreground flex items-center gap-2">
           <Activity className="h-4 w-4" />
           Activity Log
         </div>
@@ -167,7 +167,7 @@ export function WorkerDetailView({
           value={filter}
           onValueChange={(v) => setFilter(v as FilterType)}
         >
-          <SelectTrigger className="w-32 h-8 text-xs bg-gray-800 border-gray-700">
+          <SelectTrigger className="w-32 h-8 text-xs bg-muted border-border">
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
@@ -184,7 +184,7 @@ export function WorkerDetailView({
       <div className="flex-1 overflow-y-auto space-y-1 pr-2">
         <TooltipProvider>
           {workerActivities.length === 0 ? (
-            <div className="text-gray-500 text-sm text-center py-8">
+            <div className="text-muted-foreground text-sm text-center py-8">
               No activity yet
             </div>
           ) : (
@@ -200,7 +200,7 @@ export function WorkerDetailView({
                           ? "bg-yellow-900/20"
                           : entry.action === "found"
                             ? "bg-green-900/20"
-                            : "bg-gray-800/50"
+                            : "bg-muted/50"
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -213,21 +213,21 @@ export function WorkerDetailView({
                               ? "text-yellow-400"
                               : entry.action === "found"
                                 ? "text-green-400"
-                                : "text-gray-300"
+                                : "text-foreground"
                         )}
                       >
                         {entry.action}
                       </span>
-                      <span className="text-gray-500">
+                      <span className="text-muted-foreground font-mono text-sm">
                         {formatDistanceToNow(new Date(entry.timestamp), {
                           addSuffix: true,
                         })}
                       </span>
                     </div>
-                    <div className="text-gray-400 truncate mt-1">
+                    <div className="text-muted-foreground truncate mt-1">
                       {entry.category || entry.product_name || ""}
                       {entry.duration_ms && (
-                        <span className="ml-2 text-gray-500">
+                        <span className="ml-2 text-muted-foreground font-mono">
                           {entry.duration_ms}ms
                         </span>
                       )}

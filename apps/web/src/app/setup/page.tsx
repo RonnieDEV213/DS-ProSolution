@@ -21,11 +21,11 @@ export default function SetupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
-      <Card className="w-full max-w-md bg-gray-900 border-gray-800 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md bg-card border-border text-foreground">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Setup Not Required</CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardDescription className="text-muted-foreground">
             Your account is ready to use
           </CardDescription>
         </CardHeader>
@@ -37,7 +37,7 @@ export default function SetupPage() {
             </p>
           </div>
 
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-muted-foreground">
             <p className="mb-2">
               Use the dashboard to get started. Your available tools will
               expand as roles are assigned.

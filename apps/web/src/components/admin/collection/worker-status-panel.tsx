@@ -27,7 +27,7 @@ export function WorkerStatusPanel({
 
   return (
     <div className="space-y-2">
-      <div className="text-sm font-medium text-gray-300 mb-3">Workers</div>
+      <div className="text-sm font-medium text-foreground mb-3">Workers</div>
       {/* 2x3 grid of workers */}
       <div className="grid grid-cols-2 gap-2">
         {[1, 2, 3, 4, 5, 6].map((workerId) => (

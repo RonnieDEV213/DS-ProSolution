@@ -2,10 +2,10 @@
 // This is handled by middleware - this component is a fallback
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950">
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
-        <p className="mt-4 text-gray-400">Redirecting...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-foreground mx-auto"></div>
+        <p className="mt-4 text-muted-foreground">Redirecting...</p>
       </div>
     </div>
   );

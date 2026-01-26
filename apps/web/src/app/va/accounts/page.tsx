@@ -11,8 +11,8 @@ export default function VAAccountsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Accounts</h1>
-        <p className="text-gray-400 mt-2">
+        <h1 className="text-3xl font-bold text-foreground">Accounts</h1>
+        <p className="text-muted-foreground mt-2">
           View your assigned accounts and their current status.
         </p>
       </div>
@@ -22,7 +22,7 @@ export default function VAAccountsPage() {
           placeholder="Search by code or name..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm bg-gray-800 border-gray-700"
+          className="max-w-sm bg-muted border-input"
         />
       </div>
 
