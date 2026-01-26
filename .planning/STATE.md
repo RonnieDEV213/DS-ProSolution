@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 24 of 26 (Layout Component Consolidation)
-Plan: 1 of estimated 3
-Status: In progress — foundation primitives complete (sidebar, breadcrumb, navigation configs)
-Last activity: 2026-01-26 — Completed 24-01-PLAN.md
+Plan: 2 of estimated 3
+Status: In progress — core layout components complete (AppSidebar, BreadcrumbNav, PageHeader)
+Last activity: 2026-01-26 — Completed 24-02-PLAN.md
 
-Progress: [█████░░░░░] 56% (v4 milestone, 9 of ~16 plans estimated)
+Progress: [██████░░░░] 62% (v4 milestone, 10 of ~16 plans estimated)
 
 ## Shipped Milestones
 
@@ -53,6 +53,10 @@ Phase 24 decisions:
 - Cookie persistence for sidebar state with 7-day max age (cookie: "sidebar:state")
 - Cmd+B/Ctrl+B keyboard shortcut for sidebar toggle
 - Lucide icon names stored as PascalCase strings in navigation configs
+- Fragment wrapper for AppSidebar to render ProfileSettingsDialog as sibling (dialog outside sidebar DOM)
+- Semantic color tokens replacing hardcoded gray-* classes for theme compatibility
+- Dynamic icon rendering: LucideIcons[iconName as keyof typeof LucideIcons] pattern
+- PageHeader is server-compatible (no "use client") for RSC and client component use
 
 ### Pending Todos
 
@@ -66,7 +70,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26 09:06 UTC
-Stopped at: Completed 24-01-PLAN.md (Layout Foundation)
+Last session: 2026-01-26 14:13 UTC
+Stopped at: Completed 24-02-PLAN.md (Core Layout Components)
 Resume file: None
-Next action: Continue Phase 24 (next plan: composite layout components)
+Next action: Continue Phase 24 (next plan: dashboard layout integration)
