@@ -7,11 +7,11 @@
 
 ### Theme Foundation
 
-- [ ] **THEME-01**: Semantic CSS variable token system replaces all 172 hardcoded gray color references across 30+ files
-- [ ] **THEME-02**: `next-themes` ThemeProvider wraps app with anti-flash protection (inline blocking script, `suppressHydrationWarning`)
-- [ ] **THEME-03**: Hardcoded `className="dark"` removed from `<html>`, replaced by dynamic `data-theme` attribute
-- [ ] **THEME-04**: Application-level semantic tokens defined (`--app-bg`, `--app-sidebar`, `--scrollbar-*`, `--table-*`) and registered in `@theme inline`
-- [ ] **THEME-05**: `@custom-variant dark` migrated to `data-theme` attribute pattern for hydration safety
+- [x] **THEME-01**: Semantic CSS variable token system replaces all 172 hardcoded gray color references across 30+ files
+- [x] **THEME-02**: `next-themes` ThemeProvider wraps app with anti-flash protection (inline blocking script, `suppressHydrationWarning`)
+- [x] **THEME-03**: Hardcoded `className="dark"` removed from `<html>`, replaced by dynamic `data-theme` attribute
+- [x] **THEME-04**: Application-level semantic tokens defined (`--app-bg`, `--app-sidebar`, `--scrollbar-*`, `--table-*`) and registered in `@theme inline`
+- [x] **THEME-05**: `@custom-variant dark` migrated to `data-theme` attribute pattern for hydration safety
 
 ### Theme Presets
 
@@ -32,11 +32,11 @@
 
 ### Custom Scrollbars
 
-- [ ] **SCROLL-01**: Theme-aware scrollbar colors using CSS variables (replace hardcoded hex in `.scrollbar-thin`)
-- [ ] **SCROLL-02**: `scrollbar-gutter: stable` on all scrollable containers to prevent layout shift
-- [ ] **SCROLL-03**: Auto-hide scrollbars (appear on hover/scroll, fade out when idle)
-- [ ] **SCROLL-04**: Scrollbar hover expansion (track widens on hover for easier grabbing)
-- [ ] **SCROLL-05**: Standardized `scrollbar-color` + `scrollbar-width` as primary, `::-webkit-scrollbar` as progressive enhancement
+- [x] **SCROLL-01**: Theme-aware scrollbar colors using CSS variables (replace hardcoded hex in `.scrollbar-thin`)
+- [x] **SCROLL-02**: `scrollbar-gutter: stable` on all scrollable containers to prevent layout shift
+- [x] **SCROLL-03**: Auto-hide scrollbars (appear on hover/scroll, fade out when idle)
+- [x] **SCROLL-04**: Scrollbar hover expansion (track widens on hover for easier grabbing)
+- [x] **SCROLL-05**: Standardized `scrollbar-color` + `scrollbar-width` as primary, `::-webkit-scrollbar` as progressive enhancement
 
 ### Layout & Navigation
 
@@ -51,8 +51,8 @@
 
 ### Typography
 
-- [ ] **TYPE-01**: Documented type scale with CSS variables for consistent heading/body/caption sizes
-- [ ] **TYPE-02**: Font weight conventions established (regular=body, medium=labels, semibold=headings)
+- [x] **TYPE-01**: Documented type scale with CSS variables for consistent heading/body/caption sizes
+- [x] **TYPE-02**: Font weight conventions established (regular=body, medium=labels, semibold=headings)
 - [ ] **TYPE-03**: `font-mono` (Geist Mono) applied consistently to data values (order IDs, account numbers, monetary values)
 - [ ] **TYPE-04**: Text color hierarchy audited -- `text-foreground` for primary, `text-muted-foreground` for secondary
 
@@ -112,18 +112,18 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| THEME-01 | Phase 22 | Pending |
-| THEME-02 | Phase 22 | Pending |
-| THEME-03 | Phase 22 | Pending |
-| THEME-04 | Phase 22 | Pending |
-| THEME-05 | Phase 22 | Pending |
-| SCROLL-01 | Phase 22 | Pending |
-| SCROLL-02 | Phase 22 | Pending |
-| SCROLL-03 | Phase 22 | Pending |
-| SCROLL-04 | Phase 22 | Pending |
-| SCROLL-05 | Phase 22 | Pending |
-| TYPE-01 | Phase 22 | Pending |
-| TYPE-02 | Phase 22 | Pending |
+| THEME-01 | Phase 22 | Complete |
+| THEME-02 | Phase 22 | Complete |
+| THEME-03 | Phase 22 | Complete |
+| THEME-04 | Phase 22 | Complete |
+| THEME-05 | Phase 22 | Complete |
+| SCROLL-01 | Phase 22 | Complete |
+| SCROLL-02 | Phase 22 | Complete |
+| SCROLL-03 | Phase 22 | Complete |
+| SCROLL-04 | Phase 22 | Complete |
+| SCROLL-05 | Phase 22 | Complete |
+| TYPE-01 | Phase 22 | Complete |
+| TYPE-02 | Phase 22 | Complete |
 | PRESET-01 | Phase 23 | Pending |
 | PRESET-02 | Phase 23 | Pending |
 | PRESET-03 | Phase 23 | Pending |
