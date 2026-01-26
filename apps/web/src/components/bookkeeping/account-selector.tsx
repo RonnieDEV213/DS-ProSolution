@@ -28,15 +28,15 @@ export function AccountSelector({
       onValueChange={onSelect}
       disabled={disabled}
     >
-      <SelectTrigger className="w-[280px] bg-gray-800 border-gray-700" aria-label="Select account">
+      <SelectTrigger className="w-[280px] bg-popover border-border" aria-label="Select account">
         <SelectValue placeholder="Select an account..." />
       </SelectTrigger>
-      <SelectContent className="bg-gray-800 border-gray-700">
+      <SelectContent className="bg-popover border-border">
         {accounts.map((account) => (
           <SelectItem
             key={account.id}
             value={account.id}
-            className="text-white hover:bg-gray-700"
+            className="hover:bg-gray-700"
           >
             {account.account_code}
             {account.name && ` - ${account.name}`}
