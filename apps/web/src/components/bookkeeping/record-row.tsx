@@ -38,7 +38,7 @@ const STATUS_OPTIONS: { value: BookkeepingStatus; label: string }[] = [
   { value: "REFUND_NO_RETURN", label: "Refund (No Return)" },
 ];
 
-const STRIKE_CLASS = "line-through text-gray-500";
+const STRIKE_CLASS = "line-through text-muted-foreground/70";
 
 const STATUS_ICONS: Record<BookkeepingStatus, React.ReactNode> = {
   SUCCESSFUL: <Check className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
@@ -175,7 +175,7 @@ export function RecordRow({
     const isEditing = editingState.id === record.id && editingState.field === field;
 
     if (field === "return_label_cost_cents" && record.status === "REFUND_NO_RETURN") {
-      return <span className={className || "text-white"}>$0.00</span>;
+      return <span className={className || "text-foreground"}>$0.00</span>;
     }
 
     if (isEditing) {
@@ -195,7 +195,7 @@ export function RecordRow({
             if (e.key === "Enter") onEditSave();
             if (e.key === "Escape") onEditCancel();
           }}
-          className={`${config?.width || "w-24"} h-7 text-sm bg-gray-800 border-gray-700 [&::-webkit-calendar-picker-indicator]:invert`}
+          className={`${config?.width || "w-24"} h-7 text-sm bg-muted border-border [&::-webkit-calendar-picker-indicator]:invert`}
           autoFocus
           disabled={editingState.saving}
           min={config?.type === "number" ? 1 : undefined}
@@ -205,7 +205,7 @@ export function RecordRow({
 
     return (
       <span
-        className={cn("cursor-pointer hover:text-blue-400", className)}
+        className={cn("cursor-pointer hover:text-accent-foreground", className)}
         onClick={() => onEditStart(record.id, field)}
       >
         {displayContent}
@@ -218,99 +218,99 @@ export function RecordRow({
       <div
         style={style}
         {...ariaAttributes}
-        className="border-b border-gray-800 bg-gray-900/50 px-4 py-3 text-sm text-gray-200"
+        className="border-b border-border bg-muted/50 px-4 py-3 text-sm text-foreground/80"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-400 mb-3">
+            <h4 className="text-sm font-medium text-muted-foreground mb-3">
               Earnings Breakdown
             </h4>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Sale Price:</span>
-                <span className={strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-white"}>
+                <span className="text-muted-foreground">Sale Price:</span>
+                <span className={strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-foreground"}>
                   {renderEditableCell(
                     "sale_price_cents",
-                    formatCents(record.sale_price_cents),
-                    strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-white"
+                    <span className="font-mono">{formatCents(record.sale_price_cents)}</span>,
+                    strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-foreground"
                   )}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">eBay Fees:</span>
-                <span className={strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-white"}>
+                <span className="text-muted-foreground">eBay Fees:</span>
+                <span className={strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-foreground"}>
                   {renderEditableCell(
                     "ebay_fees_cents",
-                    `-${formatCents(record.ebay_fees_cents)}`,
-                    strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-white"
+                    <span className="font-mono">{`-${formatCents(record.ebay_fees_cents)}`}</span>,
+                    strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-foreground"
                   )}
                 </span>
               </div>
-              <div className="flex justify-between border-t border-gray-700 pt-1">
-                <span className="text-gray-300 font-medium">Earnings (Net):</span>
+              <div className="flex justify-between border-t border-border pt-1">
+                <span className="text-foreground/80 font-medium">Earnings (Net):</span>
                 <span
                   className={cn(
                     "font-medium",
-                    strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-white"
+                    strikeSalesFees || strikeAll ? STRIKE_CLASS : "text-foreground"
                   )}
                 >
-                  {formatCents(record.earnings_net_cents)}
+                  <span className="font-mono">{formatCents(record.earnings_net_cents)}</span>
                 </span>
               </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-400 mb-3">
+            <h4 className="text-sm font-medium text-muted-foreground mb-3">
               COGS Breakdown
             </h4>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Amazon Price:</span>
-                <span className={strikeAll ? STRIKE_CLASS : "text-white"}>
+                <span className="text-muted-foreground">Amazon Price:</span>
+                <span className={strikeAll ? STRIKE_CLASS : "text-foreground"}>
                   {renderEditableCell(
                     "amazon_price_cents",
-                    formatCents(record.amazon_price_cents),
-                    strikeAll ? STRIKE_CLASS : "text-white"
+                    <span className="font-mono">{formatCents(record.amazon_price_cents)}</span>,
+                    strikeAll ? STRIKE_CLASS : "text-foreground"
                   )}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Amazon Tax:</span>
-                <span className={strikeAll ? STRIKE_CLASS : "text-white"}>
+                <span className="text-muted-foreground">Amazon Tax:</span>
+                <span className={strikeAll ? STRIKE_CLASS : "text-foreground"}>
                   {renderEditableCell(
                     "amazon_tax_cents",
-                    formatCents(record.amazon_tax_cents ?? 0),
-                    strikeAll ? STRIKE_CLASS : "text-white"
+                    <span className="font-mono">{formatCents(record.amazon_tax_cents ?? 0)}</span>,
+                    strikeAll ? STRIKE_CLASS : "text-foreground"
                   )}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Amazon Shipping:</span>
-                <span className={strikeAll ? STRIKE_CLASS : "text-white"}>
+                <span className="text-muted-foreground">Amazon Shipping:</span>
+                <span className={strikeAll ? STRIKE_CLASS : "text-foreground"}>
                   {renderEditableCell(
                     "amazon_shipping_cents",
-                    formatCents(record.amazon_shipping_cents),
-                    strikeAll ? STRIKE_CLASS : "text-white"
+                    <span className="font-mono">{formatCents(record.amazon_shipping_cents)}</span>,
+                    strikeAll ? STRIKE_CLASS : "text-foreground"
                   )}
                 </span>
               </div>
               {record.status !== "SUCCESSFUL" && (
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Return Label Cost:</span>
-                  <span className={strikeAll ? STRIKE_CLASS : "text-white"}>
+                  <span className="text-muted-foreground">Return Label Cost:</span>
+                  <span className={strikeAll ? STRIKE_CLASS : "text-foreground"}>
                     {renderEditableCell(
                       "return_label_cost_cents",
-                      formatCents(record.return_label_cost_cents),
-                      strikeAll ? STRIKE_CLASS : "text-white"
+                      <span className="font-mono">{formatCents(record.return_label_cost_cents)}</span>,
+                      strikeAll ? STRIKE_CLASS : "text-foreground"
                     )}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-gray-700 pt-1">
-                <span className="text-gray-300 font-medium">COGS (Total):</span>
-                <span className={cn("font-medium", strikeAll ? STRIKE_CLASS : "text-white")}>
-                  {formatCents(record.cogs_total_cents)}
+              <div className="flex justify-between border-t border-border pt-1">
+                <span className="text-foreground/80 font-medium">COGS (Total):</span>
+                <span className={cn("font-medium", strikeAll ? STRIKE_CLASS : "text-foreground")}>
+                  <span className="font-mono">{formatCents(record.cogs_total_cents)}</span>
                 </span>
               </div>
             </div>
@@ -318,23 +318,23 @@ export function RecordRow({
 
           <div className="space-y-3 text-sm">
             <div>
-              <span className="text-gray-400 block mb-1">Order Remark:</span>
+              <span className="text-muted-foreground block mb-1">Order Remark:</span>
               {renderEditableCell(
                 "order_remark",
                 record.order_remark || (
-                  <span className="text-gray-500 italic">No remarks</span>
+                  <span className="text-muted-foreground/70 italic">No remarks</span>
                 ),
-                "text-gray-300 text-sm block"
+                "text-foreground/80 text-sm block"
               )}
             </div>
             <div>
-              <span className="text-gray-400 block mb-1">Service Remark:</span>
+              <span className="text-muted-foreground block mb-1">Service Remark:</span>
               {renderEditableCell(
                 "service_remark",
                 record.service_remark || (
-                  <span className="text-gray-500 italic">No remarks</span>
+                  <span className="text-muted-foreground/70 italic">No remarks</span>
                 ),
-                "text-gray-300 text-sm block"
+                "text-foreground/80 text-sm block"
               )}
             </div>
           </div>
@@ -352,9 +352,9 @@ export function RecordRow({
       style={style}
       {...ariaAttributes}
       className={cn(
-        "flex items-center gap-2 border-b border-gray-800 text-sm text-gray-200 px-2 min-w-[1200px]",
+        "flex items-center gap-2 border-b border-border text-sm text-foreground/80 px-2 min-w-[1200px]",
         rowPadding,
-        isFocused && "ring-2 ring-blue-500"
+        isFocused && "ring-2 ring-ring"
       )}
     >
       <div className="flex items-center gap-1 w-10 shrink-0">
@@ -362,7 +362,7 @@ export function RecordRow({
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 w-6 p-0 text-gray-400"
+          className="h-6 w-6 p-0 text-muted-foreground"
           onClick={() => onToggleExpand(record.id)}
           aria-label={isExpanded ? "Collapse row details" : "Expand row details"}
           aria-expanded={isExpanded}
@@ -384,15 +384,15 @@ export function RecordRow({
         </Button>
       </div>
 
-      <div className="w-24 shrink-0 text-white">
-        {renderEditableCell("sale_date", record.sale_date, "text-white")}
+      <div className="w-24 shrink-0 text-foreground">
+        {renderEditableCell("sale_date", <span className="font-mono text-sm">{record.sale_date}</span>, "text-foreground")}
       </div>
 
       <div className="w-36 shrink-0">
         {renderEditableCell(
           "ebay_order_id",
-          record.ebay_order_id,
-          "text-white font-mono text-sm"
+          <span className="font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10">{record.ebay_order_id}</span>,
+          "text-foreground"
         )}
       </div>
 
@@ -402,12 +402,12 @@ export function RecordRow({
           <span className="truncate block" title={record.item_name}>
             {record.item_name}
           </span>,
-          "text-white"
+          "text-foreground"
         )}
       </div>
 
       <div className="w-12 shrink-0 text-center">
-        {renderEditableCell("qty", record.qty, "text-white")}
+        {renderEditableCell("qty", <span className="font-mono text-sm">{record.qty}</span>, "text-foreground")}
       </div>
 
       <div className="w-20 shrink-0 text-right">
@@ -415,7 +415,7 @@ export function RecordRow({
           <Tooltip>
             <TooltipTrigger asChild>
               <span className={STRIKE_CLASS}>
-                {formatCents(record.earnings_net_cents)}
+                <span className="font-mono text-sm">{formatCents(record.earnings_net_cents)}</span>
               </span>
             </TooltipTrigger>
             <TooltipContent>
@@ -425,14 +425,14 @@ export function RecordRow({
             </TooltipContent>
           </Tooltip>
         ) : (
-          <span className="text-white">{formatCents(record.earnings_net_cents)}</span>
+          <span className="text-foreground font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10">{formatCents(record.earnings_net_cents)}</span>
         )}
       </div>
 
       <div
-        className={cn("w-20 shrink-0 text-right", strikeAll ? STRIKE_CLASS : "text-white")}
+        className={cn("w-20 shrink-0 text-right", strikeAll ? STRIKE_CLASS : "text-foreground")}
       >
-        {formatCents(record.cogs_total_cents)}
+        <span className="font-mono text-sm">{formatCents(record.cogs_total_cents)}</span>
       </div>
 
       <div
@@ -445,14 +445,14 @@ export function RecordRow({
               : "text-red-400"
         )}
       >
-        {formatCents(displayProfit)}
+        <span className="font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10">{formatCents(displayProfit)}</span>
       </div>
 
       <div className="w-52 shrink-0">
         {renderEditableCell(
           "amazon_order_id",
-          displayValue(record.amazon_order_id),
-          "text-white font-mono text-sm"
+          <span className="font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10">{displayValue(record.amazon_order_id)}</span>,
+          "text-foreground"
         )}
       </div>
 
@@ -465,7 +465,7 @@ export function RecordRow({
           disabled={isPending || isUpdating}
         >
           <SelectTrigger
-            className="w-full h-7 text-xs bg-gray-800 border-gray-700"
+            className="w-full h-7 text-xs bg-muted border-border"
             aria-label="Order status"
           >
             <SelectValue>
@@ -478,12 +478,12 @@ export function RecordRow({
               </Badge>
             </SelectValue>
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700">
+          <SelectContent className="bg-popover border-border">
             {STATUS_OPTIONS.map((opt) => (
               <SelectItem
                 key={opt.value}
                 value={opt.value}
-                className="text-white hover:bg-gray-700"
+                className="text-popover-foreground hover:bg-accent"
               >
                 {opt.label}
               </SelectItem>
@@ -497,7 +497,7 @@ export function RecordRow({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 text-gray-400 hover:text-red-400 hover:bg-red-900/20"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-900/20"
             onClick={() => onDeleteClick(record.id)}
             disabled={editingState.saving || isDeleting}
             title="Delete record"

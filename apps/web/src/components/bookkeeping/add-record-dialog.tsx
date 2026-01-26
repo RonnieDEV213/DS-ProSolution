@@ -161,7 +161,7 @@ export function AddRecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-white">
+      <DialogContent className="sm:max-w-md bg-card border-border text-card-foreground">
         <DialogHeader>
           <DialogTitle>Add New Record</DialogTitle>
           <DialogDescription className="sr-only">
@@ -178,10 +178,10 @@ export function AddRecordDialog({
 
           {/* eBay Details */}
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-400">eBay Details</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">eBay Details</h3>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label htmlFor="ebay_order_id" className="text-gray-300 text-xs">
+                <Label htmlFor="ebay_order_id" className="text-foreground/80 text-xs">
                   Order ID *
                 </Label>
                 <Input
@@ -190,11 +190,11 @@ export function AddRecordDialog({
                   onChange={(e) => handleChange("ebay_order_id", e.target.value)}
                   required
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="sale_date" className="text-gray-300 text-xs">
+                <Label htmlFor="sale_date" className="text-foreground/80 text-xs">
                   Sale Date *
                 </Label>
                 <Input
@@ -204,13 +204,13 @@ export function AddRecordDialog({
                   onChange={(e) => handleChange("sale_date", e.target.value)}
                   required
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
             </div>
             <div className="flex gap-2">
               <div className="space-y-1 flex-1">
-                <Label htmlFor="item_name" className="text-gray-300 text-xs">
+                <Label htmlFor="item_name" className="text-foreground/80 text-xs">
                   Item Name *
                 </Label>
                 <Input
@@ -219,11 +219,11 @@ export function AddRecordDialog({
                   onChange={(e) => handleChange("item_name", e.target.value)}
                   required
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
               <div className="space-y-1 w-16">
-                <Label htmlFor="qty" className="text-gray-300 text-xs">
+                <Label htmlFor="qty" className="text-foreground/80 text-xs">
                   Qty
                 </Label>
                 <Input
@@ -233,7 +233,7 @@ export function AddRecordDialog({
                   value={formData.qty}
                   onChange={(e) => handleChange("qty", e.target.value)}
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
             </div>
@@ -241,10 +241,10 @@ export function AddRecordDialog({
 
           {/* eBay Earnings */}
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-400">eBay Earnings</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">eBay Earnings</h3>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label htmlFor="sale_price" className="text-gray-300 text-xs">
+                <Label htmlFor="sale_price" className="text-foreground/80 text-xs">
                   Sale Price *
                 </Label>
                 <Input
@@ -258,11 +258,11 @@ export function AddRecordDialog({
                   onChange={(e) => handleChange("sale_price", e.target.value)}
                   required
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="ebay_fees" className="text-gray-300 text-xs">
+                <Label htmlFor="ebay_fees" className="text-foreground/80 text-xs">
                   eBay Fees
                 </Label>
                 <Input
@@ -275,7 +275,7 @@ export function AddRecordDialog({
                   value={formData.ebay_fees}
                   onChange={(e) => handleChange("ebay_fees", e.target.value)}
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
             </div>
@@ -283,9 +283,9 @@ export function AddRecordDialog({
 
           {/* Amazon Details */}
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-400">Amazon Details</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Amazon Details</h3>
             <div className="space-y-1">
-              <Label htmlFor="amazon_order_id" className="text-gray-300 text-xs">
+              <Label htmlFor="amazon_order_id" className="text-foreground/80 text-xs">
                 Order ID
               </Label>
               <Input
@@ -293,17 +293,17 @@ export function AddRecordDialog({
                 value={formData.amazon_order_id}
                 onChange={(e) => handleChange("amazon_order_id", e.target.value)}
                 disabled={createMutation.isPending}
-                className="bg-gray-800 border-gray-700 h-8 text-sm"
+                className="bg-muted border-border h-8 text-sm"
               />
             </div>
           </div>
 
           {/* Amazon COGs */}
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-400">Amazon COGs</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Amazon COGs</h3>
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1">
-                <Label htmlFor="amazon_price" className="text-gray-300 text-xs">
+                <Label htmlFor="amazon_price" className="text-foreground/80 text-xs">
                   Price
                 </Label>
                 <Input
@@ -316,11 +316,11 @@ export function AddRecordDialog({
                   value={formData.amazon_price}
                   onChange={(e) => handleChange("amazon_price", e.target.value)}
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="amazon_tax" className="text-gray-300 text-xs">
+                <Label htmlFor="amazon_tax" className="text-foreground/80 text-xs">
                   Tax
                 </Label>
                 <Input
@@ -333,11 +333,11 @@ export function AddRecordDialog({
                   value={formData.amazon_tax}
                   onChange={(e) => handleChange("amazon_tax", e.target.value)}
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="amazon_shipping" className="text-gray-300 text-xs">
+                <Label htmlFor="amazon_shipping" className="text-foreground/80 text-xs">
                   Shipping
                 </Label>
                 <Input
@@ -350,7 +350,7 @@ export function AddRecordDialog({
                   value={formData.amazon_shipping}
                   onChange={(e) => handleChange("amazon_shipping", e.target.value)}
                   disabled={createMutation.isPending}
-                  className="bg-gray-800 border-gray-700 h-8 text-sm"
+                  className="bg-muted border-border h-8 text-sm"
                 />
               </div>
             </div>
@@ -358,13 +358,13 @@ export function AddRecordDialog({
 
           {/* Remark */}
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-400">Remark</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Remark</h3>
             <Textarea
               id="order_remark"
               value={formData.order_remark}
               onChange={(e) => handleChange("order_remark", e.target.value)}
               disabled={createMutation.isPending}
-              className="bg-gray-800 border-gray-700 min-h-[50px] text-sm"
+              className="bg-muted border-border min-h-[50px] text-sm"
               placeholder="Notes about this order..."
             />
           </div>
@@ -376,7 +376,7 @@ export function AddRecordDialog({
               size="sm"
               onClick={() => onOpenChange(false)}
               disabled={createMutation.isPending}
-              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+              className="border-border text-foreground/80 hover:bg-accent"
             >
               Cancel
             </Button>

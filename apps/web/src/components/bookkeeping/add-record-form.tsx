@@ -135,9 +135,9 @@ export function AddRecordForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4"
+      className="bg-card border border-border rounded-lg p-4 mb-4"
     >
-      <h3 className="text-lg font-semibold text-white mb-4">Add New Record</h3>
+      <h3 className="text-lg font-semibold text-foreground mb-4">Add New Record</h3>
 
       {error && (
         <div className="bg-red-900/50 border border-red-700 text-red-200 px-3 py-2 rounded mb-4 text-sm">
@@ -147,7 +147,7 @@ export function AddRecordForm({
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="ebay_order_id" className="text-gray-300">
+          <Label htmlFor="ebay_order_id" className="text-foreground/80">
             eBay Order ID *
           </Label>
           <Input
@@ -155,12 +155,12 @@ export function AddRecordForm({
             value={formData.ebay_order_id}
             onChange={(e) => handleChange("ebay_order_id", e.target.value)}
             required
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="sale_date" className="text-gray-300">
+          <Label htmlFor="sale_date" className="text-foreground/80">
             Sale Date *
           </Label>
           <Input
@@ -169,12 +169,12 @@ export function AddRecordForm({
             value={formData.sale_date}
             onChange={(e) => handleChange("sale_date", e.target.value)}
             required
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2 col-span-2">
-          <Label htmlFor="item_name" className="text-gray-300">
+          <Label htmlFor="item_name" className="text-foreground/80">
             Item Name *
           </Label>
           <Input
@@ -182,12 +182,12 @@ export function AddRecordForm({
             value={formData.item_name}
             onChange={(e) => handleChange("item_name", e.target.value)}
             required
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="qty" className="text-gray-300">
+          <Label htmlFor="qty" className="text-foreground/80">
             Quantity
           </Label>
           <Input
@@ -196,12 +196,12 @@ export function AddRecordForm({
             min="1"
             value={formData.qty}
             onChange={(e) => handleChange("qty", e.target.value)}
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="sale_price" className="text-gray-300">
+          <Label htmlFor="sale_price" className="text-foreground/80">
             Sale Price *
           </Label>
           <Input
@@ -211,12 +211,12 @@ export function AddRecordForm({
             value={formData.sale_price}
             onChange={(e) => handleChange("sale_price", e.target.value)}
             required
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="ebay_fees" className="text-gray-300">
+          <Label htmlFor="ebay_fees" className="text-foreground/80">
             eBay Fees
           </Label>
           <Input
@@ -225,12 +225,12 @@ export function AddRecordForm({
             placeholder="3.00"
             value={formData.ebay_fees}
             onChange={(e) => handleChange("ebay_fees", e.target.value)}
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="amazon_price" className="text-gray-300">
+          <Label htmlFor="amazon_price" className="text-foreground/80">
             Amazon Price
           </Label>
           <Input
@@ -239,12 +239,12 @@ export function AddRecordForm({
             placeholder="15.00"
             value={formData.amazon_price}
             onChange={(e) => handleChange("amazon_price", e.target.value)}
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="amazon_tax" className="text-gray-300">
+          <Label htmlFor="amazon_tax" className="text-foreground/80">
             Amazon Tax
           </Label>
           <Input
@@ -253,12 +253,12 @@ export function AddRecordForm({
             placeholder="1.20"
             value={formData.amazon_tax}
             onChange={(e) => handleChange("amazon_tax", e.target.value)}
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="amazon_shipping" className="text-gray-300">
+          <Label htmlFor="amazon_shipping" className="text-foreground/80">
             Amazon Shipping
           </Label>
           <Input
@@ -267,39 +267,39 @@ export function AddRecordForm({
             placeholder="0.00"
             value={formData.amazon_shipping}
             onChange={(e) => handleChange("amazon_shipping", e.target.value)}
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="amazon_order_id" className="text-gray-300">
+          <Label htmlFor="amazon_order_id" className="text-foreground/80">
             Amazon Order ID
           </Label>
           <Input
             id="amazon_order_id"
             value={formData.amazon_order_id}
             onChange={(e) => handleChange("amazon_order_id", e.target.value)}
-            className="bg-gray-800 border-gray-700"
+            className="bg-muted border-border"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="status" className="text-gray-300">
+          <Label htmlFor="status" className="text-foreground/80">
             Status
           </Label>
           <Select
             value={formData.status}
             onValueChange={(value) => handleChange("status", value)}
           >
-            <SelectTrigger className="bg-gray-800 border-gray-700">
+            <SelectTrigger className="bg-muted border-border">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700">
+            <SelectContent className="bg-popover border-border">
               {STATUS_OPTIONS.map((opt) => (
                 <SelectItem
                   key={opt.value}
                   value={opt.value}
-                  className="text-white hover:bg-gray-700"
+                  className="text-popover-foreground hover:bg-accent"
                 >
                   {opt.label}
                 </SelectItem>
@@ -309,14 +309,14 @@ export function AddRecordForm({
         </div>
 
         <div className="space-y-2 col-span-2">
-          <Label htmlFor="order_remark" className="text-gray-300">
+          <Label htmlFor="order_remark" className="text-foreground/80">
             Order Remark
           </Label>
           <Textarea
             id="order_remark"
             value={formData.order_remark}
             onChange={(e) => handleChange("order_remark", e.target.value)}
-            className="bg-gray-800 border-gray-700 min-h-[60px]"
+            className="bg-muted border-border min-h-[60px]"
             placeholder="Notes about this order..."
           />
         </div>
