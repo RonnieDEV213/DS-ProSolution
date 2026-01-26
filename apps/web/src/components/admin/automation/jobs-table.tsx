@@ -26,12 +26,12 @@ interface JobsTableProps {
 }
 
 const STATUS_BADGES: Record<JobStatus, { label: string; className: string }> = {
-  QUEUED: { label: "Queued", className: "bg-blue-600 text-white" },
-  CLAIMED: { label: "Claimed", className: "bg-yellow-600 text-white" },
-  RUNNING: { label: "Running", className: "bg-yellow-600 text-white" },
-  COMPLETED: { label: "Completed", className: "bg-green-600 text-white" },
-  FAILED_NEEDS_ATTENTION: { label: "Failed", className: "bg-red-600 text-white" },
-  FAILED_MAX_RETRIES: { label: "Max Retries", className: "bg-red-600 text-white" },
+  QUEUED: { label: "Queued", className: "bg-chart-4/20 text-chart-4" },
+  CLAIMED: { label: "Claimed", className: "bg-chart-4/20 text-chart-4" },
+  RUNNING: { label: "Running", className: "bg-chart-1/20 text-chart-1" },
+  COMPLETED: { label: "Completed", className: "bg-primary/20 text-primary" },
+  FAILED_NEEDS_ATTENTION: { label: "Failed", className: "bg-destructive/20 text-destructive" },
+  FAILED_MAX_RETRIES: { label: "Max Retries", className: "bg-destructive/20 text-destructive" },
 };
 
 const STATUS_OPTIONS: { value: JobStatus | "ALL"; label: string }[] = [
@@ -83,15 +83,15 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
             value={statusFilter}
             onValueChange={(value) => setStatusFilter(value as JobStatus | "ALL")}
           >
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+            <SelectTrigger className="bg-muted border-border text-foreground">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700">
+            <SelectContent className="bg-popover border-border">
               {STATUS_OPTIONS.map((option) => (
                 <SelectItem
                   key={option.value}
                   value={option.value}
-                  className="text-white hover:bg-gray-700"
+                  className="text-popover-foreground hover:bg-accent"
                 >
                   {option.label}
                 </SelectItem>
@@ -102,27 +102,27 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-gray-800 bg-gray-900">
+      <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
-            <TableRow className="border-gray-800 hover:bg-gray-900">
-              <TableHead className="text-gray-400">eBay Order ID</TableHead>
-              <TableHead className="text-gray-400">Item Name</TableHead>
-              <TableHead className="text-gray-400">Status</TableHead>
-              <TableHead className="text-gray-400">Attempts</TableHead>
-              <TableHead className="text-gray-400">Created At</TableHead>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground font-mono">eBay Order ID</TableHead>
+              <TableHead className="text-muted-foreground">Item Name</TableHead>
+              <TableHead className="text-muted-foreground">Status</TableHead>
+              <TableHead className="text-muted-foreground font-mono">Attempts</TableHead>
+              <TableHead className="text-muted-foreground font-mono">Created At</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && !jobs ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : !jobs || jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No jobs found
                 </TableCell>
               </TableRow>
@@ -131,11 +131,11 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
                 const statusBadge = STATUS_BADGES[job.status];
 
                 return (
-                  <TableRow key={job.id} className="border-gray-800">
-                    <TableCell className="font-mono text-white">
-                      {job.ebay_order_id}
+                  <TableRow key={job.id} className="border-border">
+                    <TableCell className="font-mono text-sm px-1.5 py-0.5">
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-foreground">{job.ebay_order_id}</span>
                     </TableCell>
-                    <TableCell className="text-gray-300 max-w-[200px] truncate">
+                    <TableCell className="text-muted-foreground max-w-[200px] truncate">
                       <span title={job.item_name}>{job.item_name}</span>
                     </TableCell>
                     <TableCell>
@@ -144,7 +144,7 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
                       </Badge>
                       {job.failure_reason && (
                         <p
-                          className="text-xs text-red-400 mt-1 truncate max-w-[150px]"
+                          className="text-xs text-destructive mt-1 truncate max-w-[150px]"
                           title={job.failure_reason}
                         >
                           {job.failure_reason}
@@ -156,14 +156,14 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
                         variant="secondary"
                         className={
                           job.attempt_count > 1
-                            ? "bg-yellow-600 text-white"
-                            : "bg-gray-700 text-gray-300"
+                            ? "bg-chart-4/20 text-chart-4 font-mono"
+                            : "bg-muted text-muted-foreground font-mono"
                         }
                       >
                         {job.attempt_count}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-gray-400">
+                    <TableCell className="text-muted-foreground font-mono text-sm">
                       {formatDate(job.created_at)}
                     </TableCell>
                   </TableRow>
@@ -175,8 +175,8 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
-            <div className="text-sm text-gray-400">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <div className="text-sm text-muted-foreground font-mono">
               Showing {(page - 1) * pageSize + 1} to{" "}
               {Math.min(page * pageSize, total)} of {total} jobs
             </div>
@@ -186,7 +186,7 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
                 size="sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                className="border-border text-muted-foreground hover:bg-accent"
               >
                 Previous
               </Button>
@@ -195,7 +195,7 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
                 size="sm"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                className="border-border text-muted-foreground hover:bg-accent"
               >
                 Next
               </Button>

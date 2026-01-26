@@ -64,32 +64,32 @@ export function RejectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800">
+      <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-white">Reject Pairing Request</DialogTitle>
-          <DialogDescription className="text-gray-400">
+          <DialogTitle className="text-foreground">Reject Pairing Request</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
             Provide a reason for rejecting this pairing request.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-gray-300">Device ID</Label>
-            <p className="font-mono text-sm text-gray-400 bg-gray-800 p-2 rounded">
+            <Label className="text-foreground">Device ID</Label>
+            <p className="font-mono text-sm text-muted-foreground bg-muted p-2 rounded">
               {request && truncateId(request.install_instance_id)}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="reason" className="text-gray-300">
-              Reason <span className="text-red-400">*</span>
+            <Label htmlFor="reason" className="text-foreground">
+              Reason <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Enter rejection reason..."
-              className="bg-gray-800 border-gray-700 text-white min-h-[100px]"
+              className="bg-muted border-border text-foreground min-h-[100px]"
             />
           </div>
 
@@ -97,7 +97,7 @@ export function RejectDialog({
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="border-gray-700 text-gray-300"
+              className="border-border text-muted-foreground"
             >
               Cancel
             </Button>

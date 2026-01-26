@@ -188,27 +188,27 @@ export function PairingRequestsTable({
 
   return (
     <>
-      <div className="rounded-lg border border-gray-800 bg-gray-900">
+      <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
-            <TableRow className="border-gray-800 hover:bg-gray-900">
-              <TableHead className="text-gray-400">Device ID</TableHead>
-              <TableHead className="text-gray-400">Type</TableHead>
-              <TableHead className="text-gray-400">Detected Account</TableHead>
-              <TableHead className="text-gray-400">Expires In</TableHead>
-              <TableHead className="text-gray-400 text-right">Actions</TableHead>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground font-mono">Device ID</TableHead>
+              <TableHead className="text-muted-foreground">Type</TableHead>
+              <TableHead className="text-muted-foreground">Detected Account</TableHead>
+              <TableHead className="text-muted-foreground font-mono">Expires In</TableHead>
+              <TableHead className="text-muted-foreground text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && !requests ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : !requests || requests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No pending pairing requests
                 </TableCell>
               </TableRow>
@@ -221,10 +221,10 @@ export function PairingRequestsTable({
                 return (
                   <TableRow
                     key={request.id}
-                    className={`border-gray-800 ${expired ? "opacity-50" : ""}`}
+                    className={`border-border ${expired ? "opacity-50" : ""}`}
                   >
-                    <TableCell className="font-mono text-white">
-                        <span title={request.install_instance_id}>
+                    <TableCell>
+                        <span className="font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10 text-foreground" title={request.install_instance_id}>
                           {truncateId(request.install_instance_id)}
                         </span>
                       </TableCell>
@@ -236,24 +236,24 @@ export function PairingRequestsTable({
                               ? "bg-orange-600 text-white"
                               : detectedType === "Amazon"
                               ? "bg-blue-600 text-white"
-                              : "bg-gray-700 text-gray-300"
+                              : "bg-muted text-muted-foreground"
                           }
                         >
                           {detectedType}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-gray-300">
+                      <TableCell className="text-muted-foreground">
                         {detectedAccount ? (
                           <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-gray-500" />
+                            <User className="w-4 h-4 text-muted-foreground" />
                             <span>{detectedAccount}</span>
                           </div>
                         ) : (
-                          <span className="text-gray-500 italic">Not detected</span>
+                          <span className="text-muted-foreground italic">Not detected</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className={expired ? "text-red-400" : "text-yellow-400"}>
+                        <span className={expired ? "text-red-400 font-mono" : "text-yellow-400 font-mono"}>
                           {getTimeRemaining(request.expires_at)}
                         </span>
                       </TableCell>
@@ -286,10 +286,10 @@ export function PairingRequestsTable({
 
       {/* Approval Dialog */}
       <Dialog open={!!approvingRequest} onOpenChange={(open) => !open && resetApprovalForm()}>
-        <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800">
+        <DialogContent className="sm:max-w-md bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">Approve Pairing Request</DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogTitle className="text-foreground">Approve Pairing Request</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Assign this extension to an account and role.
             </DialogDescription>
           </DialogHeader>
@@ -297,26 +297,26 @@ export function PairingRequestsTable({
           <div className="space-y-4">
             {/* Device ID display */}
             <div className="space-y-2">
-              <Label className="text-gray-300">Device ID</Label>
-              <p className="font-mono text-sm text-gray-400 bg-gray-800 p-2 rounded">
+              <Label className="text-foreground">Device ID</Label>
+              <p className="font-mono text-sm text-muted-foreground bg-muted p-2 rounded">
                 {approvingRequest && truncateId(approvingRequest.install_instance_id)}
               </p>
             </div>
 
             {/* Detected Account Info */}
             {approvingRequest && (approvingRequest.ebay_account_display || approvingRequest.amazon_account_display) && (
-              <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
-                <p className="text-xs text-gray-500 uppercase mb-2">Detected Account</p>
+              <div className="p-3 bg-muted rounded-lg border border-border">
+                <p className="text-xs text-muted-foreground uppercase mb-2">Detected Account</p>
                 {approvingRequest.ebay_account_display && (
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="secondary" className="bg-orange-600 text-white text-xs">eBay</Badge>
-                    <span className="text-white">{approvingRequest.ebay_account_display}</span>
+                    <span className="text-foreground">{approvingRequest.ebay_account_display}</span>
                   </div>
                 )}
                 {approvingRequest.amazon_account_display && (
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="bg-blue-600 text-white text-xs">Amazon</Badge>
-                    <span className="text-white">{approvingRequest.amazon_account_display}</span>
+                    <span className="text-foreground">{approvingRequest.amazon_account_display}</span>
                   </div>
                 )}
               </div>
@@ -326,14 +326,14 @@ export function PairingRequestsTable({
             {selectedRole === "AMAZON_AGENT" ? (
               // Amazon: Show eBay agent dropdown
               <div className="space-y-2">
-                <Label className="text-gray-300">eBay Agent</Label>
+                <Label className="text-foreground">eBay Agent</Label>
                 <Select value={selectedEbayAgentId} onValueChange={setSelectedEbayAgentId}>
-                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                  <SelectTrigger className="bg-muted border-border text-foreground">
                     <SelectValue placeholder="Select eBay agent..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
+                  <SelectContent className="bg-popover border-border">
                     {ebayAgents.length === 0 ? (
-                      <SelectItem value="none" disabled className="text-gray-400">
+                      <SelectItem value="none" disabled className="text-muted-foreground">
                         No eBay agents available
                       </SelectItem>
                     ) : (
@@ -341,7 +341,7 @@ export function PairingRequestsTable({
                         <SelectItem
                           key={agent.id}
                           value={agent.id}
-                          className="text-white focus:bg-gray-700"
+                          className="text-popover-foreground focus:bg-accent"
                         >
                           {agent.account_code}{agent.account_name ? ` - ${agent.account_name}` : ""}
                           {agent.label ? ` (${agent.label})` : ""}
@@ -356,7 +356,7 @@ export function PairingRequestsTable({
                   </p>
                 )}
                 {ebayAgents.length === 1 && selectedEbayAgentId && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Auto-selected (only one eBay agent available)
                   </p>
                 )}
@@ -364,17 +364,17 @@ export function PairingRequestsTable({
             ) : (
               // eBay: Show dropdown with "Create New" first, then existing accounts
               <div className="space-y-2">
-                <Label className="text-gray-300">Account</Label>
+                <Label className="text-foreground">Account</Label>
                 <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                  <SelectTrigger className="bg-muted border-border text-foreground">
                     <SelectValue placeholder="Select account..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
+                  <SelectContent className="bg-popover border-border">
                     {/* Create New Account option - only if eBay name detected */}
                     {approvingRequest?.ebay_account_display && (
                       <SelectItem
                         value={NEW_ACCOUNT_VALUE}
-                        className="text-white focus:bg-gray-700"
+                        className="text-popover-foreground focus:bg-accent"
                       >
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="bg-green-600 text-white text-xs">New</Badge>
@@ -387,21 +387,21 @@ export function PairingRequestsTable({
                       <SelectItem
                         key={account.id}
                         value={account.id}
-                        className="text-white focus:bg-gray-700"
+                        className="text-popover-foreground focus:bg-accent"
                       >
                         {account.account_code}{account.name ? ` - ${account.name}` : ""}
                       </SelectItem>
                     ))}
                     {/* No options message */}
                     {!approvingRequest?.ebay_account_display && accounts.length === 0 && (
-                      <SelectItem value="none" disabled className="text-gray-400">
+                      <SelectItem value="none" disabled className="text-muted-foreground">
                         No accounts available
                       </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
                 {selectedAccountId === NEW_ACCOUNT_VALUE && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     A new account will be created with sequential code when approved
                   </p>
                 )}
@@ -410,7 +410,7 @@ export function PairingRequestsTable({
 
             {/* Role selection */}
             <div className="space-y-2">
-              <Label className="text-gray-300">Role</Label>
+              <Label className="text-foreground">Role</Label>
               <Select
                 value={selectedRole}
                 onValueChange={(val) => {
@@ -432,17 +432,17 @@ export function PairingRequestsTable({
                   }
                 }}
               >
-                <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                <SelectTrigger className="bg-muted border-border text-foreground">
                   <SelectValue placeholder="Select role..." />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
+                <SelectContent className="bg-popover border-border">
                   {ROLE_OPTIONS.map((role) => {
                     const isDetected = approvingRequest?.detected_role === role.value;
                     return (
                       <SelectItem
                         key={role.value}
                         value={role.value}
-                        className="text-white focus:bg-gray-700"
+                        className="text-popover-foreground focus:bg-accent"
                       >
                         <div className="flex items-center gap-2">
                           {isDetected && (
@@ -473,12 +473,12 @@ export function PairingRequestsTable({
 
             {/* Label (optional) */}
             <div className="space-y-2">
-              <Label className="text-gray-300">Label (optional)</Label>
+              <Label className="text-foreground">Label (optional)</Label>
               <Input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="e.g., John's workstation"
-                className="bg-gray-800 border-gray-700 text-white"
+                className="bg-muted border-border text-foreground"
               />
             </div>
           </div>
@@ -487,7 +487,7 @@ export function PairingRequestsTable({
             <Button
               variant="outline"
               onClick={resetApprovalForm}
-              className="border-gray-700 text-gray-300"
+              className="border-border text-muted-foreground"
             >
               Cancel
             </Button>

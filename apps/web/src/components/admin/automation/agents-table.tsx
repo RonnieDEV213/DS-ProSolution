@@ -59,17 +59,17 @@ const ROLE_BADGES: Record<AgentRole, { label: string; className: string }> = {
 };
 
 const STATUS_BADGES: Record<AgentStatus, { label: string; className: string }> = {
-  active: { label: "Active", className: "bg-green-600 text-white" },
-  offline: { label: "Offline", className: "bg-gray-600 text-white" },
-  paused: { label: "Paused", className: "bg-yellow-600 text-white" },
-  revoked: { label: "Revoked", className: "bg-red-600 text-white" },
+  active: { label: "Active", className: "bg-primary/20 text-primary" },
+  offline: { label: "Offline", className: "bg-muted text-muted-foreground" },
+  paused: { label: "Paused", className: "bg-chart-4/20 text-chart-4" },
+  revoked: { label: "Revoked", className: "bg-destructive/20 text-destructive" },
 };
 
 const APPROVAL_BADGES: Record<ApprovalStatus, { label: string; className: string }> = {
-  pending: { label: "Pending", className: "bg-yellow-600 text-white" },
-  approved: { label: "Approved", className: "bg-green-600 text-white" },
-  rejected: { label: "Rejected", className: "bg-red-600 text-white" },
-  revoked: { label: "Revoked", className: "bg-red-600 text-white" },
+  pending: { label: "Pending", className: "bg-chart-4/20 text-chart-4" },
+  approved: { label: "Approved", className: "bg-primary/20 text-primary" },
+  rejected: { label: "Rejected", className: "bg-destructive/20 text-destructive" },
+  revoked: { label: "Revoked", className: "bg-destructive/20 text-destructive" },
   replacing: { label: "Replacing", className: "bg-purple-600 text-white" },
 };
 
@@ -208,13 +208,13 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
 
   return (
     <>
-      <div className="rounded-lg border border-gray-800 bg-gray-900">
+      <div className="rounded-lg border border-border bg-card">
         {loading && !agents ? (
-          <div className="text-center text-gray-500 py-8">Loading...</div>
+          <div className="text-center text-muted-foreground py-8">Loading...</div>
         ) : !agents || agents.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">No agents registered</div>
+          <div className="text-center text-muted-foreground py-8">No agents registered</div>
         ) : (
-          <div className="divide-y divide-gray-800">
+          <div className="divide-y divide-border">
             {groupedAgents.map((group) => {
               const key = group.accountCode || "unassigned";
               const isCollapsed = collapsedGroups.has(key);
@@ -224,20 +224,20 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                   {/* Group Header */}
                   <button
                     onClick={() => toggleGroup(group.accountCode)}
-                    className="w-full flex items-center gap-2 px-4 py-3 hover:bg-gray-800/50 transition-colors"
+                    className="w-full flex items-center gap-2 px-4 py-3 hover:bg-accent transition-colors"
                   >
                     {isCollapsed ? (
-                      <ChevronRight className="w-4 h-4 text-gray-500" />
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     )}
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-foreground">
                       {group.accountCode}
                       {group.accountName && (
-                        <span className="text-gray-400 font-normal ml-2">({group.accountName})</span>
+                        <span className="text-muted-foreground font-normal ml-2">({group.accountName})</span>
                       )}
                     </span>
-                    <Badge variant="secondary" className="bg-gray-700 text-gray-300 ml-2">
+                    <Badge variant="secondary" className="bg-muted text-muted-foreground ml-2">
                       {group.agents.length} agent{group.agents.length !== 1 ? "s" : ""}
                     </Badge>
                   </button>
@@ -246,13 +246,13 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                   {!isCollapsed && (
                     <Table>
                       <TableHeader>
-                        <TableRow className="border-gray-800 hover:bg-gray-900">
-                          <TableHead className="text-gray-400 pl-10">Label</TableHead>
-                          <TableHead className="text-gray-400">Role</TableHead>
-                          <TableHead className="text-gray-400">Account Key</TableHead>
-                          <TableHead className="text-gray-400">Status</TableHead>
-                          <TableHead className="text-gray-400">Last Seen</TableHead>
-                          <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="text-muted-foreground pl-10">Label</TableHead>
+                          <TableHead className="text-muted-foreground">Role</TableHead>
+                          <TableHead className="text-muted-foreground font-mono">Account Key</TableHead>
+                          <TableHead className="text-muted-foreground">Status</TableHead>
+                          <TableHead className="text-muted-foreground font-mono">Last Seen</TableHead>
+                          <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -263,16 +263,16 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                           const accountKey = agent.ebay_account_key || agent.amazon_account_key;
 
                           return (
-                            <TableRow key={agent.id} className="border-gray-800">
-                              <TableCell className="text-white pl-10">
+                            <TableRow key={agent.id} className="border-border">
+                              <TableCell className="text-foreground pl-10">
                                 <div>
                                   <p className="font-medium">
                                     {agent.label || (
-                                      <span className="text-gray-500 italic">No label</span>
+                                      <span className="text-muted-foreground italic">No label</span>
                                     )}
                                   </p>
                                   <p
-                                    className="text-xs text-gray-500 font-mono"
+                                    className="font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10 text-muted-foreground inline-block"
                                     title={agent.install_instance_id}
                                   >
                                     {truncateId(agent.install_instance_id)}
@@ -285,7 +285,7 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                                     {roleBadge.label}
                                   </Badge>
                                 ) : (
-                                  <Badge variant="secondary" className="bg-gray-700 text-gray-400">
+                                  <Badge variant="secondary" className="bg-muted text-muted-foreground">
                                     Unconfigured
                                   </Badge>
                                 )}
@@ -293,11 +293,11 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                               <TableCell>
                                 {accountKey ? (
                                   <div className="flex items-center gap-2">
-                                    <User className="w-3 h-3 text-gray-500" />
-                                    <span className="text-gray-300 font-mono text-xs">{accountKey}</span>
+                                    <User className="w-3 h-3 text-muted-foreground" />
+                                    <span className="font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10 text-foreground">{accountKey}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-gray-600 italic text-xs">—</span>
+                                  <span className="text-muted-foreground italic text-xs">&mdash;</span>
                                 )}
                               </TableCell>
                               <TableCell>
@@ -312,7 +312,7 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-gray-400">
+                              <TableCell className="text-muted-foreground font-mono text-sm">
                                 {formatDate(agent.last_seen_at)}
                               </TableCell>
                               <TableCell className="text-right">
@@ -321,18 +321,18 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                                     >
                                       <MoreVertical className="w-4 h-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent
                                     align="end"
-                                    className="bg-gray-800 border-gray-700"
+                                    className="bg-popover border-border"
                                   >
                                     <DropdownMenuItem
                                       onClick={() => handleEditClick(agent)}
-                                      className="text-gray-300 focus:bg-gray-700 focus:text-white cursor-pointer"
+                                      className="text-popover-foreground focus:bg-accent focus:text-accent-foreground cursor-pointer"
                                     >
                                       <Pencil className="w-4 h-4 mr-2" />
                                       Edit Label
@@ -340,14 +340,14 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                                     <DropdownMenuItem
                                       onClick={() => setRevokingAgent(agent)}
                                       disabled={agent.status === "revoked"}
-                                      className="text-yellow-400 focus:bg-gray-700 focus:text-yellow-300 cursor-pointer disabled:opacity-50"
+                                      className="text-yellow-400 focus:bg-accent focus:text-yellow-300 cursor-pointer disabled:opacity-50"
                                     >
                                       <RefreshCcw className="w-4 h-4 mr-2" />
                                       Revoke (Force Re-pair)
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => setDeletingAgent(agent)}
-                                      className="text-red-400 focus:bg-gray-700 focus:text-red-300 cursor-pointer"
+                                      className="text-red-400 focus:bg-accent focus:text-red-300 cursor-pointer"
                                     >
                                       <Trash2 className="w-4 h-4 mr-2" />
                                       Delete
@@ -370,24 +370,24 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
 
       {/* Edit Label Dialog */}
       <Dialog open={!!editingAgent} onOpenChange={(open) => !open && setEditingAgent(null)}>
-        <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800">
+        <DialogContent className="sm:max-w-md bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">Edit Agent Label</DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogTitle className="text-foreground">Edit Agent Label</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Update the display label for this agent.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-gray-300">Device ID</Label>
-              <p className="font-mono text-sm text-gray-400 bg-gray-800 p-2 rounded">
+              <Label className="text-foreground">Device ID</Label>
+              <p className="font-mono text-sm text-muted-foreground bg-muted p-2 rounded">
                 {editingAgent && truncateId(editingAgent.install_instance_id)}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="label" className="text-gray-300">
+              <Label htmlFor="label" className="text-foreground">
                 Label
               </Label>
               <Input
@@ -395,7 +395,7 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
                 placeholder="e.g., John's workstation"
-                className="bg-gray-800 border-gray-700 text-white"
+                className="bg-muted border-border text-foreground"
               />
             </div>
           </div>
@@ -404,7 +404,7 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
             <Button
               variant="outline"
               onClick={() => setEditingAgent(null)}
-              className="border-gray-700 text-gray-300"
+              className="border-border text-muted-foreground"
             >
               Cancel
             </Button>
@@ -421,21 +421,21 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
 
       {/* Revoke Confirmation Dialog */}
       <AlertDialog open={!!revokingAgent} onOpenChange={(open) => !open && setRevokingAgent(null)}>
-        <AlertDialogContent className="bg-gray-900 border-gray-800">
+        <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Revoke Agent</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
+            <AlertDialogTitle className="text-foreground">Revoke Agent</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
               This will invalidate the agent&apos;s authentication token. The extension will need to
               request pairing again to continue working.
               {revokingAgent && (
-                <span className="block mt-2 font-mono text-gray-300">
+                <span className="block mt-2 font-mono text-foreground">
                   {revokingAgent.label || truncateId(revokingAgent.install_instance_id)}
                 </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-gray-700 text-gray-300">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-border text-muted-foreground">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRevoke}
               disabled={saving}
@@ -449,20 +449,20 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingAgent} onOpenChange={(open) => !open && setDeletingAgent(null)}>
-        <AlertDialogContent className="bg-gray-900 border-gray-800">
+        <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Delete Agent</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
+            <AlertDialogTitle className="text-foreground">Delete Agent</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
               This will permanently delete this agent record. This action cannot be undone.
               {deletingAgent && (
-                <span className="block mt-2 font-mono text-gray-300">
+                <span className="block mt-2 font-mono text-foreground">
                   {deletingAgent.label || truncateId(deletingAgent.install_instance_id)}
                 </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-gray-700 text-gray-300">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-border text-muted-foreground">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={saving}
