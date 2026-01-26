@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog";
 import { SyncStatusIndicator } from "@/components/sync/sync-status-indicator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ThemePickerCompact } from "@/components/profile/theme-picker";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: "home" },
@@ -178,8 +180,33 @@ export function AdminSidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-800">
+      <div className="p-4 border-t border-gray-800 space-y-2">
         <SyncStatusIndicator />
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+                />
+              </svg>
+              Theme
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="right" align="end" className="w-48 p-2">
+            <ThemePickerCompact />
+          </PopoverContent>
+        </Popover>
         <button
           onClick={() => setProfileOpen(true)}
           className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"

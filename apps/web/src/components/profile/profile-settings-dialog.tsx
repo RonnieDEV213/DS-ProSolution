@@ -14,13 +14,14 @@ import {
 import { ProfileTab } from "./profile-tab";
 import { SecurityTab } from "./security-tab";
 import { ExtensionTab } from "./extension-tab";
+import { ThemePicker } from "./theme-picker";
 
 interface ProfileSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-type Tab = "profile" | "security" | "extension";
+type Tab = "profile" | "security" | "extension" | "theme";
 
 interface UserData {
   displayName: string | null;
@@ -142,6 +143,17 @@ export function ProfileSettingsDialog({
               >
                 Extension
               </button>
+              <button
+                onClick={() => setActiveTab("theme")}
+                className={cn(
+                  "w-full text-left px-3 py-2 rounded text-sm transition-colors",
+                  activeTab === "theme"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-300 hover:bg-gray-800"
+                )}
+              >
+                Theme
+              </button>
             </nav>
 
             {/* Sign Out button at bottom */}
@@ -171,7 +183,9 @@ export function ProfileSettingsDialog({
           {/* Main Content */}
           <div className="flex-1 flex flex-col">
             <div className="flex-1 overflow-y-auto p-6">
-              {loading ? (
+              {activeTab === "theme" ? (
+                <ThemePicker />
+              ) : loading ? (
                 <div className="space-y-4">
                   <div className="h-6 bg-gray-800 rounded w-1/3 animate-pulse" />
                   <div className="h-4 bg-gray-800 rounded w-2/3 animate-pulse" />
