@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { DatabaseProvider } from "@/components/providers/database-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { ThemedToaster } from "@/components/providers/themed-toaster";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,9 +34,10 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute={["class", "data-theme"]}
-          defaultTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
+          defaultTheme="system"
+          enableSystem={true}
+          themes={["system", "midnight", "dawn", "slate", "carbon"]}
+          disableTransitionOnChange={false}
         >
           <TooltipProvider>
             <DatabaseProvider>
@@ -44,7 +45,7 @@ export default function RootLayout({
                 {children}
               </QueryProvider>
             </DatabaseProvider>
-            <Toaster position="top-right" richColors duration={5000} closeButton />
+            <ThemedToaster />
           </TooltipProvider>
         </ThemeProvider>
       </body>
