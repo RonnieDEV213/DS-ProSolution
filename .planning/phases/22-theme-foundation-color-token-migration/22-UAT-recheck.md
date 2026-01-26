@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 22-theme-foundation-color-token-migration
 source: [22-01-SUMMARY.md, 22-02-SUMMARY.md, 22-03-SUMMARY.md]
 started: 2026-01-25T22:10:00Z
@@ -56,9 +56,14 @@ skipped: 0
   reason: "User reported: Dark theme CSS variables defined under .dark class selector but HTML has data-theme='dark' attribute only. .dark rules never activate. Dropdown renders white (#FFFFFF) background with dark text — light-theme defaults in effect. Component correctly uses bg-popover/border-border but dark variable overrides never apply due to selector mismatch."
   severity: major
   test: 1
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Turbopack (Next.js dev server) converts [data-theme='dark'] selector in globals.css to .dark class selector in dev CSS output. Production build preserves [data-theme=dark] correctly. HTML has data-theme='dark' attribute (from next-themes) but NOT class='dark', so dev CSS .dark{} block never matches. All CSS custom properties remain at light-mode :root values."
+  artifacts:
+    - path: "apps/web/.next/dev/static/chunks/src_app_globals_css_bad6b30c._.single.css"
+      issue: "Line 4570: .dark { --background:#0a0a0a... } — should be [data-theme=dark]"
+    - path: "apps/web/src/app/globals.css"
+      issue: "Line 120: [data-theme='dark'] is correct in source but Turbopack rewrites it"
+  missing:
+    - "Configure next-themes to ALSO add class='dark' alongside data-theme='dark' (dual-selector strategy)"
   debug_session: ""
 
 - truth: "Unselected filter chips have readable text against dark background"
@@ -66,7 +71,10 @@ skipped: 0
   reason: "User reported: text-foreground resolves to near-black (rgb(10,10,10)) light-mode value on near-black bg-gray-950 background — invisible text. Same .dark class vs data-theme attribute selector mismatch. Borders visible (border-border works as light gray)."
   severity: major
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Same as Test 1 — Turbopack rewrites [data-theme='dark'] to .dark in dev CSS. text-foreground resolves to light-mode --foreground value because .dark{} never activates."
+  artifacts:
+    - path: "apps/web/src/components/ui/badge.tsx"
+      issue: "text-foreground class resolves to light-mode value due to missing .dark activation"
+  missing:
+    - "Same fix as Test 1 — dual class+attribute strategy in ThemeProvider"
   debug_session: ""
