@@ -49,6 +49,11 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 23-03-PLAN.md -- Theme picker component with preview cards, ProfileSettingsDialog Theme tab, sidebar footer popover toggle
   - [x] 23-04-PLAN.md -- Human verification: all themes, transitions, picker UI, persistence, system detection
 - [ ] **Phase 24: Layout Component Consolidation** - Unified sidebar, breadcrumbs, page headers, spacing conventions
+  **Plans:** 4 plans
+  - [ ] 24-01-PLAN.md -- Install shadcn/ui sidebar + breadcrumb primitives, NavItem types, navigation configs, spacing constants
+  - [ ] 24-02-PLAN.md -- Create AppSidebar, BreadcrumbNav, and PageHeader layout components
+  - [ ] 24-03-PLAN.md -- Refactor Admin/VA/Client layouts to use unified components, delete old sidebar
+  - [ ] 24-04-PLAN.md -- Human verification: all dashboards, navigation, RBAC, keyboard shortcuts
 - [ ] **Phase 25: Component Color Migration** - All 30+ files migrated from hardcoded grays to semantic tokens
 - [ ] **Phase 26: Polish & Micro-interactions** - Transitions, skeletons, empty states, command palette, keyboard shortcuts
 
@@ -61,7 +66,7 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 15-21 | v3 | 23/23 | Complete | 2026-01-25 |
 | 22 | v4 | 4/4 | Complete | 2026-01-25 |
 | 23 | v4 | 4/4 | Complete | 2026-01-26 |
-| 24 | v4 | 0/TBD | Not started | - |
+| 24 | v4 | 0/4 | Not started | - |
 | 25 | v4 | 0/TBD | Not started | - |
 | 26 | v4 | 0/TBD | Not started | - |
 
@@ -69,4 +74,4 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-26 - Phase 23 complete (4 plans shipped)*
+*Last updated: 2026-01-26 - Phase 24 planned (4 plans created)*
