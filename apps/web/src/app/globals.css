@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:where([data-theme="dark"] *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="midnight"], [data-theme="slate"], [data-theme="carbon"]) *);
 
 @theme inline {
   --color-background: var(--background);
@@ -161,6 +161,186 @@
     --table-row-hover: oklch(0.22 0 0);
     --table-border: oklch(1 0 0 / 10%);
   }
+
+  [data-theme="midnight"] {
+    --background: oklch(0.12 0.015 250);
+    --foreground: oklch(0.97 0.005 250);
+    --card: oklch(0.16 0.018 250);
+    --card-foreground: oklch(0.97 0.005 250);
+    --popover: oklch(0.16 0.018 250);
+    --popover-foreground: oklch(0.97 0.005 250);
+    --primary: oklch(0.60 0.18 250);
+    --primary-foreground: oklch(0.98 0 0);
+    --secondary: oklch(0.22 0.02 250);
+    --secondary-foreground: oklch(0.97 0.005 250);
+    --muted: oklch(0.22 0.02 250);
+    --muted-foreground: oklch(0.65 0.02 250);
+    --accent: oklch(0.22 0.02 250);
+    --accent-foreground: oklch(0.97 0.005 250);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.60 0.18 250);
+    --chart-1: oklch(0.60 0.18 250);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
+    --sidebar: oklch(0.16 0.018 250);
+    --sidebar-foreground: oklch(0.97 0.005 250);
+    --sidebar-primary: oklch(0.60 0.18 250);
+    --sidebar-primary-foreground: oklch(0.98 0 0);
+    --sidebar-accent: oklch(0.22 0.02 250);
+    --sidebar-accent-foreground: oklch(0.97 0.005 250);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.60 0.18 250);
+
+    /* Application semantic tokens (midnight) */
+    --app-bg: oklch(0.12 0.015 250);
+    --app-sidebar: oklch(0.16 0.018 250);
+    --app-sidebar-hover: oklch(0.20 0.02 250);
+    --scrollbar-thumb: oklch(0.45 0.04 250);
+    --scrollbar-thumb-hover: oklch(0.55 0.06 250);
+    --scrollbar-track: oklch(0.18 0.018 250);
+    --table-header-bg: oklch(0.16 0.018 250);
+    --table-row-hover: oklch(0.20 0.02 250);
+    --table-border: oklch(1 0 0 / 10%);
+  }
+
+  [data-theme="dawn"] {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.488 0.243 264.376);
+    --primary-foreground: oklch(0.98 0 0);
+    --secondary: oklch(0.96 0.005 264);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.96 0.005 264);
+    --muted-foreground: oklch(0.50 0.02 264);
+    --accent: oklch(0.96 0.005 264);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.90 0.01 264);
+    --input: oklch(0.90 0.01 264);
+    --ring: oklch(0.488 0.243 264.376);
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.6 0.118 184.704);
+    --chart-3: oklch(0.398 0.07 227.392);
+    --chart-4: oklch(0.828 0.189 84.429);
+    --chart-5: oklch(0.769 0.188 70.08);
+    --sidebar: oklch(0.97 0.005 264);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.98 0 0);
+    --sidebar-accent: oklch(0.94 0.01 264);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.90 0.01 264);
+    --sidebar-ring: oklch(0.488 0.243 264.376);
+
+    /* Application semantic tokens (dawn) */
+    --app-bg: oklch(0.98 0.003 264);
+    --app-sidebar: oklch(0.96 0.005 264);
+    --app-sidebar-hover: oklch(0.93 0.008 264);
+    --scrollbar-thumb: oklch(0.70 0.02 264);
+    --scrollbar-thumb-hover: oklch(0.60 0.03 264);
+    --scrollbar-track: oklch(0.92 0.005 264);
+    --table-header-bg: oklch(0.95 0.005 264);
+    --table-row-hover: oklch(0.97 0.003 264);
+    --table-border: oklch(0.90 0.01 264);
+  }
+
+  [data-theme="slate"] {
+    --background: oklch(0.17 0.01 160);
+    --foreground: oklch(0.95 0.005 160);
+    --card: oklch(0.21 0.012 160);
+    --card-foreground: oklch(0.95 0.005 160);
+    --popover: oklch(0.21 0.012 160);
+    --popover-foreground: oklch(0.95 0.005 160);
+    --primary: oklch(0.65 0.15 175);
+    --primary-foreground: oklch(0.98 0 0);
+    --secondary: oklch(0.25 0.015 160);
+    --secondary-foreground: oklch(0.95 0.005 160);
+    --muted: oklch(0.25 0.015 160);
+    --muted-foreground: oklch(0.65 0.02 160);
+    --accent: oklch(0.25 0.015 160);
+    --accent-foreground: oklch(0.95 0.005 160);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 12%);
+    --ring: oklch(0.65 0.15 175);
+    --chart-1: oklch(0.65 0.15 175);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
+    --sidebar: oklch(0.21 0.012 160);
+    --sidebar-foreground: oklch(0.95 0.005 160);
+    --sidebar-primary: oklch(0.65 0.15 175);
+    --sidebar-primary-foreground: oklch(0.98 0 0);
+    --sidebar-accent: oklch(0.25 0.015 160);
+    --sidebar-accent-foreground: oklch(0.95 0.005 160);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.65 0.15 175);
+
+    /* Application semantic tokens (slate) */
+    --app-bg: oklch(0.17 0.01 160);
+    --app-sidebar: oklch(0.21 0.012 160);
+    --app-sidebar-hover: oklch(0.26 0.015 160);
+    --scrollbar-thumb: oklch(0.48 0.05 175);
+    --scrollbar-thumb-hover: oklch(0.58 0.07 175);
+    --scrollbar-track: oklch(0.23 0.012 160);
+    --table-header-bg: oklch(0.21 0.012 160);
+    --table-row-hover: oklch(0.25 0.015 160);
+    --table-border: oklch(1 0 0 / 10%);
+  }
+
+  [data-theme="carbon"] {
+    --background: oklch(0 0 0);
+    --foreground: oklch(0.97 0 0);
+    --card: oklch(0.09 0 0);
+    --card-foreground: oklch(0.97 0 0);
+    --popover: oklch(0.09 0 0);
+    --popover-foreground: oklch(0.97 0 0);
+    --primary: oklch(0.72 0.20 300);
+    --primary-foreground: oklch(0.98 0 0);
+    --secondary: oklch(0.14 0 0);
+    --secondary-foreground: oklch(0.97 0 0);
+    --muted: oklch(0.14 0 0);
+    --muted-foreground: oklch(0.60 0 0);
+    --accent: oklch(0.14 0 0);
+    --accent-foreground: oklch(0.97 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 8%);
+    --input: oklch(1 0 0 / 12%);
+    --ring: oklch(0.72 0.20 300);
+    --chart-1: oklch(0.72 0.20 300);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
+    --sidebar: oklch(0.09 0 0);
+    --sidebar-foreground: oklch(0.97 0 0);
+    --sidebar-primary: oklch(0.72 0.20 300);
+    --sidebar-primary-foreground: oklch(0.98 0 0);
+    --sidebar-accent: oklch(0.14 0 0);
+    --sidebar-accent-foreground: oklch(0.97 0 0);
+    --sidebar-border: oklch(1 0 0 / 8%);
+    --sidebar-ring: oklch(0.72 0.20 300);
+
+    /* Application semantic tokens (carbon) */
+    --app-bg: oklch(0 0 0);
+    --app-sidebar: oklch(0.09 0 0);
+    --app-sidebar-hover: oklch(0.14 0 0);
+    --scrollbar-thumb: oklch(0.45 0 0);
+    --scrollbar-thumb-hover: oklch(0.55 0 0);
+    --scrollbar-track: oklch(0.12 0 0);
+    --table-header-bg: oklch(0.09 0 0);
+    --table-row-hover: oklch(0.12 0 0);
+    --table-border: oklch(1 0 0 / 8%);
+  }
 }
 
 @layer base {
@@ -169,6 +349,17 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* SWITCH-05: Native form control accent theming */
+  :root {
+    accent-color: var(--primary);
+  }
+
+  /* SWITCH-03: Selection highlight matches theme accent */
+  ::selection {
+    background-color: oklch(from var(--primary) l c h / 40%);
+    color: var(--foreground);
   }
 }
 
@@ -257,5 +448,24 @@
   .scrollbar-auto-hide:hover::-webkit-scrollbar-track,
   .scrollbar-auto-hide:focus-within::-webkit-scrollbar-track {
     background: var(--scrollbar-track);
+  }
+}
+
+/* ============================================
+   View Transitions API: Smooth theme switching
+   SWITCH-02: 250ms cross-fade animation
+   ============================================ */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 250ms;
+  animation-timing-function: ease-in-out;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0ms;
   }
 }
