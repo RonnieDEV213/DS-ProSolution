@@ -88,7 +88,7 @@ export function RecentLogsSidebar({
       </button>
 
       {/* Log entries */}
-      <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+      <div className="flex-1 overflow-y-auto space-y-1 min-h-0 scrollbar-thin">
         {loading ? (
           <div className="text-gray-500 text-sm">Loading...</div>
         ) : logs.length === 0 ? (

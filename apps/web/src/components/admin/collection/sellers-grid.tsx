@@ -1509,7 +1509,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
               setContainerSize(size);
             }}
             style={{ width: '100%', height: '100%' }}
-            className="scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+            className="scrollbar-thin"
           />
         )}
 

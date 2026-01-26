@@ -327,7 +327,7 @@ export function ActivityFeed({ activities, maxEntries = 50 }: ActivityFeedProps)
   return (
     <div
       ref={containerRef}
-      className="space-y-2 max-h-[400px] overflow-y-auto pr-2"
+      className="space-y-2 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin"
     >
       <AnimatePresence mode="popLayout">
         {displayedActivities.map((entry) => (
