@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 24 of 26 (Layout Component Consolidation)
-Plan: 2 of estimated 3
-Status: In progress — core layout components complete (AppSidebar, BreadcrumbNav, PageHeader)
-Last activity: 2026-01-26 — Completed 24-02-PLAN.md
+Plan: 3 of estimated 4
+Status: In progress — all dashboard layouts refactored to use unified components
+Last activity: 2026-01-26 — Completed 24-03-PLAN.md
 
-Progress: [██████░░░░] 62% (v4 milestone, 10 of ~16 plans estimated)
+Progress: [██████░░░░] 63% (v4 milestone, 11 of ~16 plans estimated)
 
 ## Shipped Milestones
 
@@ -57,6 +57,8 @@ Phase 24 decisions:
 - Semantic color tokens replacing hardcoded gray-* classes for theme compatibility
 - Dynamic icon rendering: LucideIcons[iconName as keyof typeof LucideIcons] pattern
 - PageHeader is server-compatible (no "use client") for RSC and client component use
+- Made layouts "use client" components because SidebarProvider requires client context
+- Placed BreadcrumbNav inside main content area rather than in sidebar
 
 ### Pending Todos
 
@@ -70,7 +72,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26 14:13 UTC
-Stopped at: Completed 24-02-PLAN.md (Core Layout Components)
+Last session: 2026-01-26 09:19 UTC
+Stopped at: Completed 24-03-PLAN.md (Dashboard Layout Integration)
 Resume file: None
-Next action: Continue Phase 24 (next plan: dashboard layout integration)
+Next action: Continue Phase 24 (plan 24-04 if exists, or move to Phase 25)
