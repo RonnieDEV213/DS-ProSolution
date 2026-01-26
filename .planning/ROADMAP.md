@@ -36,10 +36,10 @@ See: .planning/milestones/v3-ROADMAP.md
 
 See: .planning/milestones/v4-ROADMAP.md for full phase details.
 
-- [ ] **Phase 22: Theme Foundation & Color Token Migration** - CSS variable token system, ThemeProvider, scrollbar theming, type scale
+- [x] **Phase 22: Theme Foundation & Color Token Migration** - CSS variable token system, ThemeProvider, scrollbar theming, type scale *(completed 2026-01-25)*
   **Plans:** 2 plans
-  - [ ] 22-01-PLAN.md -- CSS token system, dark theme selector migration, scrollbar styles, type scale
-  - [ ] 22-02-PLAN.md -- Install next-themes, create ThemeProvider, integrate into root layout
+  - [x] 22-01-PLAN.md -- CSS token system, dark theme selector migration, scrollbar styles, type scale
+  - [x] 22-02-PLAN.md -- Install next-themes, create ThemeProvider, integrate into root layout
 - [ ] **Phase 23: Theme Presets & Switching** - 4 preset themes, switcher UI, persistence, system preference detection
 - [ ] **Phase 24: Layout Component Consolidation** - Unified sidebar, breadcrumbs, page headers, spacing conventions
 - [ ] **Phase 25: Component Color Migration** - All 30+ files migrated from hardcoded grays to semantic tokens
@@ -52,7 +52,7 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 1-7   | v1 | 12/12 | Complete | 2026-01-20 |
 | 8-14  | v2 | 37/37 | Complete | 2026-01-23 |
 | 15-21 | v3 | 23/23 | Complete | 2026-01-25 |
-| 22 | v4 | 0/2 | Planned | - |
+| 22 | v4 | 2/2 | Complete | 2026-01-25 |
 | 23 | v4 | 0/TBD | Not started | - |
 | 24 | v4 | 0/TBD | Not started | - |
 | 25 | v4 | 0/TBD | Not started | - |
@@ -62,4 +62,4 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-25 - Phase 22 planned (2 plans, 2 waves)*
+*Last updated: 2026-01-25 - Phase 22 complete (2/2 plans)*
