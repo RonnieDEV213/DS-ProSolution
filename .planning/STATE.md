@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 25 of 26 (Component Color Migration)
-Plan: 6 of 7
-Status: In progress — profile, sync, VA, and all pages migrated
-Last activity: 2026-01-26 — Completed 25-06-PLAN.md
+Plan: 6 of 7 (5 complete: 01, 02, 03, 04, 06; remaining: 05, 07)
+Status: In progress — admin core, profile, sync, VA, and all pages migrated
+Last activity: 2026-01-26 — Completed 25-03-PLAN.md (backfill)
 
-Progress: [█████████░] 88% (v4 milestone, 15 of ~17 plans estimated)
+Progress: [█████████░] 88% (v4 milestone, 16 of ~18 plans estimated)
 
 ## Shipped Milestones
 
@@ -76,6 +76,9 @@ Phase 25 decisions:
 - Auth pages (login/page.tsx, login-form.tsx) retain fixed dark grays with exclusion comments
 - Suspended page title uses text-destructive for warning emphasis
 - Conflict resolution field names use font-mono for precise comparison
+- Tab navigation uses bg-primary/text-primary-foreground (not hardcoded blue-600)
+- Dialog sidebars use bg-muted/50 instead of bg-gray-950 for subtlety
+- Pagination/Cancel buttons use default outline variant without gray overrides
 
 ### Pending Todos
 
@@ -89,7 +92,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26 06:45 UTC
-Stopped at: Completed 25-06-PLAN.md (Profile, Sync, VA & Pages Migration)
+Last session: 2026-01-26 11:59 UTC
+Stopped at: Completed 25-03-PLAN.md (Admin Core Component Migration - backfill)
 Resume file: None
-Next action: Continue Phase 25 plan 25-07 (final verification sweep)
+Next action: Continue Phase 25 plan 25-05 or 25-07
