@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 
 ## Current Position
 
-Phase: 22 of 26 (Theme Foundation & Color Token Migration)
-Plan: 4 of 4 complete
-Status: Phase complete — Turbopack dark theme fix applied
-Last activity: 2026-01-25 — Completed 22-04-PLAN.md (Turbopack dual-selector fix)
+Phase: 23 of 26 (Theme Presets & Switching)
+Plan: 1 of 4 complete
+Status: In progress — Theme CSS presets and utilities foundation complete
+Last activity: 2026-01-26 — Completed 23-01-PLAN.md (Theme presets, metadata, view transitions)
 
-Progress: [██░░░░░░░░] 25% (v4 milestone, 4 of ~16 plans estimated)
+Progress: [██░░░░░░░░] 31% (v4 milestone, 5 of ~16 plans estimated)
 
 ## Shipped Milestones
 
@@ -52,7 +52,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-25
-Stopped at: Phase 22 complete — Turbopack dual-selector fix applied, pending re-verification
+Last session: 2026-01-26
+Stopped at: Completed 23-01-PLAN.md — Theme CSS presets and utilities foundation
 Resume file: None
-Next action: Plan Phase 23 (Theme Presets & Switching)
+Next action: Execute 23-02-PLAN.md (ThemeProvider configuration)
