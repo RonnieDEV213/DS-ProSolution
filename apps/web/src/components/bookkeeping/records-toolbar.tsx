@@ -79,7 +79,7 @@ export function RecordsToolbar({
           activeFilter={activeFilter}
           onFilterChange={onFilterChange}
         />
-        <div className="text-sm text-gray-400">{countLabel}</div>
+        <div className="text-sm text-muted-foreground">{countLabel}</div>
       </div>
 
       <div className="flex items-center gap-2">

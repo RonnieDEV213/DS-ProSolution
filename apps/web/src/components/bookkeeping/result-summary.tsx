@@ -21,8 +21,8 @@ export function ResultSummary({
   const end = Math.min(Math.max(visibleEnd, start), total);
 
   return (
-    <div className="text-sm text-gray-400">
-      Showing {formatNumber(start)}-{formatNumber(end)} of {formatNumber(total)}
+    <div className="text-sm text-muted-foreground">
+      Showing <span className="font-mono">{formatNumber(start)}</span>-<span className="font-mono">{formatNumber(end)}</span> of <span className="font-mono">{formatNumber(total)}</span>
       {isFiltered ? " (filtered)" : ""}
     </div>
   );

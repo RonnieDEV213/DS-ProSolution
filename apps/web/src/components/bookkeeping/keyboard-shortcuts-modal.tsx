@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import {
   Dialog,
   DialogContent,
@@ -29,10 +27,10 @@ export function KeyboardShortcutsModal({
 }: KeyboardShortcutsModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-white">
+      <DialogContent className="sm:max-w-md bg-card border-border text-card-foreground">
         <DialogHeader>
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
-          <DialogDescription className="text-gray-400">
+          <DialogDescription className="text-muted-foreground">
             Navigate the records list faster with these shortcuts.
           </DialogDescription>
         </DialogHeader>
@@ -44,18 +42,18 @@ export function KeyboardShortcutsModal({
                 {shortcut.keys.map((key) => (
                   <kbd
                     key={key}
-                    className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-200"
+                    className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground font-mono"
                   >
                     {key}
                   </kbd>
                 ))}
               </div>
-              <div className="text-gray-300">{shortcut.label}</div>
+              <div className="text-foreground/80">{shortcut.label}</div>
             </div>
           ))}
         </div>
 
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-muted-foreground/70">
           Press Escape or click outside to close.
         </div>
       </DialogContent>

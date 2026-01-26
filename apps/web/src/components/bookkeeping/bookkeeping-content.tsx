@@ -215,10 +215,10 @@ export function BookkeepingContent() {
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-white">Order Tracking</h1>
+          <h1 className="text-3xl font-bold text-foreground">Order Tracking</h1>
           {/* Background refetch indicator */}
           {recordsFetching && !recordsLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
         <AccountSelector
@@ -236,13 +236,13 @@ export function BookkeepingContent() {
       )}
 
       {!selectedAccountId ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg">Select an account to view records</p>
         </div>
       ) : (
         <>
           <div className="space-y-4" ref={listContainerRef}>
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-muted-foreground">
               {selectedAccount?.account_code} - {displayTotalCount} record
               {displayTotalCount !== 1 ? "s" : ""}
               {isFiltered ? " (filtered)" : ""}

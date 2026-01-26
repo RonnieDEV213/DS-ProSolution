@@ -36,7 +36,7 @@ export function AccountSelector({
           <SelectItem
             key={account.id}
             value={account.id}
-            className="hover:bg-gray-700"
+            className="hover:bg-accent"
           >
             {account.account_code}
             {account.name && ` - ${account.name}`}

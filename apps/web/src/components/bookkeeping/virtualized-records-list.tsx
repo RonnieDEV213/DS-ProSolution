@@ -358,7 +358,7 @@ export function VirtualizedRecordsList({
 
   if (isLoading) {
     return (
-      <div className="rounded-md border border-gray-800 overflow-hidden">
+      <div className="rounded-md border border-border overflow-hidden">
         {Array.from({ length: 10 }).map((_, index) => (
           <SkeletonRow
             key={index}
@@ -372,7 +372,7 @@ export function VirtualizedRecordsList({
 
   if (records.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-400">
+      <div className="text-center py-12 text-muted-foreground">
         No records found for this account.
       </div>
     );
@@ -394,22 +394,22 @@ export function VirtualizedRecordsList({
           <div
             ref={containerRef}
             tabIndex={0}
-            className="rounded-md border border-gray-800 overflow-x-auto focus:outline-none"
+            className="rounded-md border border-border overflow-x-auto focus:outline-none"
             aria-label="Records list"
             onFocus={() => setFocusedIndex((prev) => (prev < 0 ? 0 : prev))}
           >
-            <div className="flex items-center gap-2 border-b border-gray-800 bg-gray-900/60 text-gray-400 text-xs uppercase tracking-wide px-2 py-2 min-w-[1200px]">
+            <div className="flex items-center gap-2 border-b border-border bg-muted/60 text-muted-foreground text-xs uppercase tracking-wide px-2 py-2 min-w-[1200px]">
               <div className="w-10 shrink-0">
                 <span className="sr-only">Expand</span>
               </div>
-              <div className="w-24 shrink-0">Date</div>
-              <div className="w-36 shrink-0">eBay Order</div>
+              <div className="w-24 shrink-0 font-mono">Date</div>
+              <div className="w-36 shrink-0 font-mono">eBay Order</div>
               <div className="flex-1 min-w-[200px]">Item</div>
               <div className="w-12 shrink-0 text-center">Qty</div>
-              <div className="w-20 shrink-0 text-right">Earnings</div>
-              <div className="w-20 shrink-0 text-right">COGS</div>
-              <div className="w-20 shrink-0 text-right pr-4">Profit</div>
-              <div className="w-52 shrink-0">Amazon Order</div>
+              <div className="w-20 shrink-0 text-right font-mono">Earnings</div>
+              <div className="w-20 shrink-0 text-right font-mono">COGS</div>
+              <div className="w-20 shrink-0 text-right pr-4 font-mono">Profit</div>
+              <div className="w-52 shrink-0 font-mono">Amazon Order</div>
               <div className="w-40 shrink-0">Status</div>
               <div className="w-10 shrink-0 ml-auto">
                 <span className="sr-only">Actions</span>

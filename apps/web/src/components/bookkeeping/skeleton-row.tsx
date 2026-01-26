@@ -14,22 +14,22 @@ export function SkeletonRow({ style, density }: SkeletonRowProps) {
   return (
     <div
       style={style}
-      className={`flex items-center border-b border-gray-800 px-2 ${rowPadding}`}
+      className={`flex items-center border-b border-border px-2 ${rowPadding}`}
     >
       <div className="flex items-center gap-2 w-10 shrink-0">
-        <div className="h-3 w-3 rounded bg-gray-700 animate-pulse" />
-        <div className="h-3 w-3 rounded bg-gray-700 animate-pulse" />
+        <div className="h-3 w-3 rounded bg-muted animate-pulse" />
+        <div className="h-3 w-3 rounded bg-muted animate-pulse" />
       </div>
-      <div className="h-3 w-20 bg-gray-700 rounded animate-pulse" />
-      <div className="h-3 w-24 bg-gray-700 rounded animate-pulse ml-6" />
-      <div className="h-3 w-32 bg-gray-700 rounded animate-pulse ml-6" />
-      <div className="h-3 w-8 bg-gray-700 rounded animate-pulse ml-6" />
-      <div className="h-3 w-20 bg-gray-700 rounded animate-pulse ml-6" />
-      <div className="h-3 w-20 bg-gray-700 rounded animate-pulse ml-6" />
-      <div className="h-3 w-20 bg-gray-700 rounded animate-pulse ml-6" />
-      <div className="h-3 w-24 bg-gray-700 rounded animate-pulse ml-6" />
-      <div className="h-3 w-24 bg-gray-700 rounded animate-pulse ml-6" />
-      <div className="h-3 w-6 bg-gray-700 rounded animate-pulse ml-6" />
+      <div className="h-3 w-20 bg-muted rounded animate-pulse" />
+      <div className="h-3 w-24 bg-muted rounded animate-pulse ml-6" />
+      <div className="h-3 w-32 bg-muted rounded animate-pulse ml-6" />
+      <div className="h-3 w-8 bg-muted rounded animate-pulse ml-6" />
+      <div className="h-3 w-20 bg-muted rounded animate-pulse ml-6" />
+      <div className="h-3 w-20 bg-muted rounded animate-pulse ml-6" />
+      <div className="h-3 w-20 bg-muted rounded animate-pulse ml-6" />
+      <div className="h-3 w-24 bg-muted rounded animate-pulse ml-6" />
+      <div className="h-3 w-24 bg-muted rounded animate-pulse ml-6" />
+      <div className="h-3 w-6 bg-muted rounded animate-pulse ml-6" />
     </div>
   );
 }
