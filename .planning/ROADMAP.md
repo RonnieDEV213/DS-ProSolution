@@ -54,15 +54,15 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [ ] 24-02-PLAN.md -- Create AppSidebar, BreadcrumbNav, and PageHeader layout components
   - [ ] 24-03-PLAN.md -- Refactor Admin/VA/Client layouts to use unified components, delete old sidebar
   - [ ] 24-04-PLAN.md -- Human verification: all dashboards, navigation, RBAC, keyboard shortcuts
-- [ ] **Phase 25: Component Color Migration** - All 60+ files migrated from hardcoded grays to semantic tokens, monospace data formatting, theme verification
+- [x] **Phase 25: Component Color Migration** - All 60+ files migrated from hardcoded grays to semantic tokens, monospace data formatting, theme verification ✓ 2026-01-26
   **Plans:** 7 plans
-  - [ ] 25-01-PLAN.md -- Bookkeeping components: semantic token migration + monospace data formatting (11 files, ~152 occurrences)
-  - [ ] 25-02-PLAN.md -- Data management components + UI primitives migration (11 files, ~51 occurrences)
-  - [ ] 25-03-PLAN.md -- Admin core tables + dialogs migration (10 files, ~157 occurrences)
-  - [ ] 25-04-PLAN.md -- Admin automation + collection workers/sellers migration (8 files, ~178 occurrences)
-  - [ ] 25-05-PLAN.md -- Admin collection history, metrics, config, progress migration (14 files, ~177 occurrences)
-  - [ ] 25-06-PLAN.md -- Profile, sync, VA components + all page.tsx files migration (23 files, ~100 occurrences)
-  - [ ] 25-07-PLAN.md -- Automated audit + human verification across all 4 themes
+  - [x] 25-01-PLAN.md -- Bookkeeping components: semantic token migration + monospace data formatting (11 files, ~152 occurrences)
+  - [x] 25-02-PLAN.md -- Data management components + UI primitives migration (11 files, ~51 occurrences)
+  - [x] 25-03-PLAN.md -- Admin core tables + dialogs migration (10 files, ~157 occurrences)
+  - [x] 25-04-PLAN.md -- Admin automation + collection workers/sellers migration (8 files, ~178 occurrences)
+  - [x] 25-05-PLAN.md -- Admin collection history, metrics, config, progress migration (14 files, ~177 occurrences)
+  - [x] 25-06-PLAN.md -- Profile, sync, VA components + all page.tsx files migration (23 files, ~100 occurrences)
+  - [x] 25-07-PLAN.md -- Automated audit + human verification across all 4 themes
 - [ ] **Phase 26: Polish & Micro-interactions** - Transitions, skeletons, empty states, command palette, keyboard shortcuts
 
 ## Progress
@@ -75,11 +75,11 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 22 | v4 | 4/4 | Complete | 2026-01-25 |
 | 23 | v4 | 4/4 | Complete | 2026-01-26 |
 | 24 | v4 | 0/4 | Not started | - |
-| 25 | v4 | 0/7 | Not started | - |
+| 25 | v4 | 7/7 | Complete | 2026-01-26 |
 | 26 | v4 | 0/TBD | Not started | - |
 
-**Total:** 4 milestones, 26 phases, 80 plans (80 shipped)
+**Total:** 4 milestones, 26 phases, 87 plans (87 shipped)
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-26 - Phase 25 planned (7 plans created)*
+*Last updated: 2026-01-26 - Phase 25 complete (7/7 plans shipped)*

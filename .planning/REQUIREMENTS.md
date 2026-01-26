@@ -53,18 +53,18 @@
 
 - [x] **TYPE-01**: Documented type scale with CSS variables for consistent heading/body/caption sizes
 - [x] **TYPE-02**: Font weight conventions established (regular=body, medium=labels, semibold=headings)
-- [ ] **TYPE-03**: `font-mono` (Geist Mono) applied consistently to data values (order IDs, account numbers, monetary values)
-- [ ] **TYPE-04**: Text color hierarchy audited -- `text-foreground` for primary, `text-muted-foreground` for secondary
+- [x] **TYPE-03**: `font-mono` (Geist Mono) applied consistently to data values (order IDs, account numbers, monetary values)
+- [x] **TYPE-04**: Text color hierarchy audited -- `text-foreground` for primary, `text-muted-foreground` for secondary
 
 ### Color Migration
 
-- [ ] **MIGRATE-01**: All `src/app/**/page.tsx` files migrated from hardcoded grays to semantic tokens
-- [ ] **MIGRATE-02**: All `src/components/bookkeeping/*.tsx` migrated (~150 occurrences)
-- [ ] **MIGRATE-03**: All `src/components/admin/**/*.tsx` migrated (~300 occurrences)
-- [ ] **MIGRATE-04**: All `src/components/profile/*.tsx` migrated (~40 occurrences)
-- [ ] **MIGRATE-05**: All `src/components/data-management/*.tsx` migrated (~45 occurrences)
-- [ ] **MIGRATE-06**: All `src/components/auth/*.tsx`, `sync/*.tsx`, `va/*.tsx` migrated
-- [ ] **MIGRATE-07**: Visual parity verified in all 4 themes across all dashboards
+- [x] **MIGRATE-01**: All `src/app/**/page.tsx` files migrated from hardcoded grays to semantic tokens
+- [x] **MIGRATE-02**: All `src/components/bookkeeping/*.tsx` migrated (~150 occurrences)
+- [x] **MIGRATE-03**: All `src/components/admin/**/*.tsx` migrated (~300 occurrences)
+- [x] **MIGRATE-04**: All `src/components/profile/*.tsx` migrated (~40 occurrences)
+- [x] **MIGRATE-05**: All `src/components/data-management/*.tsx` migrated (~45 occurrences)
+- [x] **MIGRATE-06**: All `src/components/auth/*.tsx`, `sync/*.tsx`, `va/*.tsx` migrated
+- [x] **MIGRATE-07**: Visual parity verified in all 4 themes across all dashboards
 
 ### Polish & Micro-interactions
 
@@ -143,15 +143,15 @@
 | LAYOUT-06 | Phase 24 | Pending |
 | LAYOUT-07 | Phase 24 | Pending |
 | LAYOUT-08 | Phase 24 | Pending |
-| MIGRATE-01 | Phase 25 | Pending |
-| MIGRATE-02 | Phase 25 | Pending |
-| MIGRATE-03 | Phase 25 | Pending |
-| MIGRATE-04 | Phase 25 | Pending |
-| MIGRATE-05 | Phase 25 | Pending |
-| MIGRATE-06 | Phase 25 | Pending |
-| MIGRATE-07 | Phase 25 | Pending |
-| TYPE-03 | Phase 25 | Pending |
-| TYPE-04 | Phase 25 | Pending |
+| MIGRATE-01 | Phase 25 | Complete |
+| MIGRATE-02 | Phase 25 | Complete |
+| MIGRATE-03 | Phase 25 | Complete |
+| MIGRATE-04 | Phase 25 | Complete |
+| MIGRATE-05 | Phase 25 | Complete |
+| MIGRATE-06 | Phase 25 | Complete |
+| MIGRATE-07 | Phase 25 | Complete |
+| TYPE-03 | Phase 25 | Complete |
+| TYPE-04 | Phase 25 | Complete |
 | POLISH-01 | Phase 26 | Pending |
 | POLISH-02 | Phase 26 | Pending |
 | POLISH-03 | Phase 26 | Pending |
@@ -170,4 +170,4 @@
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after roadmap creation (phase assignments finalized)*
+*Last updated: 2026-01-26 — Phase 25 requirements (MIGRATE-01..07, TYPE-03, TYPE-04) marked Complete*
