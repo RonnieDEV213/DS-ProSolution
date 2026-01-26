@@ -169,17 +169,17 @@ const actionStyles: Record<ActivityEntry["action"], string> = {
   complete: "border-l-emerald-400",
   // Pipeline
   uploading: "border-l-purple-400",
-  deduped: "border-l-gray-400",
+  deduped: "border-l-muted-foreground",
   inserted: "border-l-green-400",
   updated: "border-l-blue-400",
   // SSE control
-  connected: "border-l-gray-400",
+  connected: "border-l-muted-foreground",
 };
 
 function ActivityCard({ entry }: { entry: ActivityEntry }) {
   const workerColor = entry.worker_id > 0
     ? workerColors[(entry.worker_id - 1) % workerColors.length]
-    : "bg-gray-500/20 text-gray-400 border-gray-500/30";
+    : "bg-muted text-muted-foreground border-border";
 
   const isPhaseComplete = entry.action === "complete";
 
@@ -190,9 +190,9 @@ function ActivityCard({ entry }: { entry: ActivityEntry }) {
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "p-3 rounded-lg bg-gray-800/50 border-l-4",
+        "p-3 rounded-lg bg-card/50 border-l-4",
         actionStyles[entry.action],
-        isPhaseComplete && "bg-gradient-to-r from-emerald-900/30 to-gray-800/50"
+        isPhaseComplete && "bg-gradient-to-r from-emerald-900/30 to-card/50"
       )}
     >
       {/* Header row: Worker badge + Phase + Timestamp */}
@@ -220,7 +220,7 @@ function ActivityCard({ entry }: { entry: ActivityEntry }) {
           {entry.phase === "amazon" ? "Amazon" : "eBay"}
         </Badge>
 
-        <span className="text-[10px] text-gray-500 ml-auto">
+        <span className="text-[10px] text-muted-foreground font-mono ml-auto">
           {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}
         </span>
       </div>
@@ -233,7 +233,7 @@ function ActivityCard({ entry }: { entry: ActivityEntry }) {
           entry.action === "rate_limited" ? "text-yellow-400" :
           entry.action === "found" ? "text-green-400" :
           entry.action === "complete" ? "text-emerald-400" :
-          "text-gray-400"
+          "text-muted-foreground"
         )}>
           {actionIcons[entry.action]}
         </div>
@@ -241,15 +241,15 @@ function ActivityCard({ entry }: { entry: ActivityEntry }) {
         <div className="flex-1 min-w-0">
           {/* Action text */}
           {entry.action === "fetching" && (
-            <div className="text-sm text-gray-300">
-              <span className="text-gray-400">Fetching </span>
+            <div className="text-sm text-foreground">
+              <span className="text-muted-foreground">Fetching </span>
               {entry.category && (
-                <span className="text-white font-medium">{entry.category}</span>
+                <span className="text-foreground font-medium">{entry.category}</span>
               )}
               {entry.product_name && (
                 <>
-                  <span className="text-gray-400"> - </span>
-                  <span className="text-gray-300 truncate">{entry.product_name}</span>
+                  <span className="text-muted-foreground"> - </span>
+                  <span className="text-foreground truncate">{entry.product_name}</span>
                 </>
               )}
             </div>
@@ -260,11 +260,11 @@ function ActivityCard({ entry }: { entry: ActivityEntry }) {
               <span className="text-green-400 font-medium">
                 +{entry.new_sellers_count || 0}
               </span>
-              <span className="text-gray-400">
+              <span className="text-muted-foreground">
                 {entry.phase === "amazon" ? " products" : " sellers"}
               </span>
               {entry.category && (
-                <span className="text-gray-500 text-xs ml-2">
+                <span className="text-muted-foreground text-xs ml-2">
                   in {entry.category}
                 </span>
               )}
@@ -318,7 +318,7 @@ export function ActivityFeed({ activities, maxEntries = 50 }: ActivityFeedProps)
 
   if (displayedActivities.length === 0) {
     return (
-      <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
+      <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
         Waiting for activity...
       </div>
     );

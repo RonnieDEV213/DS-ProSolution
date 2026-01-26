@@ -32,7 +32,7 @@ const pipelineIcons: Record<string, React.ReactNode> = {
 
 const pipelineColors: Record<string, string> = {
   uploading: "border-l-purple-400 bg-purple-900/20",
-  deduped: "border-l-gray-400 bg-gray-800/50",
+  deduped: "border-l-muted-foreground bg-card/50",
   inserted: "border-l-green-400 bg-green-900/20",
   updated: "border-l-blue-400 bg-blue-900/20",
 };
@@ -66,25 +66,25 @@ function PipelineCard({ entry }: { entry: ActivityEntry }) {
       transition={{ duration: 0.2 }}
       className={cn(
         "p-2 rounded border-l-4",
-        pipelineColors[entry.action] || "border-l-gray-400 bg-gray-800/50"
+        pipelineColors[entry.action] || "border-l-muted-foreground bg-card/50"
       )}
     >
       <div className="flex items-center gap-2">
-        <div className="text-gray-400">
+        <div className="text-muted-foreground">
           {pipelineIcons[entry.action] || <Database className="h-3.5 w-3.5" />}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-gray-200">
+          <div className="text-sm text-foreground">
             {formatPipelineMessage(entry)}
           </div>
           {entry.source_worker_id && entry.source_worker_id > 0 && (
-            <Badge className="text-[9px] mt-1 bg-gray-700/50 text-gray-400">
+            <Badge className="text-[9px] mt-1 bg-muted text-muted-foreground">
               <User className="h-2 w-2 mr-0.5" />
               W{entry.source_worker_id}
             </Badge>
           )}
         </div>
-        <div className="text-[10px] text-gray-500">
+        <div className="text-[10px] text-muted-foreground font-mono">
           {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}
         </div>
       </div>
@@ -111,7 +111,7 @@ export function PipelineFeed({ activities, maxEntries = 30 }: PipelineFeedProps)
 
   if (displayedActivities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[100px] text-gray-500 text-sm">
+      <div className="flex flex-col items-center justify-center h-full min-h-[100px] text-muted-foreground text-sm">
         <Database className="h-5 w-5 mb-2 opacity-50" />
         <span>Waiting for pipeline activity...</span>
       </div>

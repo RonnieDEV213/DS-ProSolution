@@ -156,11 +156,11 @@ export function HistoryPanel({
     <button
       key={`run-${entry.id}`}
       onClick={() => onCollectionRunClick(entry.id)}
-      className="w-full text-left px-3 py-2 rounded bg-gray-800 hover:bg-gray-700 transition-colors border-l-2 border-blue-500"
+      className="w-full text-left px-3 py-2 rounded bg-card hover:bg-accent transition-colors border-l-2 border-blue-500"
     >
       <div className="flex items-center gap-2">
         <Bot className="h-4 w-4 text-blue-400 flex-shrink-0" />
-        <span className="text-gray-300 text-sm truncate flex-1">
+        <span className="text-foreground text-sm truncate flex-1">
           {entry.name}
         </span>
         <Badge className={cn("text-xs", statusStyles[entry.status])}>
@@ -174,16 +174,16 @@ export function HistoryPanel({
               +{entry.sellers_new} sellers
             </span>
           )}
-          <span className="text-gray-500 text-xs">
+          <span className="text-muted-foreground text-xs font-mono">
             {entry.categories_count} categories
           </span>
           {entry.seller_count_snapshot !== undefined && (
-            <span className="text-gray-500 text-xs">
+            <span className="text-muted-foreground text-xs font-mono">
               ({entry.seller_count_snapshot} total)
             </span>
           )}
         </div>
-        <span className="text-gray-500 text-xs">
+        <span className="text-muted-foreground text-xs font-mono">
           {formatDistanceToNow(new Date(getEntryTime(entry)), { addSuffix: true })}
         </span>
       </div>
@@ -194,23 +194,23 @@ export function HistoryPanel({
     <button
       key={`edit-${entry.id}`}
       onClick={() => onManualEditClick(entry.id)}
-      className="w-full text-left px-3 py-2 rounded bg-gray-800 hover:bg-gray-700 transition-colors border-l-2 border-gray-600"
+      className="w-full text-left px-3 py-2 rounded bg-card hover:bg-accent transition-colors border-l-2 border-border"
     >
       <div className="flex items-center gap-2">
-        <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <div className="flex items-center gap-1.5">
           {actionIcons[entry.action]}
-          <span className="text-gray-300 text-sm truncate">
+          <span className="text-foreground text-sm truncate">
             {entry.affected_count > 1
               ? `${entry.affected_count} sellers`
               : entry.seller_name}
           </span>
         </div>
       </div>
-      <div className="flex items-center justify-between text-gray-500 text-xs mt-1">
-        <span>{formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}</span>
+      <div className="flex items-center justify-between text-muted-foreground text-xs mt-1">
+        <span className="font-mono">{formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}</span>
         {entry.seller_count_snapshot !== undefined && (
-          <span>{entry.seller_count_snapshot} sellers total</span>
+          <span className="font-mono">{entry.seller_count_snapshot} sellers total</span>
         )}
       </div>
     </button>
@@ -220,16 +220,16 @@ export function HistoryPanel({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <History className="h-4 w-4 text-gray-400" />
-        <h3 className="text-sm font-medium text-gray-300">History</h3>
+        <History className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-medium text-foreground">History</h3>
       </div>
 
       {/* History entries */}
       <div className="flex-1 overflow-y-auto space-y-2 min-h-0 scrollbar-thin">
         {loading ? (
-          <div className="text-gray-500 text-sm">Loading...</div>
+          <div className="text-muted-foreground text-sm">Loading...</div>
         ) : entries.length === 0 ? (
-          <div className="text-gray-500 text-sm">No activity yet</div>
+          <div className="text-muted-foreground text-sm">No activity yet</div>
         ) : (
           entries.map((entry) =>
             entry.type === "collection_run"
@@ -240,7 +240,7 @@ export function HistoryPanel({
       </div>
 
       {/* Start Run button */}
-      <div className="mt-3 pt-3 border-t border-gray-800">
+      <div className="mt-3 pt-3 border-t border-border">
         <Button
           onClick={onStartRunClick}
           disabled={hasActiveRun}

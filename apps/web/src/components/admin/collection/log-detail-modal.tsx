@@ -257,28 +257,28 @@ export function LogDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-gray-800 max-w-3xl h-[80vh] flex flex-col" hideCloseButton>
+      <DialogContent className="bg-background border-border max-w-3xl h-[80vh] flex flex-col" hideCloseButton>
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-white">
+          <DialogTitle className="text-foreground">
             History Entry
           </DialogTitle>
         </DialogHeader>
 
         {loading ? (
-          <div className="text-gray-400 p-4">Loading...</div>
+          <div className="text-muted-foreground p-4">Loading...</div>
         ) : (
           <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
             {/* Left: Changes panel */}
             <div className="flex flex-col min-h-0">
-              <h4 className="text-sm font-medium text-gray-300 mb-2 flex-shrink-0">
+              <h4 className="text-sm font-medium text-foreground mb-2 flex-shrink-0">
                 Changes
               </h4>
-              <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 p-2 min-h-0">
+              <div className="flex-1 overflow-y-auto bg-muted rounded border border-border p-2 min-h-0">
                 {changesLoading ? (
-                  <div className="text-gray-500 text-sm">Loading changes...</div>
+                  <div className="text-muted-foreground text-sm">Loading changes...</div>
                 ) : !hasChanges ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                    <FileQuestion className="h-12 w-12 mb-2 text-gray-600" />
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <FileQuestion className="h-12 w-12 mb-2 text-muted-foreground/60" />
                     <span className="text-sm">No changes in this entry</span>
                   </div>
                 ) : (
@@ -286,7 +286,7 @@ export function LogDetailModal({
                     {/* Added section - only if items exist */}
                     {changes.added.length > 0 && (
                       <div>
-                        <h4 className="text-sm font-medium text-gray-300 mb-2">
+                        <h4 className="text-sm font-medium text-foreground mb-2">
                           Added ({changes.added.length})
                         </h4>
                         <div className="space-y-1">
@@ -310,7 +310,7 @@ export function LogDetailModal({
                     {/* Removed section - only if items exist */}
                     {changes.removed.length > 0 && (
                       <div>
-                        <h4 className="text-sm font-medium text-gray-300 mb-2">
+                        <h4 className="text-sm font-medium text-foreground mb-2">
                           Removed ({changes.removed.length})
                         </h4>
                         <div className="space-y-1">
@@ -337,10 +337,10 @@ export function LogDetailModal({
 
             {/* Right: Full history */}
             <div className="flex flex-col min-h-0">
-              <h4 className="text-sm font-medium text-gray-300 mb-2 flex-shrink-0">
+              <h4 className="text-sm font-medium text-foreground mb-2 flex-shrink-0">
                 Full History
               </h4>
-              <div className="flex-1 overflow-y-auto bg-gray-800 rounded border border-gray-700 min-h-0">
+              <div className="flex-1 overflow-y-auto bg-muted rounded border border-border min-h-0">
                 {allEntries.map((entry) => {
                   if (entry.type === "manual_edit") {
                     // Manual edit entry
@@ -349,8 +349,8 @@ export function LogDetailModal({
                         key={`edit-${entry.id}`}
                         onClick={() => handleEntryClick(entry)}
                         className={cn(
-                          "w-full text-left px-3 py-2 border-b border-gray-700 last:border-0",
-                          "hover:bg-gray-700 transition-colors",
+                          "w-full text-left px-3 py-2 border-b border-border last:border-0",
+                          "hover:bg-accent transition-colors",
                           isViewing(entry) && "bg-blue-500/20 ring-1 ring-blue-500/50"
                         )}
                       >
@@ -361,13 +361,13 @@ export function LogDetailModal({
                             {entry.action === "remove" && <Minus className="h-3 w-3 mr-1" />}
                             {entry.action}
                           </Badge>
-                          <span className="text-gray-300 text-sm truncate flex-1">
+                          <span className="text-foreground text-sm truncate flex-1">
                             {entry.affected_count > 1
                               ? `${entry.affected_count} sellers`
                               : entry.seller_name}
                           </span>
                         </div>
-                        <div className="text-gray-500 text-xs mt-1">
+                        <div className="text-muted-foreground text-xs mt-1 font-mono">
                           {format(new Date(entry.created_at), "MMM d, yyyy h:mm a")}
                         </div>
                       </button>
@@ -379,14 +379,14 @@ export function LogDetailModal({
                         key={`run-${entry.id}`}
                         onClick={() => handleEntryClick(entry)}
                         className={cn(
-                          "w-full text-left px-3 py-2 border-b border-gray-700 last:border-0",
-                          "hover:bg-gray-700 transition-colors",
+                          "w-full text-left px-3 py-2 border-b border-border last:border-0",
+                          "hover:bg-accent transition-colors",
                           isViewing(entry) && "bg-blue-500/20 ring-1 ring-blue-500/50"
                         )}
                       >
                         <div className="flex items-center gap-2">
                           <Bot className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                          <span className="text-gray-300 text-sm truncate flex-1">
+                          <span className="text-foreground text-sm truncate flex-1">
                             {entry.name}
                           </span>
                           <Badge className={cn("text-xs", statusStyles[entry.status])}>
@@ -399,7 +399,7 @@ export function LogDetailModal({
                               +{entry.sellers_new}
                             </span>
                           )}
-                          <span className="text-gray-500 text-xs">
+                          <span className="text-muted-foreground text-xs font-mono">
                             {format(new Date(getEntryTime(entry)), "MMM d, yyyy h:mm a")}
                           </span>
                         </div>

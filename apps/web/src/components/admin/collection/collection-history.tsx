@@ -116,12 +116,12 @@ export function CollectionHistory({ refreshTrigger, onRerun }: CollectionHistory
   };
 
   if (loading) {
-    return <div className="text-gray-400 p-4">Loading history...</div>;
+    return <div className="text-muted-foreground p-4">Loading history...</div>;
   }
 
   if (history.length === 0) {
     return (
-      <div className="text-gray-500 text-center py-8">
+      <div className="text-muted-foreground text-center py-8">
         No collection runs yet. Start one to see history here.
       </div>
     );
@@ -130,29 +130,29 @@ export function CollectionHistory({ refreshTrigger, onRerun }: CollectionHistory
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-white">Collection History</h3>
-        <span className="text-sm text-gray-500">{total} total runs</span>
+        <h3 className="text-lg font-medium text-foreground">Collection History</h3>
+        <span className="text-sm text-muted-foreground">{total} total runs</span>
       </div>
 
-      <div className="border border-gray-800 rounded-lg overflow-hidden">
+      <div className="border border-border rounded-lg overflow-hidden">
         <Table>
-          <TableHeader className="bg-gray-800/50">
+          <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="text-gray-400">Run</TableHead>
-              <TableHead className="text-gray-400">Status</TableHead>
-              <TableHead className="text-gray-400">Date</TableHead>
-              <TableHead className="text-gray-400 text-right">Duration</TableHead>
-              <TableHead className="text-gray-400 text-right">Categories</TableHead>
-              <TableHead className="text-gray-400 text-right">Products</TableHead>
-              <TableHead className="text-gray-400 text-right">Sellers</TableHead>
-              <TableHead className="text-gray-400 text-right">New</TableHead>
-              <TableHead className="text-gray-400">Actions</TableHead>
+              <TableHead className="text-muted-foreground">Run</TableHead>
+              <TableHead className="text-muted-foreground">Status</TableHead>
+              <TableHead className="text-muted-foreground">Date</TableHead>
+              <TableHead className="text-muted-foreground text-right">Duration</TableHead>
+              <TableHead className="text-muted-foreground text-right">Categories</TableHead>
+              <TableHead className="text-muted-foreground text-right">Products</TableHead>
+              <TableHead className="text-muted-foreground text-right">Sellers</TableHead>
+              <TableHead className="text-muted-foreground text-right">New</TableHead>
+              <TableHead className="text-muted-foreground">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {history.map((entry) => (
-              <TableRow key={entry.id} className="hover:bg-gray-800/30">
-                <TableCell className="text-gray-200 font-medium truncate max-w-[150px]">
+              <TableRow key={entry.id} className="hover:bg-accent/30">
+                <TableCell className="text-foreground font-medium truncate max-w-[150px]">
                   {entry.name}
                 </TableCell>
                 <TableCell>
@@ -160,19 +160,19 @@ export function CollectionHistory({ refreshTrigger, onRerun }: CollectionHistory
                     {entry.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-gray-400 text-sm">
+                <TableCell className="text-muted-foreground text-sm font-mono">
                   {formatDate(entry.completed_at)}
                 </TableCell>
-                <TableCell className="text-gray-300 text-right">
+                <TableCell className="text-foreground text-right font-mono">
                   {formatDuration(entry.duration_seconds)}
                 </TableCell>
-                <TableCell className="text-gray-300 text-right">
+                <TableCell className="text-foreground text-right font-mono">
                   {entry.categories_count}
                 </TableCell>
-                <TableCell className="text-gray-300 text-right">
+                <TableCell className="text-foreground text-right font-mono">
                   {entry.products_searched}/{entry.products_total}
                 </TableCell>
-                <TableCell className="text-gray-300 text-right">
+                <TableCell className="text-foreground text-right font-mono">
                   {entry.sellers_found}
                 </TableCell>
                 <TableCell className="text-green-400 text-right font-medium">

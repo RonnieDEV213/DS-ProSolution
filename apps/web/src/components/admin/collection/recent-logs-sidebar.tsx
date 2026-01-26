@@ -83,33 +83,33 @@ export function RecentLogsSidebar({
         onClick={() => onHeaderClick(logs.length > 0 ? logs[0].id : null)}
         className="flex items-center gap-2 mb-3 hover:text-white transition-colors group"
       >
-        <History className="h-4 w-4 text-gray-400 group-hover:text-gray-300" />
-        <h3 className="text-sm font-medium text-gray-300 group-hover:text-white">Recent Activity</h3>
+        <History className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+        <h3 className="text-sm font-medium text-muted-foreground group-hover:text-foreground">Recent Activity</h3>
       </button>
 
       {/* Log entries */}
       <div className="flex-1 overflow-y-auto space-y-1 min-h-0 scrollbar-thin">
         {loading ? (
-          <div className="text-gray-500 text-sm">Loading...</div>
+          <div className="text-muted-foreground text-sm">Loading...</div>
         ) : logs.length === 0 ? (
-          <div className="text-gray-500 text-sm">No activity yet</div>
+          <div className="text-muted-foreground text-sm">No activity yet</div>
         ) : (
           logs.map((log) => (
             <button
               key={log.id}
               onClick={() => onLogClick(log.id)}
-              className="w-full text-left px-2 py-1.5 rounded bg-gray-800 hover:bg-gray-700 transition-colors"
+              className="w-full text-left px-2 py-1.5 rounded bg-card hover:bg-accent transition-colors"
             >
               <div className="flex items-center gap-2">
                 {actionIcons[log.action]}
-                <span className="text-gray-300 text-sm truncate flex-1">
+                <span className="text-foreground text-sm truncate flex-1">
                   {log.affected_count > 1
                     ? `${log.affected_count} sellers`
                     : log.seller_name}
                 </span>
                 {sourceIcons[log.source]}
               </div>
-              <div className="text-gray-500 text-xs mt-0.5">
+              <div className="text-muted-foreground text-xs mt-0.5 font-mono">
                 {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
               </div>
             </button>
@@ -118,7 +118,7 @@ export function RecentLogsSidebar({
       </div>
 
       {/* Start Run button */}
-      <div className="mt-3 pt-3 border-t border-gray-800">
+      <div className="mt-3 pt-3 border-t border-border">
         <Button
           onClick={onStartRunClick}
           disabled={hasActiveRun}
