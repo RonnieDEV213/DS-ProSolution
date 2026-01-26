@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 25 of 26 (Component Color Migration)
-Plan: 4 of 7
-Status: In progress — automation tables and collection components migrated
-Last activity: 2026-01-26 — Completed 25-04-PLAN.md
+Plan: 2 of 7 (also 01, 03, 04, 05, 06 complete)
+Status: In progress — UI primitives and data management migrated
+Last activity: 2026-01-26 — Completed 25-02-PLAN.md
 
-Progress: [███████░░░] 76% (v4 milestone, 13 of ~17 plans estimated)
+Progress: [████████░░] 82% (v4 milestone, 14 of ~17 plans estimated)
 
 ## Shipped Milestones
 
@@ -67,6 +67,10 @@ Phase 25 decisions:
 - SelectContent pattern: bg-popover border-border with hover:bg-accent on items
 - Status badge semantic mapping: active=bg-primary/20, offline=bg-muted, running=bg-chart-1/20, failed=bg-destructive/20, pending=bg-chart-4/20
 - Worker color arrays (blue/green/purple/orange/pink/cyan) preserved as intentional per-worker distinction, not theme-dependent
+- AlertDialog uses bg-card/border-border; Tooltip uses bg-popover/text-popover-foreground
+- Checkbox checked state uses bg-primary/border-primary/text-primary-foreground (follows theme accent)
+- Slider range/thumb uses bg-primary/border-primary (follows theme accent)
+- themes.ts "gray-green" description string preserved (not a CSS class)
 
 ### Pending Todos
 
@@ -80,7 +84,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26 11:54 UTC
-Stopped at: Completed 25-04-PLAN.md (Admin Automation & Collection Component Migration)
+Last session: 2026-01-26 11:38 UTC
+Stopped at: Completed 25-02-PLAN.md (Data Management & UI Primitives Color Migration)
 Resume file: None
-Next action: Continue Phase 25 plans 02-07 (remaining component directories)
+Next action: Continue Phase 25 plan 25-07 (remaining component directory)
