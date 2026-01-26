@@ -116,10 +116,10 @@ export function TransferOwnershipDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-white">
+      <DialogContent className="sm:max-w-md bg-card border-border text-foreground">
         <DialogHeader>
           <DialogTitle>Transfer Ownership</DialogTitle>
-          <DialogDescription className="text-gray-400">
+          <DialogDescription className="text-muted-foreground">
             Transfer organization ownership to another admin. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
@@ -137,12 +137,12 @@ export function TransferOwnershipDialog({
           <div className="space-y-2">
             <Label>New Owner</Label>
             {candidates.length === 0 ? (
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-muted-foreground">
                 No other admins available. Promote another user to admin first.
                 </p>
             ) : (
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
+                <SelectTrigger className="bg-muted border-input">
                   <SelectValue placeholder="Select new owner" />
                 </SelectTrigger>
                 <SelectContent>
@@ -163,7 +163,7 @@ export function TransferOwnershipDialog({
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="TRANSFER"
-              className="bg-gray-800 border-gray-700"
+              className="bg-muted border-input"
             />
           </div>
         </div>
@@ -172,7 +172,6 @@ export function TransferOwnershipDialog({
           <Button
             variant="outline"
             onClick={handleClose}
-            className="border-gray-700 text-gray-300 hover:bg-gray-800"
           >
             Cancel
           </Button>

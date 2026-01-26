@@ -405,12 +405,12 @@ export function DepartmentRoleDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent hideCloseButton className="sm:max-w-3xl p-0 bg-gray-900 border-gray-800 text-white overflow-hidden">
+        <DialogContent hideCloseButton className="sm:max-w-3xl p-0 bg-card border-border text-foreground overflow-hidden">
           <div className="flex h-[500px]">
             {/* Sidebar */}
-            <div className="w-52 border-r border-gray-800 flex flex-col bg-gray-950">
+            <div className="w-52 border-r border-border flex flex-col bg-muted/50">
               {/* Header */}
-              <DialogHeader className="p-4 border-b border-gray-800">
+              <DialogHeader className="p-4 border-b border-border">
                 <DialogTitle className="text-base">
                   {isEditing ? "Edit Profile" : "Create Profile"}
                 </DialogTitle>
@@ -426,8 +426,8 @@ export function DepartmentRoleDialog({
                   className={cn(
                     "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                     activeTab === "profile"
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-300 hover:bg-gray-800"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent"
                   )}
                 >
                   Profile
@@ -437,8 +437,8 @@ export function DepartmentRoleDialog({
                   className={cn(
                     "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                     activeTab === "permissions"
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-300 hover:bg-gray-800"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent"
                   )}
                 >
                   Permissions
@@ -448,8 +448,8 @@ export function DepartmentRoleDialog({
                   className={cn(
                     "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                     activeTab === "manage-vas"
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-300 hover:bg-gray-800"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent"
                   )}
                 >
                   Assigned VAs
@@ -458,7 +458,7 @@ export function DepartmentRoleDialog({
 
               {/* Delete Button (edit mode only) */}
               {isEditing && (
-                <div className="p-3 border-t border-gray-800">
+                <div className="p-3 border-t border-border">
                   <Button
                     variant="destructive"
                     size="sm"
@@ -483,10 +483,10 @@ export function DepartmentRoleDialog({
                       <Input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="bg-gray-800 border-gray-700"
+                        className="bg-muted border-input"
                         placeholder="Enter profile name"
                       />
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         The name used to identify this access profile.
                       </p>
                     </div>
@@ -497,10 +497,10 @@ export function DepartmentRoleDialog({
                       <Textarea
                         value={adminRemarks}
                         onChange={(e) => setAdminRemarks(e.target.value)}
-                        className="bg-gray-800 border-gray-700 min-h-[100px]"
+                        className="bg-muted border-input min-h-[100px]"
                         placeholder="Internal notes (only visible to admins)"
                       />
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Internal notes. Only visible to admins.
                       </p>
                     </div>
@@ -515,7 +515,7 @@ export function DepartmentRoleDialog({
                       placeholder="Search permissions..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-gray-800 border-gray-700"
+                      className="bg-muted border-input"
                     />
 
                     {/* Permission Groups Grid */}
@@ -529,7 +529,7 @@ export function DepartmentRoleDialog({
                         );
 
                         return (
-                          <div key={group} className="bg-gray-800 rounded-lg p-4">
+                          <div key={group} className="bg-muted rounded-lg p-4">
                             {/* Group Header with Toggle All */}
                             <div
                               className="flex items-center gap-2 cursor-pointer mb-3"
@@ -539,7 +539,7 @@ export function DepartmentRoleDialog({
                                 checked={allSelected}
                                 className={someSelected && !allSelected ? "opacity-50" : ""}
                               />
-                              <span className="font-medium text-sm text-white">{group}</span>
+                              <span className="font-medium text-sm text-foreground">{group}</span>
                             </div>
 
                             {/* Individual Permissions */}
@@ -551,7 +551,7 @@ export function DepartmentRoleDialog({
                                   onClick={() => handlePermissionToggle(perm.key)}
                                 >
                                   <Checkbox checked={selectedPermissions.has(perm.key)} />
-                                  <span className="text-base text-gray-300">{perm.label}</span>
+                                  <span className="text-base text-muted-foreground">{perm.label}</span>
                                 </div>
                               ))}
                             </div>
@@ -561,7 +561,7 @@ export function DepartmentRoleDialog({
                     </div>
 
                     {Object.keys(filteredPermissionGroups).length === 0 && (
-                      <p className="text-gray-500 text-center py-8">
+                      <p className="text-muted-foreground text-center py-8">
                         No permissions match your search.
                       </p>
                     )}
@@ -571,29 +571,29 @@ export function DepartmentRoleDialog({
                 {/* Manage VAs Tab */}
                 {activeTab === "manage-vas" && (
                   <div className="space-y-4">
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-muted-foreground">
                       Select VAs to assign this access profile.
                     </p>
 
                     {loadingVAs ? (
-                      <p className="text-gray-500">Loading VAs...</p>
+                      <p className="text-muted-foreground">Loading VAs...</p>
                     ) : allVAs.length === 0 ? (
-                      <p className="text-gray-500">No VAs found in the organization.</p>
+                      <p className="text-muted-foreground">No VAs found in the organization.</p>
                     ) : (
                       <div className="space-y-2">
                         {allVAs.map((va) => (
                           <div
                             key={va.membership.id}
-                            className="flex items-center gap-3 p-3 rounded bg-gray-800 cursor-pointer hover:bg-gray-750"
+                            className="flex items-center gap-3 p-3 rounded bg-muted cursor-pointer hover:bg-accent"
                             onClick={() => handleVAToggle(va.membership.id)}
                           >
                             <Checkbox checked={assignedVAIds.has(va.membership.id)} />
                             <div>
-                              <span className="text-sm font-medium text-white">
+                              <span className="text-sm font-medium text-foreground">
                                 {va.profile.display_name || va.profile.email}
                               </span>
                               {va.profile.display_name && (
-                                <p className="text-xs text-gray-400">{va.profile.email}</p>
+                                <p className="text-xs text-muted-foreground">{va.profile.email}</p>
                               )}
                             </div>
                           </div>
@@ -605,11 +605,10 @@ export function DepartmentRoleDialog({
               </div>
 
               {/* Footer */}
-              <div className="border-t border-gray-800 p-4 flex justify-end gap-2">
+              <div className="border-t border-border p-4 flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  className="border-gray-700 text-gray-300 hover:bg-gray-800"
                 >
                   Cancel
                 </Button>

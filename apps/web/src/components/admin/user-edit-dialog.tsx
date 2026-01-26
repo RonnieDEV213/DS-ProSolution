@@ -408,12 +408,12 @@ export function UserEditDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent hideCloseButton className="sm:max-w-3xl p-0 bg-gray-900 border-gray-800 text-white overflow-hidden">
+        <DialogContent hideCloseButton className="sm:max-w-3xl p-0 bg-card border-border text-foreground overflow-hidden">
           <div className="flex h-[500px]">
             {/* Sidebar */}
-            <div className="w-52 border-r border-gray-800 flex flex-col bg-gray-950">
+            <div className="w-52 border-r border-border flex flex-col bg-muted/50">
               {/* Header */}
-              <DialogHeader className="p-4 border-b border-gray-800">
+              <DialogHeader className="p-4 border-b border-border">
                 <div className="flex items-center gap-2">
                   <DialogTitle className="text-base">Edit User</DialogTitle>
                   {isSuspended && (
@@ -425,7 +425,7 @@ export function UserEditDialog({
                 </DialogDescription>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <p className="text-sm text-gray-400 truncate cursor-default">{user.profile.email}</p>
+                    <p className="text-sm text-muted-foreground truncate cursor-default">{user.profile.email}</p>
                   </TooltipTrigger>
                   <TooltipContent>{user.profile.email}</TooltipContent>
                 </Tooltip>
@@ -438,8 +438,8 @@ export function UserEditDialog({
                   className={cn(
                     "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                     activeTab === "profile"
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-300 hover:bg-gray-800"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent"
                   )}
                 >
                   Profile
@@ -450,8 +450,8 @@ export function UserEditDialog({
                     className={cn(
                       "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                       activeTab === "access-profiles"
-                        ? "bg-blue-600 text-white"
-                        : "text-gray-300 hover:bg-gray-800"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent"
                     )}
                   >
                     Access Profiles
@@ -461,7 +461,7 @@ export function UserEditDialog({
 
               {/* Suspend/Unsuspend Button */}
               {(canSuspend || canUnsuspend) && (
-                <div className="p-3 border-t border-gray-800">
+                <div className="p-3 border-t border-border">
                   {canSuspend && (
                     <Button
                       variant="destructive"
@@ -510,7 +510,7 @@ export function UserEditDialog({
                     <div className="space-y-2">
                       <Label>User Type</Label>
                       <Select value={role} onValueChange={setRole} disabled={isProtected}>
-                        <SelectTrigger className="bg-gray-800 border-gray-700">
+                        <SelectTrigger className="bg-muted border-input">
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
@@ -519,7 +519,7 @@ export function UserEditDialog({
                           <SelectItem value="client">Client</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Changing user type affects their permissions and access.
                       </p>
                     </div>
@@ -530,10 +530,10 @@ export function UserEditDialog({
                       <Textarea
                         value={adminRemarks}
                         onChange={(e) => setAdminRemarks(e.target.value)}
-                        className="bg-gray-800 border-gray-700 min-h-[100px]"
+                        className="bg-muted border-input min-h-[100px]"
                         placeholder="Internal notes (only visible to admins)"
                       />
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Internal notes. Only visible to admins.
                       </p>
                     </div>
@@ -543,13 +543,13 @@ export function UserEditDialog({
                 {/* Access Profiles Tab */}
                 {activeTab === "access-profiles" && (
                   <div className="space-y-4">
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-muted-foreground">
                       Assign access profiles to grant specific permissions.
                     </p>
                     {loadingDeptRoles ? (
-                      <p className="text-sm text-gray-500">Loading profiles...</p>
+                      <p className="text-sm text-muted-foreground">Loading profiles...</p>
                     ) : availableDeptRoles.length === 0 ? (
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-muted-foreground">
                         No access profiles available. Create profiles in the Access Profiles page.
                       </p>
                     ) : (
@@ -557,14 +557,14 @@ export function UserEditDialog({
                         {availableDeptRoles.map((deptRole) => (
                           <div
                             key={deptRole.id}
-                            className="flex items-center gap-3 p-3 rounded bg-gray-800 cursor-pointer hover:bg-gray-750"
+                            className="flex items-center gap-3 p-3 rounded bg-muted cursor-pointer hover:bg-accent"
                             onClick={() => handleDeptRoleToggle(deptRole.id)}
                           >
                             <Checkbox checked={assignedDeptRoleIds.has(deptRole.id)} />
                             <div className="flex-1">
                               <span className="text-sm font-medium">{deptRole.name}</span>
                               {deptRole.permissions.length > 0 && (
-                                <p className="text-xs text-gray-400">
+                                <p className="text-xs text-muted-foreground">
                                   {deptRole.permissions.length} permission{deptRole.permissions.length !== 1 ? "s" : ""}
                                 </p>
                               )}
@@ -578,11 +578,10 @@ export function UserEditDialog({
               </div>
 
               {/* Footer */}
-              <div className="border-t border-gray-800 p-4 flex justify-end gap-2">
+              <div className="border-t border-border p-4 flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  className="border-gray-700 text-gray-300 hover:bg-gray-800"
                 >
                   Cancel
                 </Button>

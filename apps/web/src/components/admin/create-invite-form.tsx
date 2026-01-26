@@ -84,9 +84,9 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-gray-900 p-6 rounded-lg border border-gray-800 space-y-4"
+      className="bg-card p-6 rounded-lg border border-border space-y-4"
     >
-      <h2 className="text-lg font-semibold text-white">Create New Invite</h2>
+      <h2 className="text-lg font-semibold text-foreground">Create New Invite</h2>
 
       {error && (
         <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded text-sm">
@@ -102,7 +102,7 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <Label htmlFor="email" className="text-gray-300">
+          <Label htmlFor="email" className="text-muted-foreground">
             Email
           </Label>
           <Input
@@ -117,7 +117,7 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
         </div>
 
         <div>
-          <Label htmlFor="userType" className="text-gray-300">
+          <Label htmlFor="userType" className="text-muted-foreground">
             User Type
           </Label>
           <Select
@@ -136,7 +136,7 @@ export function CreateInviteForm({ onInviteCreated }: CreateInviteFormProps) {
         </div>
 
         <div>
-          <Label htmlFor="expiresIn" className="text-gray-300">
+          <Label htmlFor="expiresIn" className="text-muted-foreground">
             Expires In
           </Label>
           <Select

@@ -100,7 +100,7 @@ export function InviteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-white">
+      <DialogContent className="sm:max-w-md bg-card border-border text-foreground">
         <DialogHeader>
           <DialogTitle>Create Invite</DialogTitle>
           <DialogDescription className="sr-only">
@@ -110,7 +110,7 @@ export function InviteDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-gray-300">
+            <Label htmlFor="email" className="text-muted-foreground">
               Email
             </Label>
             <Input
@@ -120,19 +120,19 @@ export function InviteDialog({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"
               required
-              className="bg-gray-800 border-gray-700"
+              className="bg-muted border-input"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="userType" className="text-gray-300">
+            <Label htmlFor="userType" className="text-muted-foreground">
               User Type
             </Label>
             <Select
               value={userType}
               onValueChange={(v) => setUserType(v as UserType)}
             >
-              <SelectTrigger className="bg-gray-800 border-gray-700">
+              <SelectTrigger className="bg-muted border-input">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -144,14 +144,14 @@ export function InviteDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="expiresIn" className="text-gray-300">
+            <Label htmlFor="expiresIn" className="text-muted-foreground">
               Expires In
             </Label>
             <Select
               value={expiresIn?.toString() ?? ""}
               onValueChange={(v) => setExpiresIn(Number(v))}
             >
-              <SelectTrigger className="bg-gray-800 border-gray-700">
+              <SelectTrigger className="bg-muted border-input">
                 <SelectValue placeholder="Select duration" />
               </SelectTrigger>
               <SelectContent>
@@ -169,7 +169,6 @@ export function InviteDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="border-gray-700 text-gray-300 hover:bg-gray-800"
             >
               Cancel
             </Button>

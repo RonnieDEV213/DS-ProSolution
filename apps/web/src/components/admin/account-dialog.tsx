@@ -426,12 +426,12 @@ export function AccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent hideCloseButton className="sm:max-w-3xl bg-gray-900 border-gray-800 text-white p-0">
+      <DialogContent hideCloseButton className="sm:max-w-3xl bg-card border-border text-foreground p-0">
         <div className="flex h-[500px]">
           {/* Sidebar */}
-          <div className="w-52 border-r border-gray-800 flex flex-col">
+          <div className="w-52 border-r border-border flex flex-col">
             {/* Header */}
-            <DialogHeader className="p-4 border-b border-gray-800">
+            <DialogHeader className="p-4 border-b border-border">
               <DialogTitle>{isEditing ? "Edit Account" : "Create Account"}</DialogTitle>
               <DialogDescription className="sr-only">
                 Form to create or edit an account
@@ -445,8 +445,8 @@ export function AccountDialog({
                 className={cn(
                   "w-full text-left px-3 py-2 rounded text-sm",
                   activeTab === "profile"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent"
                 )}
               >
                 Profile
@@ -456,8 +456,8 @@ export function AccountDialog({
                 className={cn(
                   "w-full text-left px-3 py-2 rounded text-sm",
                   activeTab === "manage-vas"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent"
                 )}
               >
                 Manage VAs
@@ -466,7 +466,7 @@ export function AccountDialog({
 
             {/* Delete Button (edit mode only) */}
             {isEditing && (
-              <div className="p-4 border-t border-gray-800">
+              <div className="p-4 border-t border-border">
                 <Button
                   variant="destructive"
                   className="w-full"
@@ -494,10 +494,10 @@ export function AccountDialog({
                       onChange={(e) => setAccountCode(e.target.value)}
                       disabled={isEditing}
                       placeholder="e.g., ACCT001"
-                      className="bg-gray-800 border-gray-700 font-mono"
+                      className="bg-muted border-input font-mono"
                     />
                     {isEditing && (
-                      <p className="text-xs text-gray-500">Account code cannot be changed after creation.</p>
+                      <p className="text-xs text-muted-foreground">Account code cannot be changed after creation.</p>
                     )}
                   </div>
 
@@ -508,7 +508,7 @@ export function AccountDialog({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g., Main Store"
-                      className="bg-gray-800 border-gray-700"
+                      className="bg-muted border-input"
                     />
                   </div>
 
@@ -519,7 +519,7 @@ export function AccountDialog({
                       value={clientUserId || "none"}
                       onValueChange={(v) => setClientUserId(v === "none" ? null : v)}
                     >
-                      <SelectTrigger className="bg-gray-800 border-gray-700">
+                      <SelectTrigger className="bg-muted border-input">
                         <SelectValue placeholder="Select a client..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -532,7 +532,7 @@ export function AccountDialog({
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       The client owner can view this account and its orders.
                     </p>
                   </div>
@@ -543,10 +543,10 @@ export function AccountDialog({
                     <Textarea
                       value={adminRemarks}
                       onChange={(e) => setAdminRemarks(e.target.value)}
-                      className="bg-gray-800 border-gray-700 min-h-[100px]"
+                      className="bg-muted border-input min-h-[100px]"
                       placeholder="Internal notes (only visible to admins)"
                     />
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Internal notes. Only visible to admins.
                     </p>
                   </div>
@@ -564,12 +564,12 @@ export function AccountDialog({
                         value={selectedUserId || ""}
                         onValueChange={(v) => setSelectedUserId(v || null)}
                       >
-                        <SelectTrigger className="bg-gray-800 border-gray-700 flex-1">
+                        <SelectTrigger className="bg-muted border-input flex-1">
                           <SelectValue placeholder="Select a VA..." />
                         </SelectTrigger>
                         <SelectContent>
                           {availableVAs.length === 0 ? (
-                            <div className="py-2 px-2 text-sm text-gray-500">
+                            <div className="py-2 px-2 text-sm text-muted-foreground">
                               No VAs available
                             </div>
                           ) : (
@@ -605,9 +605,9 @@ export function AccountDialog({
                     {isEditing ? (
                       // Edit mode - show fetched assignments
                       loadingAssignments ? (
-                        <p className="text-sm text-gray-500">Loading...</p>
+                        <p className="text-sm text-muted-foreground">Loading...</p>
                       ) : assignments.length === 0 ? (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           No VAs assigned to this account yet.
                         </p>
                       ) : (
@@ -615,9 +615,9 @@ export function AccountDialog({
                           {assignments.map((assignment) => (
                             <div
                               key={assignment.user_id}
-                              className="flex items-center justify-between p-3 rounded bg-gray-800"
+                              className="flex items-center justify-between p-3 rounded bg-muted"
                             >
-                              <span className="text-sm text-white">
+                              <span className="text-sm text-foreground">
                                 {getUserDisplay(assignment.user_id)}
                               </span>
                               <Button
@@ -638,7 +638,7 @@ export function AccountDialog({
                     ) : (
                       // Create mode - show pending VAs
                       pendingVAIds.size === 0 ? (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           No VAs selected. Add VAs above to assign them when the account is created.
                         </p>
                       ) : (
@@ -646,9 +646,9 @@ export function AccountDialog({
                           {[...pendingVAIds].map((userId) => (
                             <div
                               key={userId}
-                              className="flex items-center justify-between p-3 rounded bg-gray-800"
+                              className="flex items-center justify-between p-3 rounded bg-muted"
                             >
-                              <span className="text-sm text-white">
+                              <span className="text-sm text-foreground">
                                 {getUserDisplay(userId)}
                               </span>
                               <Button
@@ -676,11 +676,10 @@ export function AccountDialog({
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-800 flex justify-end gap-2">
+            <div className="p-4 border-t border-border flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="border-gray-700 text-gray-300 hover:bg-gray-800"
               >
                 Cancel
               </Button>
