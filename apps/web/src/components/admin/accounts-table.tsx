@@ -217,7 +217,7 @@ export function AccountsTable({
   // Show loading state while determining role
   if (roleLoading) {
     return (
-      <div className="text-center text-gray-500 py-8">
+      <div className="text-center text-muted-foreground py-8">
         Loading...
       </div>
     );
@@ -226,7 +226,7 @@ export function AccountsTable({
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-foreground">
           {isViewOnly ? "My Accounts" : "Accounts"}
         </h2>
         {!isViewOnly && (
@@ -236,18 +236,18 @@ export function AccountsTable({
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-800 bg-gray-900">
+      <div className="rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
-            <TableRow className="border-gray-800 hover:bg-gray-900">
-              <TableHead className="text-gray-400">Account Code</TableHead>
-              <TableHead className="text-gray-400">Name</TableHead>
-              <TableHead className="text-gray-400">Status</TableHead>
+            <TableRow className="border-border hover:bg-muted/50">
+              <TableHead className="text-muted-foreground font-mono">Account Code</TableHead>
+              <TableHead className="text-muted-foreground">Name</TableHead>
+              <TableHead className="text-muted-foreground">Status</TableHead>
               {!isViewOnly && (
                 <>
-                  <TableHead className="text-gray-400">VAs Assigned</TableHead>
-                  <TableHead className="text-gray-400">Created</TableHead>
-                  <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                  <TableHead className="text-muted-foreground">VAs Assigned</TableHead>
+                  <TableHead className="text-muted-foreground font-mono">Created</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                 </>
               )}
             </TableRow>
@@ -255,13 +255,13 @@ export function AccountsTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={isViewOnly ? 3 : 6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={isViewOnly ? 3 : 6} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isViewOnly ? 3 : 6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={isViewOnly ? 3 : 6} className="text-center text-muted-foreground py-8">
                   {isViewOnly
                     ? "No accounts assigned to you. Contact an administrator."
                     : "No accounts found. Create one to get started."}
@@ -274,12 +274,12 @@ export function AccountsTable({
                 const isCurrentUser = presenceEntry?.user_id === userId;
 
                 return (
-                  <TableRow key={account.id} className="border-gray-800">
-                    <TableCell className="text-white font-medium font-mono">
+                  <TableRow key={account.id} className="border-border">
+                    <TableCell className="text-foreground font-medium font-mono text-sm">
                       {account.account_code}
                     </TableCell>
-                    <TableCell className="text-gray-300">
-                      {account.name || <span className="text-gray-500">-</span>}
+                    <TableCell className="text-muted-foreground">
+                      {account.name || <span className="text-muted-foreground/50">-</span>}
                     </TableCell>
                     <TableCell>
                       <OccupancyBadge
@@ -297,14 +297,14 @@ export function AccountsTable({
                             variant="secondary"
                             className={
                               account.assignment_count > 0
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-700 text-gray-400"
+                                ? "bg-primary/20 text-primary"
+                                : "bg-muted text-muted-foreground"
                             }
                           >
                             {account.assignment_count}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-gray-400">
+                        <TableCell className="text-muted-foreground font-mono text-sm">
                           {formatDate(account.created_at)}
                         </TableCell>
                         <TableCell className="text-right">
@@ -312,7 +312,7 @@ export function AccountsTable({
                             variant="ghost"
                             size="sm"
                             onClick={() => setEditingAccount(account)}
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -341,8 +341,8 @@ export function AccountsTable({
 
         {/* Pagination - only for admin mode with multiple pages */}
         {!isViewOnly && totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
-            <div className="text-sm text-gray-400">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <div className="text-sm text-muted-foreground">
               Showing {(page - 1) * pageSize + 1} to{" "}
               {Math.min(page * pageSize, total)} of {total} accounts
             </div>
@@ -352,7 +352,6 @@ export function AccountsTable({
                 size="sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="border-gray-700 text-gray-300 hover:bg-gray-800"
               >
                 Previous
               </Button>
@@ -361,7 +360,6 @@ export function AccountsTable({
                 size="sm"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="border-gray-700 text-gray-300 hover:bg-gray-800"
               >
                 Next
               </Button>

@@ -129,37 +129,37 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
 
   if (loading) {
     return (
-      <div className="bg-gray-900 rounded-lg border border-gray-800 p-8">
-        <p className="text-gray-400 text-center">Loading invites...</p>
+      <div className="bg-card rounded-lg border border-border p-8">
+        <p className="text-muted-foreground text-center">Loading invites...</p>
       </div>
     );
   }
 
   if (invites.length === 0) {
     return (
-      <div className="bg-gray-900 rounded-lg border border-gray-800 p-8">
-        <p className="text-gray-400 text-center">No invites yet</p>
+      <div className="bg-card rounded-lg border border-border p-8">
+        <p className="text-muted-foreground text-center">No invites yet</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
       <Table aria-label="Pending and past invitations">
         <TableHeader>
-          <TableRow className="border-gray-800 hover:bg-gray-900">
-            <TableHead className="text-gray-400">Email</TableHead>
-            <TableHead className="text-gray-400">User Type</TableHead>
-            <TableHead className="text-gray-400">Status</TableHead>
-            <TableHead className="text-gray-400">Created</TableHead>
-            <TableHead className="text-gray-400">Used</TableHead>
-            <TableHead className="text-gray-400">Actions</TableHead>
+          <TableRow className="border-border hover:bg-muted/50">
+            <TableHead className="text-muted-foreground font-mono">Email</TableHead>
+            <TableHead className="text-muted-foreground">User Type</TableHead>
+            <TableHead className="text-muted-foreground">Status</TableHead>
+            <TableHead className="text-muted-foreground font-mono">Created</TableHead>
+            <TableHead className="text-muted-foreground font-mono">Used</TableHead>
+            <TableHead className="text-muted-foreground">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {invites.map((invite) => (
-            <TableRow key={invite.id} className="border-gray-800">
-              <TableCell className="text-white font-medium">
+            <TableRow key={invite.id} className="border-border">
+              <TableCell className="text-foreground font-medium font-mono text-sm">
                 {invite.email}
               </TableCell>
               <TableCell>
@@ -168,10 +168,10 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
                 </Badge>
               </TableCell>
               <TableCell>{getStatusBadge(invite)}</TableCell>
-              <TableCell className="text-gray-400">
+              <TableCell className="text-muted-foreground font-mono text-sm">
                 {formatDate(invite.created_at)}
               </TableCell>
-              <TableCell className="text-gray-400">
+              <TableCell className="text-muted-foreground font-mono text-sm">
                 {formatDate(invite.used_at)}
               </TableCell>
               <TableCell>
@@ -193,8 +193,8 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
 
       {/* Pagination */}
       {total > pageSize && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
-          <div className="text-sm text-gray-400">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+          <div className="text-sm text-muted-foreground">
             Showing {(page - 1) * pageSize + 1} to{" "}
             {Math.min(page * pageSize, total)} of {total} invites
           </div>
@@ -204,7 +204,6 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
               size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="border-gray-700 text-gray-300 hover:bg-gray-800"
             >
               Previous
             </Button>
@@ -213,7 +212,6 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
               size="sm"
               onClick={() => setPage((p) => Math.min(Math.ceil(total / pageSize), p + 1))}
               disabled={page >= Math.ceil(total / pageSize)}
-              className="border-gray-700 text-gray-300 hover:bg-gray-800"
             >
               Next
             </Button>

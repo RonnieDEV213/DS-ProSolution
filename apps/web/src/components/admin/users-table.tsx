@@ -179,7 +179,7 @@ export function UsersTable({
             </Tooltip>
           );
         case "client":
-          return <Badge className="bg-gray-600 hover:bg-gray-600">Client</Badge>;
+          return <Badge className="bg-muted text-muted-foreground hover:bg-muted">Client</Badge>;
         default:
           return <Badge variant="secondary">{user.membership.role}</Badge>;
       }
@@ -208,39 +208,39 @@ export function UsersTable({
 
   return (
     <>
-      <div className="rounded-lg border border-gray-800 bg-gray-900">
+      <div className="rounded-lg border border-border bg-card">
         <Table aria-label="Organization users">
           <TableHeader>
-            <TableRow className="border-gray-800 hover:bg-gray-900">
-              <TableHead className="text-gray-400">Name</TableHead>
-              <TableHead className="text-gray-400">Email</TableHead>
-              <TableHead className="text-gray-400">User Type</TableHead>
-              <TableHead className="text-gray-400 text-right">Actions</TableHead>
+            <TableRow className="border-border hover:bg-muted/50">
+              <TableHead className="text-muted-foreground">Name</TableHead>
+              <TableHead className="text-muted-foreground font-mono">Email</TableHead>
+              <TableHead className="text-muted-foreground">User Type</TableHead>
+              <TableHead className="text-muted-foreground text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                   No users found
                 </TableCell>
               </TableRow>
             ) : (
               users.map((user) => (
-                <TableRow key={user.profile.user_id} className="border-gray-800">
-                  <TableCell className="text-white font-medium">
+                <TableRow key={user.profile.user_id} className="border-border">
+                  <TableCell className="text-foreground font-medium">
                     {user.profile.display_name || "-"}
-                    <span className="text-gray-500 text-xs ml-1">
+                    <span className="text-muted-foreground/70 text-xs ml-1">
                       ({user.profile.email.split("@")[0]})
                     </span>
                   </TableCell>
-                  <TableCell className="text-gray-300">{user.profile.email}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-sm">{user.profile.email}</TableCell>
                   <TableCell>{getRoleBadge(user)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -248,7 +248,7 @@ export function UsersTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => setEditingUser(user)}
-                        className="text-gray-400 hover:text-white"
+                        className="text-muted-foreground hover:text-foreground"
                       >
                         Edit
                       </Button>
@@ -272,8 +272,8 @@ export function UsersTable({
         </Table>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
-            <div className="text-sm text-gray-400">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <div className="text-sm text-muted-foreground">
               Showing {(page - 1) * pageSize + 1} to{" "}
               {Math.min(page * pageSize, total)} of {total} users
             </div>
@@ -283,7 +283,6 @@ export function UsersTable({
                 size="sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="border-gray-700 text-gray-300 hover:bg-gray-800"
               >
                 Previous
               </Button>
@@ -292,7 +291,6 @@ export function UsersTable({
                 size="sm"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="border-gray-700 text-gray-300 hover:bg-gray-800"
               >
                 Next
               </Button>

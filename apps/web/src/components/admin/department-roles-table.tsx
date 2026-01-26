@@ -127,7 +127,7 @@ export function DepartmentRolesTable({
 
   const getPermissionBadges = (permissions: string[]) => {
     if (permissions.length === 0) {
-      return <span className="text-gray-500 text-sm">No permissions</span>;
+      return <span className="text-muted-foreground text-sm">No permissions</span>;
     }
 
     return (
@@ -136,7 +136,7 @@ export function DepartmentRolesTable({
           <Badge
             key={perm}
             variant="secondary"
-            className="bg-gray-700 text-gray-300 text-xs"
+            className="bg-muted text-muted-foreground font-mono text-xs"
           >
             {PERMISSION_LABELS[perm] || perm}
           </Badge>
@@ -153,34 +153,34 @@ export function DepartmentRolesTable({
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-white">Access Profiles</h2>
+        <h2 className="text-lg font-semibold text-foreground">Access Profiles</h2>
         <Button onClick={() => setCreateDialogOpen(true)}>
           Create Profile
         </Button>
       </div>
 
-      <div className="rounded-lg border border-gray-800 bg-gray-900">
+      <div className="rounded-lg border border-border bg-card">
         <Table aria-label="Access profiles">
           <TableHeader>
-            <TableRow className="border-gray-800 hover:bg-gray-900">
-              <TableHead className="text-gray-400 w-8"></TableHead>
-              <TableHead className="text-gray-400 w-12">#</TableHead>
-              <TableHead className="text-gray-400">Name</TableHead>
-              <TableHead className="text-gray-400">Assigned VAs</TableHead>
-              <TableHead className="text-gray-400">Created</TableHead>
-              <TableHead className="text-gray-400 text-right">Actions</TableHead>
+            <TableRow className="border-border hover:bg-muted/50">
+              <TableHead className="text-muted-foreground w-8"></TableHead>
+              <TableHead className="text-muted-foreground w-12">#</TableHead>
+              <TableHead className="text-muted-foreground">Name</TableHead>
+              <TableHead className="text-muted-foreground">Assigned VAs</TableHead>
+              <TableHead className="text-muted-foreground font-mono">Created</TableHead>
+              <TableHead className="text-muted-foreground text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : roles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   No access profiles found. Create one to get started.
                 </TableCell>
               </TableRow>
@@ -190,13 +190,13 @@ export function DepartmentRolesTable({
                 return (
                   <Fragment key={role.id}>
                     {/* Main Row */}
-                    <TableRow className="border-gray-800">
+                    <TableRow className="border-border">
                       {/* Expand Toggle */}
                       <TableCell className="p-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0 text-gray-400"
+                          className="h-6 w-6 p-0 text-muted-foreground"
                           onClick={() => toggleExpanded(role.id)}
                         >
                           <svg
@@ -215,18 +215,18 @@ export function DepartmentRolesTable({
                           </svg>
                         </Button>
                       </TableCell>
-                      <TableCell className="text-gray-500">{index + 1}</TableCell>
-                      <TableCell className="text-white font-medium">{role.name}</TableCell>
-                      <TableCell className="text-gray-300">
+                      <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                      <TableCell className="text-foreground font-medium">{role.name}</TableCell>
+                      <TableCell className="text-muted-foreground">
                         {assignmentCounts[role.id] ?? 0} VA{(assignmentCounts[role.id] ?? 0) !== 1 ? "s" : ""}
                       </TableCell>
-                      <TableCell className="text-gray-400">{formatDate(role.created_at)}</TableCell>
+                      <TableCell className="text-muted-foreground font-mono text-sm">{formatDate(role.created_at)}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => setEditingRole(role)}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -248,10 +248,10 @@ export function DepartmentRolesTable({
 
                     {/* Expanded Details Row */}
                     {isExpanded && (
-                      <TableRow key={`${role.id}-details`} className="bg-gray-900/50">
+                      <TableRow key={`${role.id}-details`} className="bg-muted/30">
                         <TableCell colSpan={6} className="p-4">
                           <div className="space-y-2">
-                            <h4 className="text-sm font-medium text-gray-400">Permissions</h4>
+                            <h4 className="text-sm font-medium text-muted-foreground">Permissions</h4>
                             {getPermissionBadges(role.permissions)}
                           </div>
                         </TableCell>
