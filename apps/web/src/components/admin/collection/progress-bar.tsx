@@ -346,9 +346,9 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
   const isPaused = progress.status === "paused" && !pendingAction;
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+    <div className="bg-background border border-border rounded-lg overflow-hidden">
       {/* Progress bar */}
-      <div className="h-2 bg-gray-800 overflow-hidden relative">
+      <div className="h-2 bg-muted overflow-hidden relative">
         <motion.div
           className={`h-full ${getProgressBarColor()}`}
           animate={{
@@ -411,7 +411,7 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
 
           {/* Current activity (when running) */}
           {progress.status === "running" && !pendingAction && progress.checkpoint?.current_activity && (
-            <span className="text-gray-500 text-xs truncate max-w-[200px]">
+            <span className="text-muted-foreground text-xs truncate max-w-[200px]">
               {progress.checkpoint.current_activity}
             </span>
           )}
@@ -421,29 +421,29 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
         <div className="flex items-center gap-3 flex-shrink-0 text-xs">
           {/* Departments */}
           <div className="flex items-center gap-1">
-            <span className="text-gray-500">Depts:</span>
-            <span className="text-gray-300">
+            <span className="text-muted-foreground">Depts:</span>
+            <span className="text-foreground font-mono">
               {progress.departments_completed}/{progress.departments_total}
             </span>
           </div>
 
-          <span className="text-gray-700">|</span>
+          <span className="text-border">|</span>
 
           {/* Categories */}
           <div className="flex items-center gap-1">
-            <span className="text-gray-500">Cats:</span>
-            <span className="text-gray-300">
+            <span className="text-muted-foreground">Cats:</span>
+            <span className="text-foreground font-mono">
               {progress.categories_completed}/{progress.categories_total}
             </span>
           </div>
 
-          <span className="text-gray-700">|</span>
+          <span className="text-border">|</span>
 
           {phase === "amazon" ? (
             /* Amazon phase: Show products found (live count, no denominator) */
             <div className="flex items-center gap-1">
-              <span className="text-gray-500">Products:</span>
-              <span className="text-orange-400 font-medium">
+              <span className="text-muted-foreground">Products:</span>
+              <span className="text-orange-400 font-medium font-mono">
                 {progress.products_found || 0}
               </span>
             </div>
@@ -451,18 +451,18 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
             /* eBay phase: Show products searched / total + new sellers */
             <>
               <div className="flex items-center gap-1">
-                <span className="text-gray-500">Products:</span>
-                <span className="text-gray-300">
+                <span className="text-muted-foreground">Products:</span>
+                <span className="text-foreground font-mono">
                   {progress.products_searched}/{progress.products_total}
                 </span>
               </div>
 
-              <span className="text-gray-700">|</span>
+              <span className="text-border">|</span>
 
               {/* New Sellers */}
               <div className="flex items-center gap-1">
-                <span className="text-gray-500">+New:</span>
-                <span className="text-green-400 font-medium">
+                <span className="text-muted-foreground">+New:</span>
+                <span className="text-green-400 font-medium font-mono">
                   {progress.sellers_new}
                 </span>
               </div>
@@ -472,10 +472,10 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
           {/* Duration */}
           {duration && (
             <>
-              <span className="text-gray-700">|</span>
+              <span className="text-border">|</span>
               <div className="flex items-center gap-1">
-                <span className="text-gray-500">Time:</span>
-                <span className="text-gray-400">{duration}</span>
+                <span className="text-muted-foreground">Time:</span>
+                <span className="text-muted-foreground font-mono">{duration}</span>
               </div>
             </>
           )}
@@ -525,7 +525,7 @@ export function ProgressBar({ progress, onDetailsClick, onRunStateChange }: Prog
               setExpanded(!expanded);
               onDetailsClick();
             }}
-            className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors"
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
           >
             <span>Details</span>
             {expanded ? (

@@ -92,7 +92,7 @@ function StatCard({
   icon,
   label,
   value,
-  color = "text-white",
+  color = "text-foreground",
 }: {
   icon: React.ReactNode;
   label: string;
@@ -100,12 +100,12 @@ function StatCard({
   color?: string;
 }) {
   return (
-    <div className="bg-gray-800/50 rounded p-2">
-      <div className="flex items-center gap-1.5 text-gray-400 text-[10px] uppercase mb-1">
+    <div className="bg-muted/50 rounded p-2">
+      <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] uppercase mb-1">
         {icon}
         {label}
       </div>
-      <div className={cn("text-lg font-bold", color)}>{value}</div>
+      <div className={cn("text-lg font-bold font-mono", color)}>{value}</div>
     </div>
   );
 }
@@ -145,7 +145,7 @@ export function MetricsSummary({
           icon={<XCircle className="h-3 w-3" />}
           label="Failed"
           value={aggregated.totalFailed}
-          color={hasErrors ? "text-red-400" : "text-gray-400"}
+          color={hasErrors ? "text-red-400" : "text-muted-foreground"}
         />
       </div>
 
@@ -186,7 +186,7 @@ export function MetricsSummary({
           <div className="grid grid-cols-2 gap-2 text-xs">
             {aggregated.errorBreakdown.rate_limit > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-400">Rate Limit</span>
+                <span className="text-muted-foreground">Rate Limit</span>
                 <Badge variant="outline" className="text-yellow-400 border-yellow-700">
                   {aggregated.errorBreakdown.rate_limit}
                 </Badge>
@@ -194,7 +194,7 @@ export function MetricsSummary({
             )}
             {aggregated.errorBreakdown.timeout > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-400">Timeout</span>
+                <span className="text-muted-foreground">Timeout</span>
                 <Badge variant="outline" className="text-orange-400 border-orange-700">
                   {aggregated.errorBreakdown.timeout}
                 </Badge>
@@ -202,7 +202,7 @@ export function MetricsSummary({
             )}
             {aggregated.errorBreakdown.http_error > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-400">HTTP Error</span>
+                <span className="text-muted-foreground">HTTP Error</span>
                 <Badge variant="outline" className="text-red-400 border-red-700">
                   {aggregated.errorBreakdown.http_error}
                 </Badge>
@@ -210,7 +210,7 @@ export function MetricsSummary({
             )}
             {aggregated.errorBreakdown.parse_error > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-400">Parse Error</span>
+                <span className="text-muted-foreground">Parse Error</span>
                 <Badge variant="outline" className="text-purple-400 border-purple-700">
                   {aggregated.errorBreakdown.parse_error}
                 </Badge>
@@ -218,8 +218,8 @@ export function MetricsSummary({
             )}
             {aggregated.errorBreakdown.other > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-400">Other</span>
-                <Badge variant="outline" className="text-gray-400 border-gray-700">
+                <span className="text-muted-foreground">Other</span>
+                <Badge variant="outline" className="text-muted-foreground border-border">
                   {aggregated.errorBreakdown.other}
                 </Badge>
               </div>

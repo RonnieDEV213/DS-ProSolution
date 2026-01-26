@@ -293,7 +293,7 @@ export function ProgressDetailModal({
     return (
       <div
         onClick={() => onOpenChange(true)}
-        className="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 rounded-lg p-3 cursor-pointer shadow-lg z-50 min-w-[200px] hover:bg-gray-750"
+        className="fixed bottom-4 right-4 bg-card border border-border rounded-lg p-3 cursor-pointer shadow-lg z-50 min-w-[200px] hover:bg-accent"
       >
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-white">
@@ -309,7 +309,7 @@ export function ProgressDetailModal({
             {phase === "amazon" ? "Amazon" : "eBay"}: {progressPercent}%
           </Badge>
         </div>
-        <div className="h-1.5 bg-gray-700 rounded overflow-hidden">
+        <div className="h-1.5 bg-muted rounded overflow-hidden">
           <div
             className={`h-full transition-all ${
               phase === "amazon" ? "bg-orange-500" : "bg-blue-500"
@@ -317,7 +317,7 @@ export function ProgressDetailModal({
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <div className="text-xs text-gray-400 mt-1">
+        <div className="text-xs text-muted-foreground mt-1 font-mono">
           {phase === "amazon"
             ? `${progress.categories_completed}/${progress.categories_total} categories`
             : `${progress.products_searched}/${progress.products_total} products`}
@@ -328,7 +328,7 @@ export function ProgressDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent hideCloseButton className="bg-gray-900 border-gray-800 max-w-5xl max-h-[85vh] flex flex-col">
+      <DialogContent hideCloseButton className="bg-background border-border max-w-5xl max-h-[85vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -362,7 +362,7 @@ export function ProgressDetailModal({
               )}
               {/* Duration */}
               {progress.started_at && duration && (
-                <span className="text-sm text-gray-500 flex items-center gap-1">
+                <span className="text-sm text-muted-foreground flex items-center gap-1 font-mono">
                   <Clock className="h-3 w-3" />
                   {duration}
                 </span>
@@ -392,7 +392,7 @@ export function ProgressDetailModal({
           </div>
 
           {/* Right Panel: Metrics + Pipeline */}
-          <div className="border-l border-gray-800 pl-6 flex flex-col min-h-0">
+          <div className="border-l border-border pl-6 flex flex-col min-h-0">
             <MetricsPanel
               activities={activities}
               workerMetrics={workerMetrics}
@@ -409,7 +409,7 @@ export function ProgressDetailModal({
         </div>
 
         {/* Footer: Pause/Resume + Cancel buttons */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-800 flex-shrink-0">
+        <div className="flex justify-end gap-3 pt-4 border-t border-border flex-shrink-0">
           <Button
             variant="outline"
             onClick={handlePauseResume}

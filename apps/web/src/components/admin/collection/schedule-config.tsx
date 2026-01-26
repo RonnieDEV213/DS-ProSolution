@@ -147,21 +147,21 @@ export function ScheduleConfig() {
   };
 
   if (loading) {
-    return <div className="text-gray-400">Loading schedule...</div>;
+    return <div className="text-muted-foreground">Loading schedule...</div>;
   }
 
   if (!schedule) {
-    return <div className="text-gray-500">Unable to load schedule</div>;
+    return <div className="text-muted-foreground">Unable to load schedule</div>;
   }
 
   return (
-    <Card className="bg-gray-900 border-gray-800">
+    <Card className="bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-white flex items-center gap-2">
+        <CardTitle className="text-foreground flex items-center gap-2">
           <Calendar className="h-5 w-5" />
           Scheduled Collection
         </CardTitle>
-        <CardDescription className="text-gray-400">
+        <CardDescription className="text-muted-foreground">
           Automatically run collection at a scheduled time
         </CardDescription>
       </CardHeader>
@@ -169,8 +169,8 @@ export function ScheduleConfig() {
         {/* Enable toggle */}
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-gray-200">Enable Schedule</Label>
-            <p className="text-sm text-gray-500">
+            <Label className="text-foreground">Enable Schedule</Label>
+            <p className="text-sm text-muted-foreground">
               Automatically run collection at scheduled time
             </p>
           </div>
@@ -184,22 +184,22 @@ export function ScheduleConfig() {
 
         {/* Preset selection */}
         <div className="space-y-2">
-          <Label className="text-gray-200">Category Preset</Label>
+          <Label className="text-foreground">Category Preset</Label>
           <Select
             value={schedule.preset_id || ""}
             onValueChange={(value) =>
               setSchedule({ ...schedule, preset_id: value })
             }
           >
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+            <SelectTrigger className="bg-muted border-input text-foreground">
               <SelectValue placeholder="Select a preset..." />
             </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700">
+            <SelectContent className="bg-card border-border">
               {presets.map((preset) => (
                 <SelectItem
                   key={preset.id}
                   value={preset.id}
-                  className="text-gray-200"
+                  className="text-foreground"
                 >
                   {preset.name} ({preset.category_ids.length} categories)
                 </SelectItem>
@@ -215,17 +215,17 @@ export function ScheduleConfig() {
 
         {/* Cron schedule */}
         <div className="space-y-2">
-          <Label className="text-gray-200">Schedule</Label>
+          <Label className="text-foreground">Schedule</Label>
           <Select value={cronPreset} onValueChange={setCronPreset}>
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+            <SelectTrigger className="bg-muted border-input text-foreground">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700">
+            <SelectContent className="bg-card border-border">
               {CRON_PRESETS.map((preset) => (
                 <SelectItem
                   key={preset.value}
                   value={preset.value}
-                  className="text-gray-200"
+                  className="text-foreground"
                 >
                   {preset.label}
                 </SelectItem>
@@ -239,9 +239,9 @@ export function ScheduleConfig() {
                 value={customCron}
                 onChange={(e) => setCustomCron(e.target.value)}
                 placeholder="0 0 1 * *"
-                className="bg-gray-800 border-gray-700 text-white font-mono"
+                className="bg-muted border-input text-foreground font-mono"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Cron format: minute hour day month weekday
               </p>
             </div>
@@ -250,7 +250,7 @@ export function ScheduleConfig() {
 
         {/* Next run time */}
         {schedule.next_run_at && (
-          <div className="flex items-center gap-2 text-sm text-gray-400">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
             <Clock className="h-4 w-4" />
             Next run: {new Date(schedule.next_run_at).toLocaleString()}
           </div>
@@ -259,8 +259,8 @@ export function ScheduleConfig() {
         {/* Email notification toggle */}
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-gray-200">Email Notification</Label>
-            <p className="text-sm text-gray-500">
+            <Label className="text-foreground">Email Notification</Label>
+            <p className="text-sm text-muted-foreground">
               Send email when scheduled run completes
             </p>
           </div>

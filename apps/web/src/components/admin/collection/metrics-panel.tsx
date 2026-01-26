@@ -93,14 +93,14 @@ function MiniWorkerIcon({
             onClick={onClick}
             className={cn(
               "relative w-8 h-8 rounded-full flex items-center justify-center transition-all",
-              isExpanded ? "ring-2 ring-white" : "hover:ring-1 hover:ring-gray-500",
-              state === "idle" ? "bg-gray-700" : workerColors[colorIdx]
+              isExpanded ? "ring-2 ring-white" : "hover:ring-1 hover:ring-muted-foreground",
+              state === "idle" ? "bg-muted" : workerColors[colorIdx]
             )}
           >
             <span className="text-[10px] font-bold text-white">W{workerId}</span>
             {/* State indicator */}
             {state !== "idle" && (
-              <span className="absolute -bottom-0.5 -right-0.5 bg-gray-900 rounded-full p-0.5">
+              <span className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
                 {getStateIcon()}
               </span>
             )}
@@ -118,7 +118,7 @@ function MiniWorkerIcon({
               </Badge>
             )}
           </div>
-          <div className="text-gray-400 capitalize">{state.replace(/_/g, " ")}</div>
+          <div className="text-muted-foreground capitalize">{state.replace(/_/g, " ")}</div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -144,8 +144,8 @@ export function MetricsPanel({
     <div className="h-full flex flex-col">
       {/* Mini worker status (shown when a worker is expanded) */}
       {expandedWorkerId !== null && (
-        <div className="mb-4 pb-3 border-b border-gray-800">
-          <div className="text-xs text-gray-500 uppercase mb-2">Other Workers</div>
+        <div className="mb-4 pb-3 border-b border-border">
+          <div className="text-xs text-muted-foreground uppercase mb-2">Other Workers</div>
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5, 6]
               .filter((id) => id !== expandedWorkerId)
@@ -168,7 +168,7 @@ export function MetricsPanel({
 
       {/* Metrics Summary */}
       <div className="mb-4">
-        <div className="text-sm font-medium text-gray-300 mb-2">Metrics</div>
+        <div className="text-sm font-medium text-foreground mb-2">Metrics</div>
         <MetricsSummary
           workerMetrics={workerMetrics}
           sellersFound={progress.sellers_found}
@@ -180,7 +180,7 @@ export function MetricsPanel({
 
       {/* Pipeline Feed */}
       <div className="flex-1 min-h-0 flex flex-col">
-        <div className="text-sm font-medium text-gray-300 mb-2 flex-shrink-0">Data Pipeline</div>
+        <div className="text-sm font-medium text-foreground mb-2 flex-shrink-0">Data Pipeline</div>
         <div className="flex-1 min-h-0">
           <PipelineFeed activities={activities} />
         </div>

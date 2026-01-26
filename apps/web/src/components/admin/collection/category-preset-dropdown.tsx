@@ -149,12 +149,12 @@ export function CategoryPresetDropdown({
     <div className="flex items-center gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="border-gray-700 bg-gray-800">
+          <Button variant="outline" className="border-border bg-card">
             {currentPreset?.name || "Select preset..."}
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700">
+        <DropdownMenuContent className="w-56 bg-card border-border">
           {/* Select All (always first) */}
           <DropdownMenuItem
             onClick={handleSelectAll}
@@ -166,7 +166,7 @@ export function CategoryPresetDropdown({
           {/* Custom presets */}
           {presets.filter((p) => !p.is_builtin && p.name !== "Select All").length > 0 && (
             <>
-              <DropdownMenuSeparator className="bg-gray-700" />
+              <DropdownMenuSeparator className="bg-border" />
               {presets
                 .filter((p) => !p.is_builtin && p.name !== "Select All")
                 .map((preset) => (
@@ -178,7 +178,7 @@ export function CategoryPresetDropdown({
                     <span>{preset.name}</span>
                     <button
                       onClick={(e) => handleDeletePreset(preset, e)}
-                      className="text-gray-500 hover:text-red-400 ml-2"
+                      className="text-muted-foreground hover:text-red-400 ml-2"
                       disabled={deletingId === preset.id}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -197,7 +197,7 @@ export function CategoryPresetDropdown({
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
             placeholder="Preset name..."
-            className="w-40 h-9 bg-gray-800 border-gray-700"
+            className="w-40 h-9 bg-muted border-input"
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSavePreset();
               if (e.key === "Escape") {
@@ -229,7 +229,7 @@ export function CategoryPresetDropdown({
           variant="ghost"
           size="sm"
           onClick={() => setShowSaveInput(true)}
-          className="text-gray-400"
+          className="text-muted-foreground"
         >
           <Save className="h-4 w-4 mr-1" />
           Save preset

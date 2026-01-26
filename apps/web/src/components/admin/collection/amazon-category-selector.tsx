@@ -138,7 +138,7 @@ export function AmazonCategorySelector({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8 text-gray-400">
+      <div className="flex items-center justify-center p-8 text-muted-foreground">
         Loading categories...
       </div>
     );
@@ -148,19 +148,19 @@ export function AmazonCategorySelector({
     <div className="space-y-4">
       {/* Selection count */}
       <div className="flex items-center justify-end">
-        <Badge variant="secondary" className="bg-gray-700 text-gray-200">
+        <Badge variant="secondary" className="bg-muted text-foreground">
           {selectedCategoryIds.length} selected
         </Badge>
       </div>
 
       {/* Search box */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search categories..."
-          className="pl-9 bg-gray-800 border-gray-700"
+          className="pl-9 bg-muted border-input"
         />
       </div>
 
@@ -178,18 +178,18 @@ export function AmazonCategorySelector({
           return (
             <div
               key={dept.id}
-              className="bg-gray-800 rounded-lg overflow-hidden"
+              className="bg-card rounded-lg overflow-hidden"
             >
               {/* Department header */}
               <div
-                className="flex items-center gap-2 p-3 cursor-pointer hover:bg-gray-750"
+                className="flex items-center gap-2 p-3 cursor-pointer hover:bg-accent"
                 onClick={() => toggleExpanded(dept.id)}
               >
                 {/* Expand/collapse icon */}
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 )}
 
                 {/* Department checkbox */}
@@ -208,10 +208,10 @@ export function AmazonCategorySelector({
                 </div>
 
                 {/* Department name and count */}
-                <span className="flex-1 font-medium text-white">
+                <span className="flex-1 font-medium text-foreground">
                   {dept.name}
                 </span>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-muted-foreground font-mono">
                   {selectedInDept}/{deptCategoryIds.length}
                 </span>
               </div>
@@ -226,13 +226,13 @@ export function AmazonCategorySelector({
                         key={cat.id}
                         className={cn(
                           "flex items-center gap-2 p-2 rounded cursor-pointer",
-                          "hover:bg-gray-700",
-                          isSelected && "bg-gray-700/50"
+                          "hover:bg-accent",
+                          isSelected && "bg-accent/50"
                         )}
                         onClick={() => toggleCategory(cat.id)}
                       >
                         <Checkbox checked={isSelected} />
-                        <span className="text-sm text-gray-300">{cat.name}</span>
+                        <span className="text-sm text-foreground">{cat.name}</span>
                       </div>
                     );
                   })}
@@ -243,7 +243,7 @@ export function AmazonCategorySelector({
         })}
 
         {filteredDepartments.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             No categories match your search.
           </div>
         )}

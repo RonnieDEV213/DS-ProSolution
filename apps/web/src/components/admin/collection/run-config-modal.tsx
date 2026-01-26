@@ -256,10 +256,10 @@ export function RunConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-gray-800 sm:max-w-[900px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="bg-background border-border sm:max-w-[900px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-white">Configure Collection Run</DialogTitle>
-          <DialogDescription className="text-gray-400">
+          <DialogTitle className="text-foreground">Configure Collection Run</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
             Select Amazon categories and configure run settings.
           </DialogDescription>
         </DialogHeader>
@@ -276,10 +276,10 @@ export function RunConfigModal({
             </div>
 
             {/* Right Panel: Run Controls */}
-            <div className="border-l border-gray-800 pl-4 space-y-4 overflow-y-auto min-h-0">
+            <div className="border-l border-border pl-4 space-y-4 overflow-y-auto min-h-0">
               {/* Presets dropdown */}
               <div className="space-y-2">
-                <Label className="text-gray-300">Quick Presets</Label>
+                <Label className="text-foreground">Quick Presets</Label>
                 <CategoryPresetDropdown
                   presets={presets}
                   selectedCategoryIds={selectedCategoryIds}
@@ -292,8 +292,8 @@ export function RunConfigModal({
               {/* Schedule toggle */}
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <Label className="text-gray-200">Schedule Run</Label>
-                  <p className="text-xs text-gray-500">Set up recurring or one-time</p>
+                  <Label className="text-foreground">Schedule Run</Label>
+                  <p className="text-xs text-muted-foreground">Set up recurring or one-time</p>
                 </div>
                 <Switch
                   checked={scheduleEnabled}
@@ -303,20 +303,20 @@ export function RunConfigModal({
 
               {/* Schedule section (shown when enabled) */}
               {scheduleEnabled && (
-                <div className="space-y-4 border-t border-gray-800 pt-4">
+                <div className="space-y-4 border-t border-border pt-4">
                   {/* Recurring preset dropdown */}
                   <div className="space-y-2">
-                    <Label className="text-gray-300">Recurrence</Label>
+                    <Label className="text-foreground">Recurrence</Label>
                     <Select value={recurringPreset} onValueChange={setRecurringPreset}>
-                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                      <SelectTrigger className="bg-muted border-input text-foreground">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
+                      <SelectContent className="bg-card border-border">
                         {RECURRING_PRESETS.map((preset) => (
                           <SelectItem
                             key={preset.value}
                             value={preset.value}
-                            className="text-gray-200"
+                            className="text-foreground"
                           >
                             {preset.label}
                           </SelectItem>
@@ -327,7 +327,7 @@ export function RunConfigModal({
 
                   {/* Calendar */}
                   <div className="space-y-2">
-                    <Label className="text-gray-300">
+                    <Label className="text-foreground">
                       {recurringPreset === "once" ? "Run Date" : "Starting Date"}
                     </Label>
                     <Calendar
@@ -344,7 +344,7 @@ export function RunConfigModal({
                           borderRadius: "100%",
                         },
                       }}
-                      className="rounded-md border border-gray-700 bg-gray-800"
+                      className="rounded-md border border-border bg-muted"
                     />
                   </div>
 
@@ -353,7 +353,7 @@ export function RunConfigModal({
                     onClick={saveSchedule}
                     disabled={savingSchedule || !selectedDate || selectedCategoryIds.length === 0}
                     variant="outline"
-                    className="w-full border-gray-700"
+                    className="w-full border-border"
                   >
                     {savingSchedule ? (
                       <>
