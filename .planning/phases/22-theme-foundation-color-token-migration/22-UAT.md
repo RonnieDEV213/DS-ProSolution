@@ -1,0 +1,83 @@
+---
+status: complete
+phase: 22-theme-foundation-color-token-migration
+source: [22-01-SUMMARY.md, 22-02-SUMMARY.md]
+started: 2026-01-25T22:00:00Z
+updated: 2026-01-25T22:00:00Z
+---
+
+## Current Test
+
+[testing complete]
+
+## Tests
+
+### 1. Dark theme preserved (no visual regression)
+expected: App loads with dark theme active. All pages look the same as before -- dark backgrounds, light text, no color changes or missing styles.
+result: issue
+reported: "The page looks the same but there are minor changes to it, such as the successful status background is now black instead of white, the scrollbar is now dark instead of light, however there are some minor readability issues, and I am not sure if this is apart of the plan and this will be changes but the text that are in the account selection in the order tracker is black, with the same dark blue background, and the filter chips that are in the order tracker are also facing the same issues, when a chip is not selected, their text are dark with the same dark background as before, upon selecting the text becomes readable."
+severity: major
+
+### 2. data-theme attribute on HTML element
+expected: In browser DevTools (F12), inspect the `<html>` element. It should have `data-theme="dark"` attribute. There should be NO `class="dark"` on it.
+result: pass
+
+### 3. No FOUC on page load
+expected: Hard-refresh the page (Ctrl+Shift+R). The page should load directly into dark theme with no flash of white/light content before dark appears.
+result: pass
+
+### 4. CSS variable theme switching works
+expected: In DevTools Console, run: `document.documentElement.setAttribute('data-theme', 'light')` — app switches to light theme (lighter backgrounds). Run: `document.documentElement.setAttribute('data-theme', 'dark')` — app returns to dark theme. No page reload needed.
+result: issue
+reported: "No I dont think it changed, scrollbar is still dark"
+severity: major
+
+### 5. Scrollbar theming
+expected: Find a scrollable area (table, sidebar, or any overflow content). Scrollbar should use muted gray theme colors, not bright blue/white browser defaults. Scrollbar should be slim (thin).
+result: issue
+reported: "Two different scrollbar UIs. Scrollbar 1 (Seller List): scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent classes, 9px width, hardcoded rgb(75,85,99) thumb with rgb(107,114,128) hover, rgb(31,41,55) track, 4px border-radius -- uses old Tailwind scrollbar plugin classes NOT the new CSS variable classes. Scrollbar 2 (History Panel): overflow-y-auto only, no custom scrollbar classes at all, 14px browser default width."
+severity: major
+
+### 6. No hydration errors in console
+expected: Open browser DevTools Console (F12 → Console tab). There should be no red errors about "hydration mismatch" or "content did not match". Warnings about other things are fine -- just no hydration-related errors.
+result: pass
+
+## Summary
+
+total: 6
+passed: 3
+issues: 3
+pending: 0
+skipped: 0
+
+## Gaps
+
+- truth: "App loads with dark theme active, all pages look the same as before with no visual regression"
+  status: failed
+  reason: "User reported: Account selection dropdown in order tracker has black text on dark blue background (unreadable). Filter chips in order tracker have dark text on dark background when unselected, only readable when selected. Success status badge background changed from white to black."
+  severity: major
+  test: 1
+  root_cause: ""
+  artifacts: []
+  missing: []
+  debug_session: ""
+
+- truth: "Switching data-theme attribute from dark to light changes all app colors via CSS variable cascade"
+  status: failed
+  reason: "User reported: No visible change when running document.documentElement.setAttribute('data-theme', 'light') -- scrollbar still dark, app did not switch to light theme"
+  severity: major
+  test: 4
+  root_cause: ""
+  artifacts: []
+  missing: []
+  debug_session: ""
+
+- truth: "Scrollbars use theme-aware CSS variable colors with slim styling across all scrollable areas"
+  status: failed
+  reason: "User reported: Seller List still uses old Tailwind scrollbar plugin classes (scrollbar-thumb-gray-700) with hardcoded rgb values, not CSS variable classes. History Panel has no custom scrollbar classes at all (overflow-y-auto only, browser default 14px scrollbar)."
+  severity: major
+  test: 5
+  root_cause: ""
+  artifacts: []
+  missing: []
+  debug_session: ""
