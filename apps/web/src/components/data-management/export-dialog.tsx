@@ -208,11 +208,11 @@ export function ExportDialog({
             <Label className="text-sm font-medium mb-2 block">
               Columns ({selectedColumns.size} selected)
             </Label>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md bg-gray-950">
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md bg-card">
               {EXPORT_COLUMNS.all.map((column) => (
                 <label
                   key={column}
-                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-800 p-1 rounded"
+                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent p-1 rounded"
                 >
                   <Checkbox
                     checked={selectedColumns.has(column)}
@@ -229,7 +229,7 @@ export function ExportDialog({
 
           {/* Export Progress */}
           {(isExporting || currentJob || error) && (
-            <div className="pt-2 border-t border-gray-800">
+            <div className="pt-2 border-t border-border">
               <ExportProgress
                 job={currentJob}
                 isExporting={isExporting}

@@ -99,11 +99,11 @@ export function ImportPreview({
             {filteredInvalidRows.toLocaleString()} with errors
           </Badge>
         )}
-        <span className="text-sm text-gray-400">
+        <span className="text-sm text-muted-foreground">
           of {totalRows.toLocaleString()} total rows
         </span>
         {preview.length < totalRows && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             (showing first {preview.length} rows)
           </span>
         )}
@@ -118,9 +118,9 @@ export function ImportPreview({
       )}
 
       {/* Preview table */}
-      <div className="rounded-md border border-gray-700 max-h-[400px] overflow-auto scrollbar-thin">
+      <div className="rounded-md border border-border max-h-[400px] overflow-auto scrollbar-thin">
         <table className="w-full caption-bottom text-sm min-w-max">
-          <thead className="sticky top-0 bg-gray-900 z-10 [&_tr]:border-b">
+          <thead className="sticky top-0 bg-card z-10 [&_tr]:border-b">
             <tr className="border-b transition-colors">
               <th className="h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-12 text-center text-foreground">#</th>
               <th className="h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-12 text-center text-foreground">Status</th>
@@ -148,7 +148,7 @@ export function ImportPreview({
                     }`}
                     onClick={() => !isRowValid && toggleRow(row.row_number)}
                   >
-                    <td className="p-2 align-middle whitespace-nowrap text-center text-gray-500 font-mono text-xs">
+                    <td className="p-2 align-middle whitespace-nowrap text-center text-muted-foreground font-mono text-xs">
                       {row.row_number}
                     </td>
                     <td className="p-2 align-middle whitespace-nowrap text-center">
@@ -178,7 +178,7 @@ export function ImportPreview({
                           {hasError && fieldError ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="underline decoration-red-500 decoration-dotted cursor-help">
+                                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded underline decoration-red-500 decoration-dotted cursor-help">
                                   {formatValue(value)}
                                 </span>
                               </TooltipTrigger>
@@ -187,7 +187,9 @@ export function ImportPreview({
                               </TooltipContent>
                             </Tooltip>
                           ) : (
-                            formatValue(value)
+                            <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+                              {formatValue(value)}
+                            </span>
                           )}
                         </td>
                       );
@@ -220,7 +222,7 @@ export function ImportPreview({
         </table>
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         Click on rows with errors to expand error details.
       </p>
     </div>

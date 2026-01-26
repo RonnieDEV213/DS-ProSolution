@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 
 ## Current Position
 
-Phase: 24 of 26 (Layout Component Consolidation)
-Plan: 3 of estimated 4
-Status: In progress — all dashboard layouts refactored to use unified components
-Last activity: 2026-01-26 — Completed 24-03-PLAN.md
+Phase: 25 of 26 (Component Color Migration)
+Plan: 1 of 7
+Status: In progress — bookkeeping components migrated to semantic tokens
+Last activity: 2026-01-26 — Completed 25-01-PLAN.md
 
-Progress: [██████░░░░] 63% (v4 milestone, 11 of ~16 plans estimated)
+Progress: [██████░░░░] 69% (v4 milestone, 12 of ~17 plans estimated)
 
 ## Shipped Milestones
 
@@ -60,6 +60,12 @@ Phase 24 decisions:
 - Made layouts "use client" components because SidebarProvider requires client context
 - Placed BreadcrumbNav inside main content area rather than in sidebar
 
+Phase 25 decisions:
+- Monospace pill pattern: Data values use font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10
+- Table data column headers use font-mono for visual alignment with cell data
+- Strikethrough text uses text-muted-foreground/70 for theme-aware disabled appearance
+- SelectContent pattern: bg-popover border-border with hover:bg-accent on items
+
 ### Pending Todos
 
 None.
@@ -72,7 +78,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26 09:19 UTC
-Stopped at: Completed 24-03-PLAN.md (Dashboard Layout Integration)
+Last session: 2026-01-26 11:48 UTC
+Stopped at: Completed 25-01-PLAN.md (Bookkeeping Component Color Migration)
 Resume file: None
-Next action: Continue Phase 24 (plan 24-04 if exists, or move to Phase 25)
+Next action: Continue Phase 25 plans 02-07 (remaining component directories)

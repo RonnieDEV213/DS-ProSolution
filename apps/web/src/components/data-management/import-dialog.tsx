@@ -236,7 +236,7 @@ export function ImportDialog({
                 variant="ghost"
                 size="sm"
                 onClick={() => setStep("history")}
-                className="text-gray-400 hover:text-gray-200"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <History className="h-4 w-4 mr-1" />
                 History
@@ -255,20 +255,20 @@ export function ImportDialog({
                         ? "bg-green-600 text-white"
                         : i === currentStepIndex
                           ? "bg-blue-600 text-white"
-                          : "bg-gray-700 text-gray-400"
+                          : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {i < currentStepIndex ? <Check className="h-3 w-3" /> : i + 1}
                   </div>
                   <span
                     className={`ml-2 text-sm ${
-                      i === currentStepIndex ? "text-white" : "text-gray-500"
+                      i === currentStepIndex ? "text-foreground" : "text-muted-foreground"
                     }`}
                   >
                     {s.label}
                   </span>
                   {i < steps.length - 1 && (
-                    <ChevronRight className="h-4 w-4 mx-2 text-gray-600" />
+                    <ChevronRight className="h-4 w-4 mx-2 text-muted-foreground" />
                   )}
                 </div>
               ))}
@@ -286,7 +286,7 @@ export function ImportDialog({
                 className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${
                   dragActive
                     ? "border-blue-500 bg-blue-500/10"
-                    : "border-gray-700 hover:border-gray-600"
+                    : "border-border hover:border-border/80"
                 }`}
                 onDrop={handleDrop}
                 onDragOver={handleDrag}
@@ -304,18 +304,18 @@ export function ImportDialog({
                   {isValidating ? (
                     <>
                       <Loader2 className="h-10 w-10 mx-auto mb-3 text-blue-500 animate-spin" />
-                      <p className="text-gray-300">Validating file...</p>
+                      <p className="text-foreground">Validating file...</p>
                     </>
                   ) : (
                     <>
-                      <FileSpreadsheet className="h-10 w-10 mx-auto mb-3 text-gray-500" />
-                      <p className="text-gray-300 mb-1">
+                      <FileSpreadsheet className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                      <p className="text-foreground mb-1">
                         Drag and drop your file here
                       </p>
-                      <p className="text-sm text-gray-500 mb-3">
+                      <p className="text-sm text-muted-foreground mb-3">
                         or click to browse
                       </p>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-muted-foreground">
                         Supported: CSV, JSON, Excel (.xlsx, .xls)
                       </p>
                     </>
@@ -376,7 +376,7 @@ export function ImportDialog({
         </div>
 
         {/* Footer with navigation */}
-        <div className="shrink-0 border-t border-gray-800 pt-4 flex items-center justify-between">
+        <div className="shrink-0 border-t border-border pt-4 flex items-center justify-between">
           <div>
             {step !== "upload" && (
               <Button variant="outline" onClick={goBack} disabled={isCommitting}>

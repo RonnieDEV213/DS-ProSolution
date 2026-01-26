@@ -125,22 +125,22 @@ export function ColumnMapper({
       )}
 
       {/* Mapping table */}
-      <div className="rounded-md border border-gray-700 overflow-hidden">
+      <div className="rounded-md border border-border overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-800/50">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-2 text-left text-gray-400 font-medium">
+              <th className="px-4 py-2 text-left text-muted-foreground font-medium">
                 File Column
               </th>
-              <th className="px-4 py-2 text-center text-gray-400 font-medium w-10">
+              <th className="px-4 py-2 text-center text-muted-foreground font-medium w-10">
                 {/* Arrow */}
               </th>
-              <th className="px-4 py-2 text-left text-gray-400 font-medium">
+              <th className="px-4 py-2 text-left text-muted-foreground font-medium">
                 Map to Field
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800">
+          <tbody className="divide-y divide-border">
             {headers.map((header) => {
               const currentValue = mapping[header] || SKIP_COLUMN;
               const fieldInfo = IMPORT_FIELDS.find((f) => f.field === currentValue);
@@ -152,14 +152,14 @@ export function ColumnMapper({
                   key={header}
                   className={
                     isSkipped
-                      ? "bg-gray-900/30 opacity-60"
+                      ? "bg-muted/30 opacity-60"
                       : isRequired
                         ? "bg-blue-500/5"
                         : ""
                   }
                 >
-                  <td className="px-4 py-2 font-mono text-gray-300">{header}</td>
-                  <td className="px-4 py-2 text-center text-gray-500">
+                  <td className="px-4 py-2 font-mono text-foreground">{header}</td>
+                  <td className="px-4 py-2 text-center text-muted-foreground">
                     {isSkipped ? (
                       <Minus className="h-4 w-4 mx-auto" />
                     ) : (
@@ -176,7 +176,7 @@ export function ColumnMapper({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={SKIP_COLUMN}>
-                          <span className="text-gray-500">Skip this column</span>
+                          <span className="text-muted-foreground">Skip this column</span>
                         </SelectItem>
                         {IMPORT_FIELDS.map((field) => {
                           const isUsed = usedFields.has(field.field) && currentValue !== field.field;
@@ -192,7 +192,7 @@ export function ColumnMapper({
                                   <span className="text-xs text-red-400">*</span>
                                 )}
                                 {isUsed && (
-                                  <span className="text-xs text-gray-500">(used)</span>
+                                  <span className="text-xs text-muted-foreground">(used)</span>
                                 )}
                               </span>
                             </SelectItem>
@@ -208,7 +208,7 @@ export function ColumnMapper({
         </table>
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         * Required fields must be mapped before import can proceed.
       </p>
     </div>

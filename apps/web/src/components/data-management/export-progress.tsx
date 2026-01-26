@@ -38,7 +38,7 @@ export function ExportProgress({
   // Streaming export in progress (no job)
   if (isExporting && !job) {
     return (
-      <div className="flex items-center gap-2 text-gray-400 text-sm">
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
         <Loader2 className="h-4 w-4 animate-spin" />
         <span>Preparing download...</span>
       </div>
@@ -50,7 +50,7 @@ export function ExportProgress({
     switch (job.status) {
       case 'pending':
         return (
-          <div className="flex items-center gap-2 text-gray-400 text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Starting export...</span>
           </div>
@@ -61,7 +61,7 @@ export function ExportProgress({
           <div className="flex items-center gap-2 text-blue-400 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>
-              Exporting{job.row_count ? ` ${job.row_count.toLocaleString()} rows` : ''}...
+              Exporting{job.row_count ? <span className="font-mono"> {job.row_count.toLocaleString()} rows</span> : ''}...
             </span>
           </div>
         );
@@ -70,8 +70,8 @@ export function ExportProgress({
         return (
           <div className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-400" />
-            <span className="text-gray-400 text-sm">
-              {job.row_count?.toLocaleString()} rows ready
+            <span className="text-muted-foreground text-sm">
+              <span className="font-mono">{job.row_count?.toLocaleString()}</span> rows ready
             </span>
             <Button
               type="button"

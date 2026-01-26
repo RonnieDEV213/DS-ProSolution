@@ -87,7 +87,7 @@ export function ImportHistory({ accountId }: ImportHistoryProps) {
 
   if (isLoading) {
     return (
-      <div className="text-center py-8 text-gray-400">
+      <div className="text-center py-8 text-muted-foreground">
         Loading import history...
       </div>
     );
@@ -104,7 +104,7 @@ export function ImportHistory({ accountId }: ImportHistoryProps) {
 
   if (batches.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-400">
+      <div className="text-center py-8 text-muted-foreground">
         <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 opacity-50" />
         No import history yet
       </div>
@@ -113,9 +113,9 @@ export function ImportHistory({ accountId }: ImportHistoryProps) {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium text-gray-300">Recent Imports</h3>
+      <h3 className="text-sm font-medium text-foreground">Recent Imports</h3>
 
-      <div className="divide-y divide-gray-800 rounded-md border border-gray-700">
+      <div className="divide-y divide-border rounded-md border border-border">
         {batches.map((batch) => (
           <ImportBatchRow
             key={batch.id}
@@ -200,20 +200,20 @@ function ImportBatchRow({ batch, onRollback, isRollingBack }: ImportBatchRowProp
   return (
     <div className="flex items-center justify-between gap-4 p-3">
       <div className="flex items-center gap-3 min-w-0">
-        <FileSpreadsheet className="h-5 w-5 text-gray-500 shrink-0" />
+        <FileSpreadsheet className="h-5 w-5 text-muted-foreground shrink-0" />
         <div className="min-w-0">
-          <div className="font-medium text-gray-200 truncate">{batch.filename}</div>
-          <div className="text-xs text-gray-500 flex items-center gap-2">
-            <span>{batch.row_count.toLocaleString()} rows</span>
+          <div className="font-medium text-foreground truncate">{batch.filename}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span className="font-mono">{batch.row_count.toLocaleString()} rows</span>
             <span>&bull;</span>
-            <span>{formatDate(importDate)}</span>
+            <span className="font-mono">{formatDate(importDate)}</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
         {isRolledBack ? (
-          <Badge variant="secondary" className="text-gray-400">
+          <Badge variant="secondary" className="text-muted-foreground">
             Rolled back
           </Badge>
         ) : batch.can_rollback ? (
@@ -234,7 +234,7 @@ function ImportBatchRow({ batch, onRollback, isRollingBack }: ImportBatchRowProp
             )}
           </Button>
         ) : (
-          <Badge variant="secondary" className="text-gray-500">
+          <Badge variant="secondary" className="text-muted-foreground">
             Expired
           </Badge>
         )}
