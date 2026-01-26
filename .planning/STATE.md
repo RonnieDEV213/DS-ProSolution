@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** v4 UI/Design System - Phase 23 complete, next: Phase 24 Layout Component Consolidation
+**Current focus:** v4 UI/Design System - Phase 25 Component Color Migration
 
 ## Current Position
 
 Phase: 25 of 26 (Component Color Migration)
-Plan: 1 of 7
-Status: In progress — bookkeeping components migrated to semantic tokens
-Last activity: 2026-01-26 — Completed 25-01-PLAN.md
+Plan: 4 of 7
+Status: In progress — automation tables and collection components migrated
+Last activity: 2026-01-26 — Completed 25-04-PLAN.md
 
-Progress: [██████░░░░] 69% (v4 milestone, 12 of ~17 plans estimated)
+Progress: [███████░░░] 76% (v4 milestone, 13 of ~17 plans estimated)
 
 ## Shipped Milestones
 
@@ -65,6 +65,8 @@ Phase 25 decisions:
 - Table data column headers use font-mono for visual alignment with cell data
 - Strikethrough text uses text-muted-foreground/70 for theme-aware disabled appearance
 - SelectContent pattern: bg-popover border-border with hover:bg-accent on items
+- Status badge semantic mapping: active=bg-primary/20, offline=bg-muted, running=bg-chart-1/20, failed=bg-destructive/20, pending=bg-chart-4/20
+- Worker color arrays (blue/green/purple/orange/pink/cyan) preserved as intentional per-worker distinction, not theme-dependent
 
 ### Pending Todos
 
@@ -78,7 +80,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26 11:48 UTC
-Stopped at: Completed 25-01-PLAN.md (Bookkeeping Component Color Migration)
+Last session: 2026-01-26 11:54 UTC
+Stopped at: Completed 25-04-PLAN.md (Admin Automation & Collection Component Migration)
 Resume file: None
 Next action: Continue Phase 25 plans 02-07 (remaining component directories)
