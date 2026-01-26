@@ -43,6 +43,11 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 22-03-PLAN.md -- Gap closure: fix hardcoded colors, scrollbar class migration
   - [x] 22-04-PLAN.md -- Gap closure: dual class+attribute ThemeProvider for Turbopack compatibility
 - [ ] **Phase 23: Theme Presets & Switching** - 4 preset themes, switcher UI, persistence, system preference detection
+  **Plans:** 4 plans
+  - [ ] 23-01-PLAN.md -- CSS theme presets (Midnight/Dawn/Slate/Carbon), selection/accent-color styles, view transition CSS, theme metadata & utility modules
+  - [ ] 23-02-PLAN.md -- ThemeProvider multi-theme config, system preference mapping (OS dark->Carbon, light->Dawn), themed Sonner toasts
+  - [ ] 23-03-PLAN.md -- Theme picker component with preview cards, ProfileSettingsDialog Theme tab, sidebar footer popover toggle
+  - [ ] 23-04-PLAN.md -- Human verification: all themes, transitions, picker UI, persistence, system detection
 - [ ] **Phase 24: Layout Component Consolidation** - Unified sidebar, breadcrumbs, page headers, spacing conventions
 - [ ] **Phase 25: Component Color Migration** - All 30+ files migrated from hardcoded grays to semantic tokens
 - [ ] **Phase 26: Polish & Micro-interactions** - Transitions, skeletons, empty states, command palette, keyboard shortcuts
@@ -55,7 +60,7 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 8-14  | v2 | 37/37 | Complete | 2026-01-23 |
 | 15-21 | v3 | 23/23 | Complete | 2026-01-25 |
 | 22 | v4 | 4/4 | Complete | 2026-01-25 |
-| 23 | v4 | 0/TBD | Not started | - |
+| 23 | v4 | 0/4 | Planned | - |
 | 24 | v4 | 0/TBD | Not started | - |
 | 25 | v4 | 0/TBD | Not started | - |
 | 26 | v4 | 0/TBD | Not started | - |
@@ -64,4 +69,4 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-25 - Phase 22 complete (4/4 plans, Turbopack fix applied)*
+*Last updated: 2026-01-26 - Phase 23 planned (4 plans in 4 waves)*
