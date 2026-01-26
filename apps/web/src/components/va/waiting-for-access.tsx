@@ -17,7 +17,7 @@ export function WaitingForAccess({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full bg-gray-900 rounded-lg border border-gray-800 p-8 text-center"
+        className="max-w-md w-full bg-card rounded-lg border border-border p-8 text-center"
       >
         <div className="w-16 h-16 bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
           <svg
@@ -36,11 +36,11 @@ export function WaitingForAccess({
           </svg>
         </div>
 
-        <h1 className="text-2xl font-bold text-white mb-4">{title}</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-4">{title}</h1>
 
-        <p className="text-gray-400 mb-6">{message}</p>
+        <p className="text-muted-foreground mb-6">{message}</p>
 
-        <div className="bg-gray-800 rounded-lg p-4 text-sm text-gray-300">
+        <div className="bg-muted rounded-lg p-4 text-sm text-muted-foreground">
           <p>
             If you believe this is an error, please contact your administrator.
           </p>

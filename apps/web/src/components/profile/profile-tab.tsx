@@ -25,20 +25,20 @@ export function ProfileTab({ displayName, email, role }: ProfileTabProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label className="text-gray-400">Display Name</Label>
-        <p className="text-white text-lg">
+        <Label className="text-muted-foreground">Display Name</Label>
+        <p className="text-foreground text-lg">
           {displayName || email.split("@")[0]}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-gray-400">Email</Label>
-        <p className="text-white text-lg">{email}</p>
+        <Label className="text-muted-foreground">Email</Label>
+        <p className="text-foreground text-lg">{email}</p>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-gray-400">Role</Label>
-        <p className="text-white text-lg">{formatRole(role)}</p>
+        <Label className="text-muted-foreground">Role</Label>
+        <p className="text-foreground text-lg">{formatRole(role)}</p>
       </div>
     </div>
   );

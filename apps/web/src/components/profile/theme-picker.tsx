@@ -16,8 +16,8 @@ export function ThemePicker() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-white">Theme</h3>
-        <p className="text-sm text-gray-400 mt-1">
+        <h3 className="text-lg font-semibold text-foreground">Theme</h3>
+        <p className="text-sm text-muted-foreground mt-1">
           Choose your preferred visual theme
         </p>
       </div>
@@ -141,10 +141,10 @@ export function ThemePicker() {
               <div className="bg-card border-t border-border p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 text-left">
-                    <div className="font-medium text-sm text-white">
+                    <div className="font-medium text-sm text-foreground">
                       {theme.label}
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {theme.description}
                     </div>
                   </div>
@@ -181,7 +181,7 @@ export function ThemePickerCompact() {
               "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
               isActive
                 ? "bg-primary text-primary-foreground"
-                : "hover:bg-muted text-gray-300"
+                : "hover:bg-muted text-muted-foreground"
             )}
           >
             {/* Accent color dot */}

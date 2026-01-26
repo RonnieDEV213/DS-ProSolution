@@ -16,8 +16,8 @@ export function ExtensionTab({ role }: ExtensionTabProps) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-medium text-white">Download Extension</h3>
-        <p className="text-sm text-gray-400 mt-1">
+        <h3 className="text-lg font-medium text-foreground">Download Extension</h3>
+        <p className="text-sm text-muted-foreground mt-1">
           Install the browser extension to enable automation features.
         </p>
       </div>
@@ -42,23 +42,23 @@ export function ExtensionTab({ role }: ExtensionTabProps) {
       </Button>
 
       {/* Installation Steps */}
-      <div className="space-y-3 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-        <Label className="text-gray-300">Installation Steps</Label>
-        <ol className="space-y-2 text-sm text-gray-400">
+      <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
+        <Label className="text-foreground">Installation Steps</Label>
+        <ol className="space-y-2 text-sm text-muted-foreground">
           <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-700 text-gray-300 flex items-center justify-center text-xs">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs">
               1
             </span>
             <span>Click the download button above to go to the Chrome Web Store</span>
           </li>
           <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-700 text-gray-300 flex items-center justify-center text-xs">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs">
               2
             </span>
             <span>Click &quot;Add to Chrome&quot; and confirm the installation</span>
           </li>
           <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-700 text-gray-300 flex items-center justify-center text-xs">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs">
               3
             </span>
             <span>

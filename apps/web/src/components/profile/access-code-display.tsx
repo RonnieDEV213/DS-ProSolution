@@ -266,8 +266,8 @@ export function AccessCodeDisplay() {
   if (codeState === "loading") {
     return (
       <div className="space-y-4">
-        <Label className="text-gray-400">Access Code</Label>
-        <div className="h-10 bg-gray-800 rounded animate-pulse" />
+        <Label className="text-muted-foreground">Access Code</Label>
+        <div className="h-10 bg-muted rounded animate-pulse" />
       </div>
     );
   }
@@ -275,8 +275,8 @@ export function AccessCodeDisplay() {
   if (codeState === "no-code") {
     return (
       <div className="space-y-4">
-        <Label className="text-gray-400">Access Code</Label>
-        <p className="text-sm text-gray-500">
+        <Label className="text-muted-foreground">Access Code</Label>
+        <p className="text-sm text-muted-foreground">
           Generate an access code to authenticate the browser extension.
         </p>
         <Button onClick={handleGenerate} disabled={isGenerating}>
@@ -288,11 +288,11 @@ export function AccessCodeDisplay() {
 
   return (
     <div className="space-y-4">
-      <Label className="text-gray-400">Access Code</Label>
+      <Label className="text-muted-foreground">Access Code</Label>
 
       {/* Code display */}
       <div className="flex items-center gap-2">
-        <div className="flex-1 font-mono text-lg bg-gray-800 px-4 py-2 rounded border border-gray-700">
+        <div className="flex-1 font-mono text-lg bg-primary/10 px-3 py-1.5 rounded-md border border-input tracking-wider">
           {getDisplayCode()}
         </div>
 
@@ -301,7 +301,7 @@ export function AccessCodeDisplay() {
           <Button
             variant="outline"
             size="sm"
-            className="border-gray-700"
+            className="border-input"
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerLeave}
@@ -331,7 +331,7 @@ export function AccessCodeDisplay() {
         <Button
           variant="outline"
           size="sm"
-          className="border-gray-700"
+          className="border-input"
           onClick={handleCopy}
         >
           <svg
@@ -352,7 +352,7 @@ export function AccessCodeDisplay() {
 
       {/* Hint for existing codes */}
       {!newlyGeneratedCode && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           The secret cannot be revealed for existing codes. Rotate to get a new code you can copy.
         </p>
       )}
@@ -369,7 +369,7 @@ export function AccessCodeDisplay() {
         <Button
           variant="outline"
           size="sm"
-          className="border-gray-700"
+          className="border-input"
           onClick={() => setRotateConfirmOpen(true)}
           disabled={isRotating}
         >
@@ -380,8 +380,8 @@ export function AccessCodeDisplay() {
           variant="ghost"
           size="sm"
           className={cn(
-            "text-gray-400 hover:text-white",
-            customSecretOpen && "bg-gray-800"
+            "text-muted-foreground hover:text-foreground",
+            customSecretOpen && "bg-accent"
           )}
           onClick={() => setCustomSecretOpen(!customSecretOpen)}
         >
@@ -391,7 +391,7 @@ export function AccessCodeDisplay() {
 
       {/* Custom secret section */}
       {customSecretOpen && (
-        <div className="space-y-3 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+        <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
           <div className="space-y-2">
             <Label htmlFor="custom-secret" className="text-sm">
               Custom Secret
@@ -403,14 +403,14 @@ export function AccessCodeDisplay() {
               onChange={(e) => handleCustomSecretChange(e.target.value)}
               placeholder="Enter 8-32 alphanumeric characters"
               className={cn(
-                "bg-gray-900 border-gray-700",
+                "bg-background border-input",
                 customSecretError && "border-red-500"
               )}
             />
             {customSecretError && (
               <p className="text-xs text-red-400">{customSecretError}</p>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               8-32 characters, letters and numbers only.
             </p>
           </div>

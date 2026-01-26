@@ -93,13 +93,13 @@ export function ProfileSettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         hideCloseButton
-        className="sm:max-w-3xl p-0 bg-gray-900 border-gray-800 text-white overflow-hidden"
+        className="sm:max-w-3xl p-0 bg-card border-border text-foreground overflow-hidden"
       >
         <div className="flex h-[500px]">
           {/* Sidebar */}
-          <div className="w-52 border-r border-gray-800 flex flex-col bg-gray-950">
+          <div className="w-52 border-r border-border flex flex-col bg-background">
             {/* Header */}
-            <DialogHeader className="p-4 border-b border-gray-800">
+            <DialogHeader className="p-4 border-b border-border">
               <DialogTitle className="text-base">Profile Settings</DialogTitle>
               <DialogDescription className="sr-only">
                 View your profile information and manage extension settings
@@ -114,7 +114,7 @@ export function ProfileSettingsDialog({
                   "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                   activeTab === "profile"
                     ? "bg-blue-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800"
+                    : "text-muted-foreground hover:bg-accent"
                 )}
               >
                 Profile
@@ -126,7 +126,7 @@ export function ProfileSettingsDialog({
                     "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                     activeTab === "security"
                       ? "bg-blue-600 text-white"
-                      : "text-gray-300 hover:bg-gray-800"
+                      : "text-muted-foreground hover:bg-accent"
                   )}
                 >
                   Security
@@ -138,7 +138,7 @@ export function ProfileSettingsDialog({
                   "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                   activeTab === "extension"
                     ? "bg-blue-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800"
+                    : "text-muted-foreground hover:bg-accent"
                 )}
               >
                 Extension
@@ -149,7 +149,7 @@ export function ProfileSettingsDialog({
                   "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                   activeTab === "theme"
                     ? "bg-blue-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800"
+                    : "text-muted-foreground hover:bg-accent"
                 )}
               >
                 Theme
@@ -157,7 +157,7 @@ export function ProfileSettingsDialog({
             </nav>
 
             {/* Sign Out button at bottom */}
-            <div className="p-3 border-t border-gray-800">
+            <div className="p-3 border-t border-border">
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 w-full px-3 py-2 rounded text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors"
@@ -187,9 +187,9 @@ export function ProfileSettingsDialog({
                 <ThemePicker />
               ) : loading ? (
                 <div className="space-y-4">
-                  <div className="h-6 bg-gray-800 rounded w-1/3 animate-pulse" />
-                  <div className="h-4 bg-gray-800 rounded w-2/3 animate-pulse" />
-                  <div className="h-4 bg-gray-800 rounded w-1/2 animate-pulse" />
+                  <div className="h-6 bg-muted rounded w-1/3 animate-pulse" />
+                  <div className="h-4 bg-muted rounded w-2/3 animate-pulse" />
+                  <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
                 </div>
               ) : userData ? (
                 <>
@@ -208,7 +208,7 @@ export function ProfileSettingsDialog({
                   )}
                 </>
               ) : (
-                <p className="text-gray-400">Unable to load profile data.</p>
+                <p className="text-muted-foreground">Unable to load profile data.</p>
               )}
             </div>
           </div>

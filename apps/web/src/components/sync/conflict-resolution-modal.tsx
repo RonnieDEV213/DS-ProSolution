@@ -87,20 +87,20 @@ export function ConflictResolutionModal() {
 
         <div className="space-y-4 py-4">
           {/* Field-by-field comparison */}
-          <div className="border border-gray-700 rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-800">
+              <thead className="bg-muted">
                 <tr>
-                  <th className="px-3 py-2 text-left text-gray-400">Field</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground">Field</th>
                   <th className="px-3 py-2 text-left text-blue-400">Your Value</th>
                   <th className="px-3 py-2 text-left text-green-400">Server Value</th>
-                  <th className="px-3 py-2 text-left text-gray-400 w-16">Keep</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground w-16">Keep</th>
                 </tr>
               </thead>
               <tbody>
                 {currentConflict.conflicting_fields.map((field) => (
-                  <tr key={field} className="border-t border-gray-700">
-                    <td className="px-3 py-2 font-medium text-gray-300">
+                  <tr key={field} className="border-t border-border">
+                    <td className="px-3 py-2 font-mono font-medium text-foreground">
                       {FIELD_LABELS[field] ?? field}
                     </td>
                     <td className="px-3 py-2 text-blue-300">
@@ -117,7 +117,7 @@ export function ConflictResolutionModal() {
                           className={`w-6 h-6 rounded text-xs font-medium ${
                             mergeSelection[field] === 'local'
                               ? 'bg-blue-600 text-white'
-                              : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                              : 'bg-muted text-muted-foreground hover:bg-accent'
                           }`}
                         >
                           L
@@ -128,7 +128,7 @@ export function ConflictResolutionModal() {
                           className={`w-6 h-6 rounded text-xs font-medium ${
                             mergeSelection[field] === 'server'
                               ? 'bg-green-600 text-white'
-                              : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                              : 'bg-muted text-muted-foreground hover:bg-accent'
                           }`}
                         >
                           S
@@ -149,7 +149,7 @@ export function ConflictResolutionModal() {
                 checked={applyToAll}
                 onCheckedChange={(checked) => setApplyToAll(checked === true)}
               />
-              <label htmlFor="apply-all" className="text-sm text-gray-400 cursor-pointer">
+              <label htmlFor="apply-all" className="text-sm text-muted-foreground cursor-pointer">
                 Apply this choice to all {remainingCount} remaining conflict{remainingCount > 1 ? 's' : ''}
               </label>
             </div>
