@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 25 of 26 (Component Color Migration)
-Plan: 6 of 7 (5 complete: 01, 02, 03, 04, 06; remaining: 05, 07)
-Status: In progress — admin core, profile, sync, VA, and all pages migrated
-Last activity: 2026-01-26 — Completed 25-03-PLAN.md (backfill)
+Plan: 6 of 7 (6 complete: 01, 02, 03, 04, 05, 06; remaining: 07)
+Status: In progress — collection components fully migrated
+Last activity: 2026-01-26 — Completed 25-05-PLAN.md
 
-Progress: [█████████░] 88% (v4 milestone, 16 of ~18 plans estimated)
+Progress: [█████████░] 94% (v4 milestone, 17 of ~18 plans estimated)
 
 ## Shipped Milestones
 
@@ -79,6 +79,9 @@ Phase 25 decisions:
 - Tab navigation uses bg-primary/text-primary-foreground (not hardcoded blue-600)
 - Dialog sidebars use bg-muted/50 instead of bg-gray-950 for subtlety
 - Pagination/Cancel buttons use default outline variant without gray overrides
+- Progress bar track uses bg-muted, container uses bg-background/border-border (fill colors kept as status colors)
+- All metric values in StatCard use font-mono for tabular numeric alignment
+- Category selector selected state uses bg-accent/50, hover uses bg-accent
 
 ### Pending Todos
 
@@ -92,7 +95,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26 11:59 UTC
-Stopped at: Completed 25-03-PLAN.md (Admin Core Component Migration - backfill)
+Last session: 2026-01-26 12:00 UTC
+Stopped at: Completed 25-05-PLAN.md (Admin Collection Components Migration)
 Resume file: None
-Next action: Continue Phase 25 plan 25-05 or 25-07
+Next action: Continue Phase 25 plan 25-07
