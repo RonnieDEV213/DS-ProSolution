@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { DatabaseProvider } from "@/components/providers/database-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,18 +28,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <TooltipProvider>
-          <DatabaseProvider>
-            <QueryProvider>
-              {children}
-            </QueryProvider>
-          </DatabaseProvider>
-          <Toaster position="top-right" richColors duration={5000} closeButton />
-        </TooltipProvider>
+        <ThemeProvider
+          attribute="data-theme"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <TooltipProvider>
+            <DatabaseProvider>
+              <QueryProvider>
+                {children}
+              </QueryProvider>
+            </DatabaseProvider>
+            <Toaster position="top-right" richColors duration={5000} closeButton />
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
