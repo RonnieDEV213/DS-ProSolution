@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 25 of 26 (Component Color Migration)
-Plan: 2 of 7 (also 01, 03, 04, 05, 06 complete)
-Status: In progress — UI primitives and data management migrated
-Last activity: 2026-01-26 — Completed 25-02-PLAN.md
+Plan: 6 of 7
+Status: In progress — profile, sync, VA, and all pages migrated
+Last activity: 2026-01-26 — Completed 25-06-PLAN.md
 
-Progress: [████████░░] 82% (v4 milestone, 14 of ~17 plans estimated)
+Progress: [█████████░] 88% (v4 milestone, 15 of ~17 plans estimated)
 
 ## Shipped Milestones
 
@@ -71,6 +71,11 @@ Phase 25 decisions:
 - Checkbox checked state uses bg-primary/border-primary/text-primary-foreground (follows theme accent)
 - Slider range/thumb uses bg-primary/border-primary (follows theme accent)
 - themes.ts "gray-green" description string preserved (not a CSS class)
+- Access codes use font-mono text-lg bg-primary/10 rounded-md tracking-wider pill for maximum readability
+- Theme picker preview hex colors preserved (Phase 23 decision) - only structural grays migrated
+- Auth pages (login/page.tsx, login-form.tsx) retain fixed dark grays with exclusion comments
+- Suspended page title uses text-destructive for warning emphasis
+- Conflict resolution field names use font-mono for precise comparison
 
 ### Pending Todos
 
@@ -84,7 +89,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26 11:38 UTC
-Stopped at: Completed 25-02-PLAN.md (Data Management & UI Primitives Color Migration)
+Last session: 2026-01-26 06:45 UTC
+Stopped at: Completed 25-06-PLAN.md (Profile, Sync, VA & Pages Migration)
 Resume file: None
-Next action: Continue Phase 25 plan 25-07 (remaining component directory)
+Next action: Continue Phase 25 plan 25-07 (final verification sweep)
