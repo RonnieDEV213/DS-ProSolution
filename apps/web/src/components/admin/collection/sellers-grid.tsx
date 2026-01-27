@@ -16,6 +16,9 @@ import {
 import { Download, FileText, Braces, Plus, ChevronDown, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useSyncSellers } from "@/hooks/sync/use-sync-sellers";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import type { SellerRecord } from "@/lib/db/schema";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -25,18 +28,6 @@ const CELL_HEIGHT = 32;
 const GRID_GAP = 4;
 const GRID_PADDING = 8;
 
-interface Seller {
-  id: string;
-  display_name: string;
-  normalized_name: string;
-  platform: string;
-  times_seen: number;
-  feedback_percent?: number;
-  feedback_count?: number;
-  created_at?: string;
-  flagged?: boolean;
-}
-
 interface SellersGridProps {
   refreshTrigger: number;
   onSellerChange: () => void;
@@ -44,7 +35,7 @@ interface SellersGridProps {
 }
 
 // Undo/redo types for delete operations
-interface DeletedSeller extends Seller {
+interface DeletedSeller extends SellerRecord {
   originalIndex: number;
 }
 interface UndoEntry {
@@ -54,7 +45,7 @@ interface UndoEntry {
 
 // Props passed to cell component via cellProps
 interface CellProps {
-  sellers: Seller[];
+  sellers: SellerRecord[];
   columnCount: number;
   cellWidth: number;
   selectedIds: Set<string>;
@@ -64,10 +55,10 @@ interface CellProps {
   shiftPreviewIds: Set<string>;
   editingId: string | null;
   editValue: string;
-  onSellerClick: (seller: Seller, event: React.MouseEvent) => void;
+  onSellerClick: (seller: SellerRecord, event: React.MouseEvent) => void;
   onSaveEdit: () => void;
   onEditValueChange: (value: string) => void;
-  onHoverEnter: (seller: Seller, rect: DOMRect, shiftKey: boolean) => void;
+  onHoverEnter: (seller: SellerRecord, rect: DOMRect, shiftKey: boolean) => void;
   onHoverLeave: () => void;
   isDragging: () => boolean;
 }
@@ -106,7 +97,7 @@ function SellerCell({
   const isSelected = selectedIds.has(seller.id);
   const isNew = newSellerIds.has(seller.id);
   const isEditing = editingId === seller.id;
-  const isFlagged = seller.flagged === true;
+  const isFlagged = seller.flagged;
   const isInShiftPreview = shiftPreviewIds.has(seller.id);
 
   // Check if this seller is in the right-drag preview
@@ -173,7 +164,7 @@ function SellerCell({
 }
 
 // Hover detail panel component
-function SellerDetailPanel({ seller }: { seller: Seller | null }) {
+function SellerDetailPanel({ seller }: { seller: SellerRecord | null }) {
   if (!seller) return null;
 
   return (
@@ -182,27 +173,19 @@ function SellerDetailPanel({ seller }: { seller: Seller | null }) {
         {seller.display_name}
       </h4>
       <div className="text-xs text-muted-foreground space-y-1">
-        {seller.feedback_percent !== undefined && (
-          <div className="flex justify-between">
-            <span>Feedback:</span>
-            <span className="text-foreground font-mono">{seller.feedback_percent}%</span>
-          </div>
-        )}
-        {seller.feedback_count !== undefined && (
-          <div className="flex justify-between">
-            <span>Reviews:</span>
-            <span className="text-foreground font-mono">{seller.feedback_count.toLocaleString()}</span>
-          </div>
-        )}
         <div className="flex justify-between">
           <span>Times seen:</span>
           <span className="text-foreground font-mono">{seller.times_seen}</span>
         </div>
-        {seller.created_at && (
+        <div className="flex justify-between">
+          <span>Platform:</span>
+          <span className="text-foreground font-mono">{seller.platform}</span>
+        </div>
+        {seller.updated_at && (
           <div className="flex justify-between">
-            <span>Discovered:</span>
+            <span>Last updated:</span>
             <span className="text-foreground font-mono text-sm">
-              {new Date(seller.created_at).toLocaleDateString()}
+              {new Date(seller.updated_at).toLocaleDateString()}
             </span>
           </div>
         )}
@@ -212,15 +195,39 @@ function SellerDetailPanel({ seller }: { seller: Seller | null }) {
 }
 
 export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new Set() }: SellersGridProps) {
-  const [sellers, setSellers] = useState<Seller[]>([]);
-  const [loading, setLoading] = useState(true);
   const [newSellerName, setNewSellerName] = useState("");
+
+  // Debounce search term for IndexedDB query (300ms)
+  const debouncedSearch = useDebouncedValue(
+    newSellerName.includes('\n') ? '' : newSellerName.trim(),
+    300
+  );
+
+  const {
+    sellers,
+    isLoading: loading,
+    isSyncing,
+    totalCount,
+    flaggedCount,
+    refetch,
+  } = useSyncSellers({
+    filters: {
+      search: debouncedSearch || undefined,
+    },
+  });
+
+  // Backward-compat: setSellers is kept as a no-op shim so existing mutation code
+  // (undo, redo, bulk delete, flag painting, export flagging) continues to compile.
+  // These calls are effectively redundant since useLiveQuery will re-render with
+  // authoritative IndexedDB data. Plan 05 replaces all mutations and removes this.
+  const [, setSellers] = useState<SellerRecord[]>([]);
+
   const [isAddInputFocused, setIsAddInputFocused] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 400 });
-  const [hoveredSeller, setHoveredSeller] = useState<Seller | null>(null);
+  const [hoveredSeller, setHoveredSeller] = useState<SellerRecord | null>(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
 
   // Selection state
@@ -257,9 +264,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const [rightDragMode, setRightDragMode] = useState<boolean | null>(null);
 
   // Refs to access current sellers in stable callbacks
-  const sellersRef = useRef<Seller[]>([]);
+  const sellersRef = useRef<SellerRecord[]>([]);
   sellersRef.current = sellers;
-  const filteredSellersRef = useRef<Seller[]>([]);
+  const filteredSellersRef = useRef<SellerRecord[]>([]);
 
   // Export options state
   const [exportOpen, setExportOpen] = useState(false);
@@ -269,27 +276,6 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const [exportRangeEnd, setExportRangeEnd] = useState("");
 
   const supabase = createClient();
-
-  // Fetch sellers - defined early so other callbacks can reference it
-  const fetchSellers = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(`${API_BASE}/sellers?limit=100000`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSellers(data.sellers || []);
-      }
-    } catch (e) {
-      console.error("Failed to fetch sellers:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase.auth]);
 
   // Calculate grid dimensions
   const { columnCount, cellWidth } = useMemo(() => {
@@ -303,19 +289,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return { columnCount: cols, cellWidth: Math.floor(width) };
   }, [containerSize.width]);
 
-  // Filter sellers based on search input (only when single line - not bulk add mode)
-  const filteredSellers = useMemo(() => {
-    const searchTerm = newSellerName.trim().toLowerCase();
-    const isMultiLine = newSellerName.includes('\n');
-
-    if (!searchTerm || isMultiLine) {
-      return sellers;
-    }
-
-    return sellers.filter(s =>
-      s.display_name.toLowerCase().includes(searchTerm)
-    );
-  }, [sellers, newSellerName]);
+  // useSyncSellers already handles search filtering via debouncedSearch
+  // No additional client-side filtering needed
+  const filteredSellers = sellers;
 
   // Update ref for stable callback access
   filteredSellersRef.current = filteredSellers;
@@ -328,7 +304,6 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const allSelected = filteredSellers.length > 0 && filteredSellers.every(s => selectedIds.has(s.id));
   const someSelected = selectedIds.size > 0 && !allSelected;
   const hasSelection = selectedIds.size > 0;
-  const flaggedCount = useMemo(() => sellers.filter(s => s.flagged).length, [sellers]);
 
   const toggleSelectAll = useCallback(() => {
     if (hasSelection) {
@@ -384,7 +359,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   }, [getGridPositionFromPixels, getSellerIndex, filteredSellers]);
 
   // Click handler for seller cells
-  const handleSellerClick = useCallback((seller: Seller, event: React.MouseEvent) => {
+  const handleSellerClick = useCallback((seller: SellerRecord, event: React.MouseEvent) => {
     if ((event.target as HTMLElement).closest('button')) return;
     if (editingId === seller.id) return;
 
@@ -474,12 +449,12 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       }
       toast.success(`Restored ${names.length} seller${names.length > 1 ? 's' : ''}`);
       onSellerChange();
-      fetchSellers(); // Refresh to get new IDs
+      refetch(); // Refresh to get new IDs
     } catch (e) {
       console.error("Undo failed:", e);
       toast.error("Failed to restore sellers");
     }
-  }, [undoStack, supabase.auth, onSellerChange, fetchSellers]);
+  }, [undoStack, supabase.auth, onSellerChange, refetch]);
 
   // Redo last undone delete operation
   const handleRedo = useCallback(async () => {
@@ -833,7 +808,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
           }
         } catch (e) {
           console.error("Failed to sync flag:", e);
-          fetchSellers();
+          refetch();
         }
       }
       return;
@@ -868,9 +843,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       ));
     } catch (e) {
       console.error("Failed to sync flags:", e);
-      fetchSellers();
+      refetch();
     }
-  }, [supabase.auth, fetchSellers, getGridPositionFromPixels, columnCount]);
+  }, [supabase.auth, refetch, getGridPositionFromPixels, columnCount]);
 
   const handleMouseUp = useCallback(() => {
     // End left-click drag selection
@@ -991,9 +966,10 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     });
   }, [sellers]);
 
+  // Trigger re-sync when parent signals data change
   useEffect(() => {
-    fetchSellers();
-  }, [refreshTrigger, fetchSellers]);
+    refetch();
+  }, [refreshTrigger, refetch]);
 
   // Add seller(s) - supports pasting multiple sellers (one per line)
   const handleAddSeller = async () => {
@@ -1057,7 +1033,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
       setNewSellerName("");
       onSellerChange();
-      fetchSellers();
+      refetch();
     } catch (e) {
       setAddError("Failed to add seller");
     }
@@ -1086,7 +1062,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
       setEditingId(null);
       onSellerChange();
-      fetchSellers();
+      refetch();
     } catch (e) {
       console.error("Failed to update seller:", e);
     }
@@ -1154,12 +1130,12 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     const filtered = getFilteredSellersForExport();
     if (filtered.length === 0) return;
 
-    const headers = ["display_name", "platform", "times_seen", "created_at"];
+    const headers = ["display_name", "platform", "times_seen", "updated_at"];
     const rows = filtered.map(s => [
       `"${s.display_name.replace(/"/g, '""')}"`,
       s.platform,
       s.times_seen,
-      s.created_at || "",
+      s.updated_at || "",
     ]);
 
     const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -1187,7 +1163,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
         display_name: s.display_name,
         platform: s.platform,
         times_seen: s.times_seen,
-        created_at: s.created_at,
+        updated_at: s.updated_at,
       })),
     };
 
@@ -1231,7 +1207,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     onSellerClick: handleSellerClick,
     onSaveEdit: saveEdit,
     onEditValueChange: setEditValue,
-    onHoverEnter: (seller: Seller, rect: DOMRect, shiftKey: boolean) => {
+    onHoverEnter: (seller: SellerRecord, rect: DOMRect, shiftKey: boolean) => {
       setHoveredSeller(seller);
       setHoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
 
@@ -1318,11 +1294,14 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
             {selectedIds.size > 0
               ? `${selectedIds.size.toLocaleString()} selected / `
               : ""}
-            {filteredSellers.length !== sellers.length
-              ? `${filteredSellers.length.toLocaleString()} / ${sellers.length.toLocaleString()}`
-              : `${sellers.length.toLocaleString()} sellers`}
+            {filteredSellers.length !== totalCount
+              ? `${filteredSellers.length.toLocaleString()} / ${totalCount.toLocaleString()}`
+              : `${totalCount.toLocaleString()} sellers`}
             {flaggedCount > 0 && (
               <span className="text-yellow-500 ml-2">({flaggedCount} flagged)</span>
+            )}
+            {isSyncing && (
+              <span className="text-muted-foreground/60 text-xs ml-1">(syncing...)</span>
             )}
           </span>
           {selectedIds.size > 0 && (
@@ -1489,7 +1468,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
         {filteredSellers.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
-            {sellers.length === 0
+            {totalCount === 0
               ? "No sellers yet. Add one above or run a collection."
               : "No sellers match your search."}
           </div>
