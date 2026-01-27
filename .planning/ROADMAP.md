@@ -5,7 +5,7 @@
 - v1 Extension Auth & RBAC (Phases 1-7) - shipped 2026-01-20
 - v2 SellerCollection (Phases 8-14) - shipped 2026-01-23
 - v3 Storage & Rendering Infrastructure (Phases 15-21) - shipped 2026-01-25
-- v4 UI/Design System (Phases 22-27) - in progress
+- v4 UI/Design System (Phases 22-28) - shipped 2026-01-27
 
 ## Phases
 
@@ -30,7 +30,7 @@ See: .planning/milestones/v3-ROADMAP.md
 
 </details>
 
-### v4 UI/Design System (IN PROGRESS)
+### v4 UI/Design System (COMPLETE)
 
 **Milestone Goal:** Transform DS-ProSolution into a polished Modern SaaS application with custom UI components and preset themes -- CSS-first, zero-re-render theme switching, performance-neutral minimum.
 
@@ -84,15 +84,14 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 27-05-PLAN.md -- AppSidebar collapsible sections + footer cleanup + layout integration
   - [x] 27-06-PLAN.md -- Breadcrumb + command palette + automation page rename (Extension Hub -> Automation Hub)
   - [x] 27-07-PLAN.md -- Human verification: all roles, sections, modals, naming
-- [ ] **Phase 28: Collection Storage & Rendering Infrastructure** - Wire v3 sync infrastructure (IndexedDB, incremental sync, TanStack Query, mutation hooks) into the collection SellersGrid, replacing direct fetch+useState with cache-first offline-capable architecture
+- [x] **Phase 28: Collection Storage & Rendering Infrastructure** - Wire v3 sync infrastructure (IndexedDB, incremental sync, TanStack Query, mutation hooks) into the collection SellersGrid, replacing direct fetch+useState with cache-first offline-capable architecture ✓ 2026-01-27
   **Plans:** 6 plans
-  Plans:
-  - [ ] 28-01-PLAN.md -- Foundation: seller query keys, typed seller API functions, offline mutation dispatch
-  - [ ] 28-02-PLAN.md -- Server-side streaming CSV/JSON export endpoints for sellers
-  - [ ] 28-03-PLAN.md -- Sync hooks: useSyncSellers + seller mutation hooks (flag, update, delete)
-  - [ ] 28-04-PLAN.md -- SellersGrid data source migration: useSyncSellers replaces fetch+useState
-  - [ ] 28-05-PLAN.md -- SellersGrid mutation migration: all CRUD via hooks + IndexedDB, zero direct fetch, server-side export routing
-  - [ ] 28-06-PLAN.md -- Run history IndexedDB persistence + useCollectionPolling TanStack Query migration
+  - [x] 28-01-PLAN.md -- Foundation: seller query keys, typed seller API functions, offline mutation dispatch
+  - [x] 28-02-PLAN.md -- Server-side streaming CSV/JSON export endpoints for sellers
+  - [x] 28-03-PLAN.md -- Sync hooks: useSyncSellers + seller mutation hooks (flag, update, delete)
+  - [x] 28-04-PLAN.md -- SellersGrid data source migration: useSyncSellers replaces fetch+useState
+  - [x] 28-05-PLAN.md -- SellersGrid mutation migration: all CRUD via hooks + IndexedDB, zero direct fetch, server-side export routing
+  - [x] 28-06-PLAN.md -- Run history IndexedDB persistence + useCollectionPolling TanStack Query migration
 
 ## Progress
 
@@ -107,10 +106,10 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 25 | v4 | 8/8 | Complete | 2026-01-26 |
 | 26 | v4 | 9/9 | Complete | 2026-01-27 |
 | 27 | v4 | 7/7 | Complete | 2026-01-27 |
-| 28 | v4 | 0/6 | In Progress | -- |
+| 28 | v4 | 6/6 | Complete | 2026-01-27 |
 
-**Total:** 4 milestones, 28 phases, 106 plans (100 shipped)
+**Total:** 4 milestones, 28 phases, 106 plans (106 shipped)
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-27 - Phase 28 revised (added Plan 06 for run history persistence + polling migration)*
+*Last updated: 2026-01-27 - Phase 28 complete (collection storage & rendering infrastructure)*

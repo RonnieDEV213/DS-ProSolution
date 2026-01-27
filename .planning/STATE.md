@@ -5,20 +5,20 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** Phase 28 — Collection Storage & Rendering Infrastructure
+**Current focus:** v4 UI/Design System — All phases complete, milestone ready for audit
 
 ## Current Position
 
-Phase: 28 of 28 (Collection Storage & Rendering Infrastructure)
-Plan: 5 of 6 in progress
-Status: In progress
-Last activity: 2026-01-27 — Completed 28-05-PLAN.md
+Phase: 28 of 28 (Collection Storage & Rendering Infrastructure) — Complete
+Plan: 6 of 6 (all plans complete, verification passed 14/14)
+Status: v4 milestone — All 7 phases (22-28) complete, 42 plans shipped
+Last activity: 2026-01-27 — Phase 28 verified (14/14 must-haves)
 
-Progress: [████████░░] 83% (Phase 28, 5/6 plans complete)
+Progress: [██████████] 100% (v4 milestone complete, 42/42 plans)
 
 ## Shipped Milestones
 
-- **v4 UI/Design System** (2026-01-27) - 6 phases, 36 plans
+- **v4 UI/Design System** (2026-01-27) - 7 phases, 42 plans
   - See: .planning/milestones/v4-ROADMAP.md
 
 - **v3 Storage & Rendering Infrastructure** (2026-01-25) - 7 phases, 23 plans
@@ -33,6 +33,7 @@ Progress: [████████░░] 83% (Phase 28, 5/6 plans complete)
 ## Performance Metrics
 
 **Historical:**
+- v4: 42 plans in 3 days
 - v3: 23 plans in 2 days
 - v2: 37 plans in 4 days
 - v1: 12 plans in 3 days
@@ -184,16 +185,14 @@ None.
 
 ### Blockers/Concerns
 
-**v4 constraint:** Performance-neutral minimum, performance-positive preferred. All UI changes must use CSS-first approach to avoid compute overhead.
-**v4 constraint:** Theme switching must trigger ZERO React re-renders -- CSS variable cascade only.
-**v4 constraint:** No CSS-in-JS, no JS scrollbar libraries. Scrollbar styling must be CSS-only to preserve react-window virtualization.
+None. All v4 constraints satisfied.
 
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 28-05-PLAN.md
+Stopped at: Phase 28 complete — verification passed 14/14
 Resume file: None
-Next action: Execute 28-06-PLAN.md (collection run history persistence)
+Next action: Audit v4 milestone or start v5
 
 ### Roadmap Evolution
 
