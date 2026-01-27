@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** Phase 28 gap closure — sellers RLS policy for sync endpoint
+**Current focus:** Phase 28.1 — v4 tech debt cleanup
 
 ## Current Position
 
-Phase: 28 of 28 (Collection Storage & Rendering Infrastructure) — Gap closure
-Plan: 7 (gap closure: sellers authenticated RLS)
-Status: In progress — Task 1 complete, awaiting human verification (Task 2)
-Last activity: 2026-01-27 — Executing 28-07-PLAN.md (checkpoint: migration needs manual run)
+Phase: 28.1 (v4 Tech Debt Cleanup)
+Plan: 01 of 01
+Status: Complete
+Last activity: 2026-01-27 — Completed 28.1-01-PLAN.md (v4 tech debt cleanup)
 
-Progress: [██████████] 100% (v4 milestone + gap closure plan 07 in progress)
+Progress: [██████████] 100% (v4 milestone + gap closure + tech debt cleanup complete)
 
 ## Shipped Milestones
 
@@ -105,7 +105,7 @@ Phase 26 decisions:
 - Kbd component uses theme semantic tokens (border-border, bg-muted, text-muted-foreground)
 - Base Skeleton primitive delegates styling to skeleton-shimmer CSS class from globals.css
 - Page-specific skeletons match exact structure (toolbar + table, header + metrics, header + cards)
-- TableSkeleton and CardGridSkeleton accept configurable props (rows, columns, cards) for reusability
+- TableSkeleton accepts configurable props (rows, columns) for reusability; CardGridSkeleton removed in 28.1
 - All skeletons use animate-fade-in class for entry animation and border-border for theme compatibility
 - basePath prop enables role-based route adaptation in command palette (admin/VA/client paths)
 - Inner LayoutShortcuts components must be inside SidebarProvider for useSidebar context access
@@ -130,7 +130,7 @@ Phase 27 decisions:
 - Access Profiles and Invites removed from sidebar navigation (now modals on Users page)
 - Dashboard nav item separated from sections (always visible above groups)
 - Empty sections automatically hidden by getVisibleSections utility
-- Deprecated flat exports maintained for backward compatibility until Plan 05
+- Deprecated flat exports removed in Phase 28.1 (backward compatibility period complete)
 - SidebarSection pattern: grouping nav items with id, label, icon, items, roles
 - Role-based filtering: sections declare which roles can see them
 - Modal consolidation pattern: Toolbar buttons open Dialog wrappers around existing page content
@@ -187,14 +187,20 @@ None.
 
 None. All v4 constraints satisfied.
 
+Phase 28.1 decisions:
+- Cleared .next/types cache after route deletion (Next.js caches route type declarations)
+- Removed CardGridSkeleton (speculative, never imported) and spacing.ts (documentation-only, never imported)
+- Removed orphaned department-roles and invites pages (consolidated to modals in Phase 27)
+- Removed deprecated flat nav exports (adminNavItems, vaNavItems, clientNavItems) from navigation.ts
+
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: 28-07 Task 1 complete, paused at checkpoint (Task 2: human-verify migration)
-Resume file: .planning/phases/28-collection-storage-rendering-infrastructure/28-07-PLAN.md
-Next action: Run migration 052, verify sellers load in grid, then complete 28-07 summary
+Stopped at: Completed 28.1-01-PLAN.md
+Resume file: None
 
 ### Roadmap Evolution
 
 - Phase 27 added: Sidebar Folder Reorganization — reorganize sidebar into 3 collapsible folder groups with dropdown page tabs, enforce consistency for skeletons/SVGs/empty states across all pages
 - Phase 28 added: Collection Storage & Rendering Infrastructure — bring v3 bookkeeping infrastructure (cursor pagination, TanStack Query, IndexedDB persistence, incremental sync, virtualized rendering, streaming export) to collection feature
+- Phase 28.1 added: v4 Tech Debt Cleanup — remove dead code, orphaned pages, deprecated exports, and fix naming inconsistencies from v4 milestone audit
