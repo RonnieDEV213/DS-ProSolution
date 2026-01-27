@@ -21,7 +21,7 @@ const segmentLabels: Record<string, string> = {
   "department-roles": "Access Profiles",
   invites: "Manage Invites",
   "order-tracking": "Order Tracking",
-  automation: "Extension Hub",
+  automation: "Automation Hub",
   bookkeeping: "Order Tracking",
 }
 
