@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 28 of 28 (Collection Storage & Rendering Infrastructure)
-Plan: 2 of 6 complete
+Plan: 3 of 6 complete
 Status: In progress
-Last activity: 2026-01-27 — Completed 28-02-PLAN.md
+Last activity: 2026-01-27 — Completed 28-03-PLAN.md
 
-Progress: [███░░░░░░░] 33% (Phase 28, 2/6 plans complete)
+Progress: [█████░░░░░] 50% (Phase 28, 3/6 plans complete)
 
 ## Shipped Milestones
 
@@ -161,6 +161,10 @@ Phase 28 decisions:
 - Seller export excludes internal columns (id, org_id, run IDs, updated_at, deleted_at)
 - Permission gated by seller_collection.read to match sync endpoint pattern
 - Cursor pagination on (created_at DESC, id DESC) for deterministic export ordering
+- No TanStack Query cache manipulation in seller mutations (useLiveQuery is reactive to IndexedDB)
+- No pagination at useSyncSellers hook level (react-window handles rendering performance)
+- Dexie boolean index queried with equals(1) for true with fallback to in-memory filter
+- useDeleteSeller accepts array of IDs for bulk delete support
 
 ### Pending Todos
 
@@ -175,9 +179,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 28-02-PLAN.md
+Stopped at: Completed 28-03-PLAN.md
 Resume file: None
-Next action: Execute 28-03-PLAN.md
+Next action: Execute 28-04-PLAN.md
 
 ### Roadmap Evolution
 
