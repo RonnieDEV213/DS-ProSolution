@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 26 of 26 (Polish & Micro-interactions)
-Plan: 0 of TBD (Phase 25 complete; Phase 26 not yet planned)
-Status: Phase 25 complete — all color migration verified across 4 themes
-Last activity: 2026-01-26 — Completed 25-07-PLAN.md (Phase 25 complete)
+Plan: 0 of TBD (Phase 25 UAT gaps closed; Phase 26 not yet planned)
+Status: Phase 25 fully complete — all UAT gaps closed
+Last activity: 2026-01-27 — Completed 25-08-PLAN.md (UAT gap closure)
 
-Progress: [█████████░] 94% (v4 milestone, 18 of ~18+ plans estimated)
+Progress: [██████████] 95% (v4 milestone, 19 of ~19+ plans estimated)
 
 ## Shipped Milestones
 
@@ -82,6 +82,9 @@ Phase 25 decisions:
 - Progress bar track uses bg-muted, container uses bg-background/border-border (fill colors kept as status colors)
 - All metric values in StatCard use font-mono for tabular numeric alignment
 - Category selector selected state uses bg-accent/50, hover uses bg-accent
+- Simplified "Refund (No Return)" to "Refund" for status column readability
+- scrollbar-thin applied to all overflow containers across bookkeeping and collection areas
+- History panel quick view entries condensed; full details deferred to detail modal
 
 ### Pending Todos
 
@@ -95,7 +98,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26
-Stopped at: Completed Phase 25 (Component Color Migration) — all 7 plans shipped
+Last session: 2026-01-27
+Stopped at: Completed 25-08-PLAN.md (UAT gap closure) — Phase 25 fully complete with all gaps addressed
 Resume file: None
 Next action: Plan Phase 26 (Polish & Micro-interactions)
