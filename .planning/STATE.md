@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 28 of 28 (Collection Storage & Rendering Infrastructure)
-Plan: 4 of 6 in progress
+Plan: 5 of 6 in progress
 Status: In progress
-Last activity: 2026-01-27 — Completed 28-04-PLAN.md
+Last activity: 2026-01-27 — Completed 28-05-PLAN.md
 
-Progress: [████████░░] 80% (Phase 28, 4/6 plans complete)
+Progress: [████████░░] 83% (Phase 28, 5/6 plans complete)
 
 ## Shipped Milestones
 
@@ -173,6 +173,10 @@ Phase 28 decisions:
 - totalCount from useSyncSellers used for empty-state distinction (not sellers.length)
 - Export functions use updated_at instead of created_at (SellerRecord schema)
 - useDebouncedValue hook created as generic utility for 300ms search debounce
+- Single-level undo (no redo) for delete operations per CONTEXT.md simplicity guidance
+- Server-side streaming export threshold: 10,000 sellers (below: client-side, above: server-side)
+- Add seller uses sellerApi directly (needs server-generated ID), then refetch() syncs to IndexedDB
+- All SellersGrid CRUD flows through mutation hooks (useFlagSeller, useUpdateSeller, useDeleteSeller)
 
 ### Pending Todos
 
@@ -187,9 +191,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 28-04-PLAN.md
+Stopped at: Completed 28-05-PLAN.md
 Resume file: None
-Next action: Execute 28-05-PLAN.md (mutation migration)
+Next action: Execute 28-06-PLAN.md (collection run history persistence)
 
 ### Roadmap Evolution
 
