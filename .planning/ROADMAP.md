@@ -65,6 +65,13 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 25-07-PLAN.md -- Automated audit + human verification across all 4 themes
   - [x] 25-08-PLAN.md -- Gap closure: UAT fixes for status column, COGS pill, scrollbars, history spacing
 - [ ] **Phase 26: Polish & Micro-interactions** - Transitions, skeletons, empty states, command palette, keyboard shortcuts
+  **Plans:** 6 plans
+  - [ ] 26-01-PLAN.md -- CSS micro-interactions (button press, card hover, shimmer keyframe, fade-in, reduced-motion)
+  - [ ] 26-02-PLAN.md -- Install cmdk + react-hotkeys-hook, create shortcuts registry + command items + Kbd component
+  - [ ] 26-03-PLAN.md -- Skeleton loading states (base primitive + dashboard/table/card-grid skeletons, shimmer upgrade)
+  - [ ] 26-04-PLAN.md -- Empty state components (4 variants with inline SVG illustrations + CTA buttons)
+  - [ ] 26-05-PLAN.md -- Command palette + keyboard shortcuts + shortcuts reference modal + layout integration
+  - [ ] 26-06-PLAN.md -- Human verification: all 10 POLISH items across all themes
 
 ## Progress
 
@@ -77,7 +84,7 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 23 | v4 | 4/4 | Complete | 2026-01-26 |
 | 24 | v4 | 0/4 | Not started | - |
 | 25 | v4 | 8/8 | Complete | 2026-01-26 |
-| 26 | v4 | 0/TBD | Not started | - |
+| 26 | v4 | 0/6 | Not started | - |
 
 **Total:** 4 milestones, 26 phases, 88 plans (88 shipped)
 
