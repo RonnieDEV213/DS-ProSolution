@@ -21,8 +21,7 @@ import { useUpdateSeller } from "@/hooks/mutations/use-update-seller";
 import { useDeleteSeller } from "@/hooks/mutations/use-delete-seller";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { db } from "@/lib/db";
-import { sellerApi } from "@/lib/api";
-import { getAccessToken } from "@/lib/api";
+import { sellerApi, getAccessToken } from "@/lib/api";
 import type { SellerRecord } from "@/lib/db/schema";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
