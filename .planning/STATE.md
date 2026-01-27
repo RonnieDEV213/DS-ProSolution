@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 26 of 26 (Polish & Micro-interactions)
-Plan: 5 of TBD (In progress)
+Plan: 8 of TBD (In progress)
 Status: Phase 26 in progress — polish and micro-interactions
-Last activity: 2026-01-27 — Completed 26-05-PLAN.md (Command palette integration)
+Last activity: 2026-01-27 — Completed 26-08-PLAN.md (UAT gap closure - fade-in and skeleton loading)
 
-Progress: [██████████] 97% (v4 milestone, 25 of ~26+ plans estimated)
+Progress: [██████████] 98% (v4 milestone, 28 of ~29+ plans estimated)
 
 ## Shipped Milestones
 
@@ -108,6 +108,9 @@ Phase 26 decisions:
 - Dual ProfileSettingsDialog instances: sidebar button + command palette action (only one open at a time)
 - Shortcuts disabled in form inputs via enableOnFormTags: false and explicit input checks
 - Vim-style navigation adapts paths based on basePath (navigateTo callback)
+- All page root wrappers use animate-fade-in for 300ms fade-in entry animation
+- Suspense fallbacks use skeleton components instead of plain text
+- Inline loading states use skeleton components instead of plain text
 
 ### Pending Todos
 
@@ -122,6 +125,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 26-05-PLAN.md (Command palette integration) — Built CommandPalette, useGlobalShortcuts hook, ShortcutsReference modal, and wired into all dashboard layouts
+Stopped at: Completed 26-08-PLAN.md (UAT gap closure - fade-in and skeleton loading) — Added animate-fade-in to all page root wrappers and replaced plain loading text with skeleton components
 Resume file: None
 Next action: Continue Phase 26 polish and micro-interactions
