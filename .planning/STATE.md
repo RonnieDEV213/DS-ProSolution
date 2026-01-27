@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 26 of 26 (Polish & Micro-interactions)
-Plan: 4 of TBD (In progress)
+Plan: 2 of TBD (In progress)
 Status: Phase 26 in progress — polish and micro-interactions
-Last activity: 2026-01-26 — Completed 26-04-PLAN.md (Empty states)
+Last activity: 2026-01-27 — Completed 26-02-PLAN.md (Command palette dependencies)
 
-Progress: [██████████] 96% (v4 milestone, 23 of ~24+ plans estimated)
+Progress: [██████████] 96% (v4 milestone, 24 of ~25+ plans estimated)
 
 ## Shipped Milestones
 
@@ -93,6 +93,12 @@ Phase 26 decisions:
 - Professional messaging tone in empty states: "No results found" not "Oops!" or "Nothing here!"
 - Minimalist SVG line art style (stroke-only, no fills, opacity variations for hierarchy)
 - Empty state base component pattern: illustration + title + description + action slots
+- SHORTCUTS array is single source of truth for all keyboard shortcuts
+- Vim-style go-to sequences (g,d / g,b / g,u / g,a) for navigation shortcuts
+- mod+k for command palette (cross-platform Cmd/Ctrl)
+- Keywords array enhances cmdk fuzzy search (e.g., "bookkeeping" finds "Order Tracking")
+- Icon names stored as PascalCase strings matching Phase 24 navigation pattern
+- Kbd component uses theme semantic tokens (border-border, bg-muted, text-muted-foreground)
 
 ### Pending Todos
 
@@ -106,7 +112,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26
-Stopped at: Completed 26-04-PLAN.md (Empty states) — Created empty state components with inline SVG illustrations
+Last session: 2026-01-27
+Stopped at: Completed 26-02-PLAN.md (Command palette dependencies) — Installed cmdk, react-hotkeys-hook, created shortcut registry and command items
 Resume file: None
 Next action: Continue Phase 26 polish and micro-interactions
