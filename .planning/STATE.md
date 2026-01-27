@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 26 of 26 (Polish & Micro-interactions)
-Plan: 3 of TBD (In progress)
+Plan: 5 of TBD (In progress)
 Status: Phase 26 in progress — polish and micro-interactions
-Last activity: 2026-01-27 — Completed 26-03-PLAN.md (Skeleton loading components)
+Last activity: 2026-01-27 — Completed 26-05-PLAN.md (Command palette integration)
 
-Progress: [██████████] 96% (v4 milestone, 24 of ~25+ plans estimated)
+Progress: [██████████] 97% (v4 milestone, 25 of ~26+ plans estimated)
 
 ## Shipped Milestones
 
@@ -103,6 +103,11 @@ Phase 26 decisions:
 - Page-specific skeletons match exact structure (toolbar + table, header + metrics, header + cards)
 - TableSkeleton and CardGridSkeleton accept configurable props (rows, columns, cards) for reusability
 - All skeletons use animate-fade-in class for entry animation and border-border for theme compatibility
+- basePath prop enables role-based route adaptation in command palette (admin/VA/client paths)
+- Inner LayoutShortcuts components must be inside SidebarProvider for useSidebar context access
+- Dual ProfileSettingsDialog instances: sidebar button + command palette action (only one open at a time)
+- Shortcuts disabled in form inputs via enableOnFormTags: false and explicit input checks
+- Vim-style navigation adapts paths based on basePath (navigateTo callback)
 
 ### Pending Todos
 
@@ -117,6 +122,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 26-03-PLAN.md (Skeleton loading components) — Created base Skeleton primitive and page-specific skeletons for dashboard, table, and card grid layouts
+Stopped at: Completed 26-05-PLAN.md (Command palette integration) — Built CommandPalette, useGlobalShortcuts hook, ShortcutsReference modal, and wired into all dashboard layouts
 Resume file: None
 Next action: Continue Phase 26 polish and micro-interactions
