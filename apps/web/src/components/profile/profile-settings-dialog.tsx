@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -11,10 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { ProfileTab } from "./profile-tab";
 import { SecurityTab } from "./security-tab";
 import { ExtensionTab } from "./extension-tab";
 import { ThemePicker } from "./theme-picker";
+import { useSyncStatus } from "@/hooks/sync/use-sync-status";
+import { Loader2, AlertCircle, RefreshCw, CloudOff } from "lucide-react";
 
 interface ProfileSettingsDialogProps {
   open: boolean;
@@ -27,6 +31,58 @@ interface UserData {
   displayName: string | null;
   email: string;
   role: string;
+}
+
+function SyncStatusSection() {
+  const { status, pendingCount, lastSyncAt, error, retry } = useSyncStatus();
+
+  return (
+    <div className="border-t border-border pt-6 mt-6">
+      <h3 className="text-sm font-medium mb-3">Sync Status</h3>
+      <div className="space-y-3">
+        {/* Status indicator */}
+        <div className="flex items-center gap-2">
+          {status === "idle" && (
+            <>
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="text-sm text-muted-foreground">Synced</span>
+            </>
+          )}
+          {status === "syncing" && (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
+              <span className="text-sm text-muted-foreground">
+                Syncing{pendingCount > 0 ? ` ${pendingCount} records` : "..."}
+              </span>
+            </>
+          )}
+          {status === "error" && (
+            <>
+              <AlertCircle className="h-4 w-4 text-red-400" />
+              <span className="text-sm text-red-400">{error || "Sync failed"}</span>
+              <Button variant="ghost" size="sm" onClick={retry} className="ml-auto h-7 text-xs">
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Retry
+              </Button>
+            </>
+          )}
+          {status === "offline" && (
+            <>
+              <CloudOff className="h-4 w-4 text-yellow-400" />
+              <span className="text-sm text-yellow-400">Offline</span>
+            </>
+          )}
+        </div>
+
+        {/* Last synced timestamp */}
+        {lastSyncAt && (
+          <p className="text-xs text-muted-foreground">
+            Last synced {formatDistanceToNow(lastSyncAt, { addSuffix: true })}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ProfileSettingsDialog({
@@ -113,7 +169,7 @@ export function ProfileSettingsDialog({
                 className={cn(
                   "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                   activeTab === "profile"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent"
                 )}
               >
@@ -125,7 +181,7 @@ export function ProfileSettingsDialog({
                   className={cn(
                     "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                     activeTab === "security"
-                      ? "bg-blue-600 text-white"
+                      ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-accent"
                   )}
                 >
@@ -137,7 +193,7 @@ export function ProfileSettingsDialog({
                 className={cn(
                   "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                   activeTab === "extension"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent"
                 )}
               >
@@ -148,7 +204,7 @@ export function ProfileSettingsDialog({
                 className={cn(
                   "w-full text-left px-3 py-2 rounded text-sm transition-colors",
                   activeTab === "theme"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent"
                 )}
               >
@@ -194,11 +250,14 @@ export function ProfileSettingsDialog({
               ) : userData ? (
                 <>
                   {activeTab === "profile" && (
-                    <ProfileTab
-                      displayName={userData.displayName}
-                      email={userData.email}
-                      role={userData.role}
-                    />
+                    <>
+                      <ProfileTab
+                        displayName={userData.displayName}
+                        email={userData.email}
+                        role={userData.role}
+                      />
+                      <SyncStatusSection />
+                    </>
                   )}
                   {activeTab === "security" && (userData.role === "admin" || userData.role === "va") && (
                     <SecurityTab />

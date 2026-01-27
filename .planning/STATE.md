@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** v4 UI/Design System — SHIPPED
+**Current focus:** v4 UI/Design System — Phase 27 added
 
 ## Current Position
 
-Phase: 26 of 26 (Polish & Micro-interactions) — Complete
-Plan: 9 of 9 (All complete)
-Status: v4 milestone complete — all 26 phases shipped
-Last activity: 2026-01-27 — Phase 26 verified (35/35 must-haves passed)
+Phase: 27 of 27 (Sidebar Folder Reorganization) — In Progress
+Plan: 5 of ? (27-01, 27-02, 27-04 complete)
+Status: v4 milestone — Phase 27 active
+Last activity: 2026-01-27 — Completed 27-02-PLAN.md (Access Profiles & Invites Modal Consolidation)
 
-Progress: [██████████] 100% (v4 milestone, 29/29 plans complete)
+Progress: [█████████░] 98% (v4 milestone, 33/33 plans complete)
 
 ## Shipped Milestones
 
@@ -120,6 +120,22 @@ Phase 26 decisions:
 - Group headers in command contexts use text-xs font-medium uppercase tracking-wider
 - Keyboard shortcuts must check basePath for role-based navigation filtering
 
+Phase 27 decisions:
+- Sync status placed in Profile Settings Profile tab instead of persistent sidebar footer
+- SyncStatusSection uses direct useSyncStatus hook (not useSidebar like SyncStatusIndicator)
+- Border-top divider separates sync status from profile information
+- Settings sections use border-t pt-6 mt-6 for visual separation
+- Extension Hub renamed to Automation Hub in navigation sections
+- Access Profiles and Invites removed from sidebar navigation (now modals on Users page)
+- Dashboard nav item separated from sections (always visible above groups)
+- Empty sections automatically hidden by getVisibleSections utility
+- Deprecated flat exports maintained for backward compatibility until Plan 05
+- SidebarSection pattern: grouping nav items with id, label, icon, items, roles
+- Role-based filtering: sections declare which roles can see them
+- Modal consolidation pattern: Toolbar buttons open Dialog wrappers around existing page content
+- Modal sizing: max-w-5xl for tables, max-w-4xl for lists, max-h-[80vh] for scrolling
+- Modal changes trigger parent table refresh via callback for immediate UI feedback
+
 ### Pending Todos
 
 None.
@@ -132,7 +148,11 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-27
-Stopped at: Phase 26 complete, v4 milestone shipped — all 35 must-haves verified
+Last session: 2026-01-27T05:36:00Z
+Stopped at: Completed 27-02-PLAN.md (Access Profiles & Invites Modal Consolidation)
 Resume file: None
-Next action: /gsd:audit-milestone or /gsd:complete-milestone
+Next action: Continue Phase 27 or plan next phase
+
+### Roadmap Evolution
+
+- Phase 27 added: Sidebar Folder Reorganization — reorganize sidebar into 3 collapsible folder groups with dropdown page tabs, enforce consistency for skeletons/SVGs/empty states across all pages

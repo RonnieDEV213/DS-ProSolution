@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,9 @@ import { useUserRole } from "@/hooks/use-user-role";
 import { usePresence } from "@/hooks/use-presence";
 import { OccupancyBadge } from "@/components/presence/occupancy-badge";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
+import { NoResults } from "@/components/empty-states/no-results";
+import { ChevronDown, ChevronRight, User } from "lucide-react";
+import { automationApi, Agent } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -70,16 +73,31 @@ export function AccountsTable({
   const { isAdmin, loading: roleLoading, userId } = useUserRole();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [editingAccount, setEditingAccount] = useState<AccountFull | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [expandedAccountIds, setExpandedAccountIds] = useState<Set<string>>(new Set());
   const pageSize = 20;
 
   // Determine if we're in view-only mode
   const isViewOnly = viewOnly || !isAdmin;
+
+  // Toggle function for expanding/collapsing accounts
+  const toggleAccount = (accountId: string) => {
+    setExpandedAccountIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(accountId)) {
+        next.delete(accountId);
+      } else {
+        next.add(accountId);
+      }
+      return next;
+    });
+  };
 
   // Fetch presence data via realtime subscription
   const { presence, loading: presenceLoading } = usePresence({
@@ -132,6 +150,18 @@ export function AccountsTable({
       }
     } catch {
       // Silently fail - users list is optional for display
+    }
+  }, [isViewOnly]);
+
+  const fetchAgents = useCallback(async () => {
+    // Only fetch agents for admin mode
+    if (isViewOnly) return;
+
+    try {
+      const result = await automationApi.getAgents();
+      setAgents(result.agents);
+    } catch {
+      // Silently fail - agents list is optional for display
     }
   }, [isViewOnly]);
 
@@ -196,8 +226,9 @@ export function AccountsTable({
   useEffect(() => {
     if (!roleLoading) {
       fetchUsers();
+      fetchAgents();
     }
-  }, [fetchUsers, roleLoading]);
+  }, [fetchUsers, fetchAgents, roleLoading]);
 
   useEffect(() => {
     if (roleLoading) return;
@@ -241,6 +272,7 @@ export function AccountsTable({
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-muted/50">
+              {!isViewOnly && <TableHead className="w-8"></TableHead>}
               <TableHead className="text-muted-foreground font-mono">Account Code</TableHead>
               <TableHead className="text-muted-foreground">Name</TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
@@ -256,21 +288,25 @@ export function AccountsTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={isViewOnly ? 3 : 6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={isViewOnly ? 3 : 7} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isViewOnly ? 3 : 6} className="py-8">
-                  <FirstTimeEmpty
-                    entityName="accounts"
-                    description={
-                      isViewOnly
-                        ? "No accounts assigned to you. Contact an administrator."
-                        : undefined
-                    }
-                  />
+                <TableCell colSpan={isViewOnly ? 3 : 7} className="py-8">
+                  {search ? (
+                    <NoResults searchTerm={search} />
+                  ) : (
+                    <FirstTimeEmpty
+                      entityName="accounts"
+                      description={
+                        isViewOnly
+                          ? "No accounts assigned to you. Contact an administrator."
+                          : undefined
+                      }
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
@@ -278,67 +314,143 @@ export function AccountsTable({
                 const presenceEntry = presence.get(account.id);
                 const isOccupied = !!presenceEntry;
                 const isCurrentUser = presenceEntry?.user_id === userId;
+                const accountAgents = agents.filter((agent) => agent.account_id === account.id);
+                const isExpanded = expandedAccountIds.has(account.id);
+                const hasAgents = accountAgents.length > 0;
 
                 return (
-                  <TableRow key={account.id} className="border-border">
-                    <TableCell className="text-foreground font-medium font-mono text-sm">
-                      {account.account_code}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {account.name || <span className="text-muted-foreground/50">-</span>}
-                    </TableCell>
-                    <TableCell>
-                      <OccupancyBadge
-                        isOccupied={isOccupied}
-                        occupantName={isAdmin ? presenceEntry?.display_name : undefined}
-                        clockedInAt={presenceEntry?.clocked_in_at}
-                        isCurrentUser={isCurrentUser}
-                        inline
-                      />
-                    </TableCell>
-                    {!isViewOnly && isAccountFull(account) && (
-                      <>
-                        <TableCell>
+                  <Fragment key={account.id}>
+                    <TableRow
+                      className={`border-border ${!isViewOnly && hasAgents ? "cursor-pointer hover:bg-muted/50" : ""}`}
+                      onClick={() => {
+                        if (!isViewOnly && hasAgents) {
+                          toggleAccount(account.id);
+                        }
+                      }}
+                    >
+                      {!isViewOnly && (
+                        <TableCell className="w-8">
+                          {hasAgents && (
+                            isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )
+                          )}
+                        </TableCell>
+                      )}
+                      <TableCell className="text-foreground font-medium font-mono text-sm">
+                        {account.account_code}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {account.name || <span className="text-muted-foreground/50">-</span>}
+                      </TableCell>
+                      <TableCell>
+                        <OccupancyBadge
+                          isOccupied={isOccupied}
+                          occupantName={isAdmin ? presenceEntry?.display_name : undefined}
+                          clockedInAt={presenceEntry?.clocked_in_at}
+                          isCurrentUser={isCurrentUser}
+                          inline
+                        />
+                      </TableCell>
+                      {!isViewOnly && isAccountFull(account) && (
+                        <>
+                          <TableCell>
+                            <Badge
+                              variant="secondary"
+                              className={
+                                account.assignment_count > 0
+                                  ? "bg-primary/20 text-primary"
+                                  : "bg-muted text-muted-foreground"
+                              }
+                            >
+                              {account.assignment_count}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-sm">
+                            {formatDate(account.created_at)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingAccount(account);
+                              }}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                <path d="m15 5 4 4" />
+                              </svg>
+                            </Button>
+                          </TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                    {!isViewOnly && isExpanded && accountAgents.map((agent) => (
+                      <TableRow key={agent.id} className="border-border bg-muted/30">
+                        <TableCell></TableCell>
+                        <TableCell className="pl-8">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <User className="h-3 w-3" />
+                            <span className="text-sm">
+                              {agent.label || agent.install_instance_id.slice(0, 8)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
                           <Badge
                             variant="secondary"
                             className={
-                              account.assignment_count > 0
-                                ? "bg-primary/20 text-primary"
+                              agent.role === "EBAY_AGENT"
+                                ? "bg-orange-600 text-white"
+                                : agent.role === "AMAZON_AGENT"
+                                ? "bg-blue-600 text-white"
                                 : "bg-muted text-muted-foreground"
                             }
                           >
-                            {account.assignment_count}
+                            {agent.role === "EBAY_AGENT" ? "eBay" : agent.role === "AMAZON_AGENT" ? "Amazon" : "Unknown"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground font-mono text-sm">
-                          {formatDate(account.created_at)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingAccount(account)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                        <TableCell className="text-sm text-muted-foreground">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              agent.status === "active"
+                                ? "bg-primary/20 text-primary"
+                                : agent.status === "offline"
+                                ? "bg-muted text-muted-foreground"
+                                : agent.status === "paused"
+                                ? "bg-chart-4/20 text-chart-4"
+                                : "bg-destructive/20 text-destructive"
+                            }
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                              <path d="m15 5 4 4" />
-                            </svg>
-                          </Button>
+                            {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
+                          </Badge>
                         </TableCell>
-                      </>
-                    )}
-                  </TableRow>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {agent.last_seen_at
+                            ? new Date(agent.last_seen_at).toLocaleString()
+                            : "Never"}
+                        </TableCell>
+                        <TableCell></TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    ))}
+                  </Fragment>
                 );
               })
             )}
