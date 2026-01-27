@@ -19,7 +19,7 @@ export function useGlobalShortcuts({ basePath = "/admin" }: UseGlobalShortcutsOp
   // Command palette: Cmd+K / Ctrl+K
   useHotkeys("mod+k", (e) => {
     e.preventDefault()
-    setCommandOpen(true)
+    setCommandOpen(prev => !prev)
   }, { enableOnFormTags: false })
 
   // Shortcuts reference: ? (Shift+/)
