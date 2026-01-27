@@ -10,6 +10,14 @@ export interface RecordFilters {
 }
 
 /**
+ * Filter options for seller queries.
+ */
+export interface SellerFilters {
+  flagged?: boolean;
+  search?: string;
+}
+
+/**
  * Type-safe query key factory.
  * Pattern: ['entity', orgId, ...scope] for org-scoped queries.
  */
@@ -36,6 +44,20 @@ export const queryKeys = {
     /** Infinite query for cursor pagination */
     infinite: (orgId: string, accountId: string, filters?: RecordFilters) =>
       ["records", orgId, accountId, "infinite", filters] as const,
+  },
+
+  /**
+   * Seller query keys
+   */
+  sellers: {
+    /** All seller-related queries for an org */
+    all: (orgId: string) => ["sellers", orgId] as const,
+    /** Seller list query with optional filters */
+    list: (orgId: string, filters?: SellerFilters) =>
+      ["sellers", orgId, "list", filters] as const,
+    /** Infinite query for cursor pagination */
+    infinite: (orgId: string, filters?: SellerFilters) =>
+      ["sellers", orgId, "infinite", filters] as const,
   },
 } as const;
 
