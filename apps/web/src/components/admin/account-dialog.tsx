@@ -426,7 +426,7 @@ export function AccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent hideCloseButton className="sm:max-w-3xl bg-card border-border text-foreground p-0">
+      <DialogContent showCloseButton={false} className="sm:max-w-3xl bg-card border-border text-foreground p-0">
         <div className="flex h-[500px]">
           {/* Sidebar */}
           <div className="w-52 border-r border-border flex flex-col">

@@ -328,7 +328,7 @@ export function ProgressDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent hideCloseButton className="bg-background border-border max-w-5xl max-h-[85vh] flex flex-col">
+      <DialogContent showCloseButton={false} className="bg-background border-border max-w-5xl max-h-[85vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

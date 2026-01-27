@@ -224,7 +224,7 @@ export function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" hideCloseButton>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" showCloseButton={false}>
         <DialogHeader className="shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">

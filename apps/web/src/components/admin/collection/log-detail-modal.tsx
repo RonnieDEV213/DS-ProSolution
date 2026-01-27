@@ -257,7 +257,7 @@ export function LogDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-background border-border max-w-3xl h-[80vh] flex flex-col" hideCloseButton>
+      <DialogContent className="bg-background border-border max-w-3xl h-[80vh] flex flex-col" showCloseButton={false}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-foreground">
             History Entry

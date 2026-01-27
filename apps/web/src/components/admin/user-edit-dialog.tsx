@@ -408,7 +408,7 @@ export function UserEditDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent hideCloseButton className="sm:max-w-3xl p-0 bg-card border-border text-foreground overflow-hidden">
+        <DialogContent showCloseButton={false} className="sm:max-w-3xl p-0 bg-card border-border text-foreground overflow-hidden">
           <div className="flex h-[500px]">
             {/* Sidebar */}
             <div className="w-52 border-r border-border flex flex-col bg-muted/50">
