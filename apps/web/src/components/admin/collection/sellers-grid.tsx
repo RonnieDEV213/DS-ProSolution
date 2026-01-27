@@ -17,6 +17,7 @@ import { Download, FileText, Braces, Plus, ChevronDown, Trash2 } from "lucide-re
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSyncSellers } from "@/hooks/sync/use-sync-sellers";
+import { useFlagSeller } from "@/hooks/mutations/use-flag-seller";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { SellerRecord } from "@/lib/db/schema";
 
@@ -215,6 +216,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       search: debouncedSearch || undefined,
     },
   });
+
+  // Mutation hooks (IndexedDB + API, offline-capable)
+  const flagMutation = useFlagSeller();
 
   // Backward-compat: setSellers is kept as a no-op shim so existing mutation code
   // (undo, redo, bulk delete, flag painting, export flagging) continues to compile.
@@ -766,7 +770,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
   // Right-click drag end - apply flags to all sellers in rectangle
   // Defined here so handleMouseUp can reference it
-  const handleRightDragEnd = useCallback(async () => {
+  const handleRightDragEnd = useCallback(() => {
     if (!isRightDraggingRef.current) return;
 
     const previewIds = Array.from(rightDragPreviewIdsRef.current);
@@ -790,26 +794,8 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       const currentFilteredSellers = filteredSellersRef.current;
       if (index < currentFilteredSellers.length) {
         const seller = currentFilteredSellers[index];
-        const newFlagged = !seller.flagged;
-
-        // Update UI immediately
-        setSellers(prev => prev.map(s =>
-          s.id === seller.id ? { ...s, flagged: newFlagged } : s
-        ));
-
-        // Sync to API
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            await fetch(`${API_BASE}/sellers/${seller.id}/flag`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${session.access_token}` },
-            });
-          }
-        } catch (e) {
-          console.error("Failed to sync flag:", e);
-          refetch();
-        }
+        // Toggle flag via mutation hook (updates IndexedDB + API, useLiveQuery reacts)
+        flagMutation.mutate({ id: seller.id, flagged: !seller.flagged });
       }
       return;
     }
@@ -825,27 +811,11 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
     if (idsToToggle.length === 0) return;
 
-    // Update UI immediately
-    setSellers(prev => prev.map(s =>
-      previewIds.includes(s.id) ? { ...s, flagged: mode } : s
-    ));
-
-    // Batch API calls for sellers that need toggling
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await Promise.all(idsToToggle.map(id =>
-        fetch(`${API_BASE}/sellers/${id}/flag`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        })
-      ));
-    } catch (e) {
-      console.error("Failed to sync flags:", e);
-      refetch();
+    // Flag each seller via mutation hook (updates IndexedDB + API, useLiveQuery reacts)
+    for (const id of idsToToggle) {
+      flagMutation.mutate({ id, flagged: mode });
     }
-  }, [supabase.auth, refetch, getGridPositionFromPixels, columnCount]);
+  }, [flagMutation, getGridPositionFromPixels, columnCount]);
 
   const handleMouseUp = useCallback(() => {
     // End left-click drag selection
@@ -1087,7 +1057,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   }, [filteredSellers, exportFirstN, exportRangeStart, exportRangeEnd]);
 
   // Flag exported sellers
-  const flagExportedSellers = useCallback(async (sellerIds: string[]) => {
+  const flagExportedSellers = useCallback((sellerIds: string[]) => {
     if (!exportFlagOnExport || sellerIds.length === 0) return;
 
     // Find sellers that aren't already flagged
@@ -1099,26 +1069,11 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
     if (idsToFlag.length === 0) return;
 
-    // Update UI immediately
-    setSellers(prev => prev.map(s =>
-      sellerIds.includes(s.id) ? { ...s, flagged: true } : s
-    ));
-
-    // Sync to API
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await Promise.all(idsToFlag.map(id =>
-        fetch(`${API_BASE}/sellers/${id}/flag`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        })
-      ));
-    } catch (e) {
-      console.error("Failed to flag exported sellers:", e);
+    // Flag each via mutation hook (updates IndexedDB + API, useLiveQuery reacts)
+    for (const id of idsToFlag) {
+      flagMutation.mutate({ id, flagged: true });
     }
-  }, [exportFlagOnExport, supabase.auth]);
+  }, [exportFlagOnExport, flagMutation]);
 
   // Export count preview
   const exportPreviewCount = useMemo(() => {
