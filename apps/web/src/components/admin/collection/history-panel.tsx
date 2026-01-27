@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { getAccessToken } from "@/lib/api";
+import { useSyncRunHistory } from "@/hooks/sync/use-sync-run-history";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { History, Plus, Minus, Edit3, Bot, User } from "lucide-react";
@@ -63,87 +64,88 @@ export function HistoryPanel({
   onManualEditClick,
   onCollectionRunClick,
 }: HistoryPanelProps) {
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  // Cache-first run history from IndexedDB
+  const { runs, isLoading: runsLoading } = useSyncRunHistory();
 
-  const fetchHistory = useCallback(async () => {
+  // Manual edit audit logs still fetched from server (not persisted in IndexedDB)
+  const [auditLogs, setAuditLogs] = useState<ManualEditEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+
+  const fetchAuditLogs = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const token = await getAccessToken();
+      if (!token) return;
 
-      // Fetch both endpoints in parallel
-      const [runsResponse, logsResponse] = await Promise.all([
-        fetch(`${API_BASE}/collection/runs/history?limit=50`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }),
-        fetch(`${API_BASE}/sellers/audit-log?limit=50`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }),
-      ]);
-
-      const mergedEntries: HistoryEntry[] = [];
-
-      // Process collection runs
-      if (runsResponse.ok) {
-        const runsData = await runsResponse.json();
-        const runs = runsData.runs || [];
-        for (const run of runs) {
-          mergedEntries.push({
-            type: "collection_run",
-            id: run.id,
-            name: run.name,
-            started_at: run.started_at,
-            completed_at: run.completed_at,
-            status: run.status,
-            sellers_new: run.sellers_new || 0,
-            categories_count: run.categories_count || 0,
-            category_ids: run.category_ids || [],
-            seller_count_snapshot: run.seller_count_snapshot,
-          });
-        }
-      }
-
-      // Process manual edits
-      if (logsResponse.ok) {
-        const logsData = await logsResponse.json();
-        const logs = logsData.entries || [];
-        for (const log of logs) {
-          mergedEntries.push({
-            type: "manual_edit",
-            id: log.id,
-            action: log.action,
-            seller_name: log.seller_name,
-            affected_count: log.affected_count || 1,
-            created_at: log.created_at,
-            seller_count_snapshot: log.seller_count_snapshot,
-          });
-        }
-      }
-
-      // Sort by timestamp descending (most recent first)
-      mergedEntries.sort((a, b) => {
-        const aTime = a.type === "collection_run"
-          ? (a.completed_at || a.started_at)
-          : a.created_at;
-        const bTime = b.type === "collection_run"
-          ? (b.completed_at || b.started_at)
-          : b.created_at;
-        return new Date(bTime).getTime() - new Date(aTime).getTime();
+      const response = await fetch(`${API_BASE}/sellers/audit-log?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Limit to 30 most recent entries
-      setEntries(mergedEntries.slice(0, 30));
+      if (response.ok) {
+        const logsData = await response.json();
+        const logs = logsData.entries || [];
+        const entries: ManualEditEntry[] = logs.map((log: Record<string, unknown>) => ({
+          type: "manual_edit" as const,
+          id: log.id as string,
+          action: log.action as "add" | "edit" | "remove",
+          seller_name: log.seller_name as string,
+          affected_count: (log.affected_count as number) || 1,
+          created_at: log.created_at as string,
+          seller_count_snapshot: log.seller_count_snapshot as number | undefined,
+        }));
+        setAuditLogs(entries);
+      }
     } catch (e) {
-      console.error("Failed to fetch history:", e);
+      console.error("Failed to fetch audit logs:", e);
     } finally {
-      setLoading(false);
+      setLogsLoading(false);
     }
-  }, [supabase.auth]);
+  }, []);
 
   useEffect(() => {
-    fetchHistory();
-  }, [refreshTrigger, fetchHistory]);
+    fetchAuditLogs();
+  }, [refreshTrigger, fetchAuditLogs]);
+
+  // Merge run history (from IndexedDB) with audit logs (from server), sorted by timestamp
+  const entries = useMemo(() => {
+    const merged: HistoryEntry[] = [];
+
+    // Map IndexedDB runs to CollectionRunEntry
+    for (const run of runs) {
+      if (run.status === "completed" || run.status === "failed" || run.status === "cancelled") {
+        merged.push({
+          type: "collection_run",
+          id: run.id,
+          name: run.name,
+          started_at: run.started_at || "",
+          completed_at: run.completed_at,
+          status: run.status as "completed" | "failed" | "cancelled",
+          sellers_new: run.sellers_new || 0,
+          categories_count: run.categories_count || 0,
+          category_ids: run.category_ids || [],
+          seller_count_snapshot: run.seller_count_snapshot ?? undefined,
+        });
+      }
+    }
+
+    // Add audit logs
+    merged.push(...auditLogs);
+
+    // Sort by timestamp descending (most recent first)
+    merged.sort((a, b) => {
+      const aTime = a.type === "collection_run"
+        ? (a.completed_at || a.started_at)
+        : a.created_at;
+      const bTime = b.type === "collection_run"
+        ? (b.completed_at || b.started_at)
+        : b.created_at;
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
+
+    // Limit to 30 most recent entries
+    return merged.slice(0, 30);
+  }, [runs, auditLogs]);
+
+  const loading = runsLoading && logsLoading;
 
   const getEntryTime = (entry: HistoryEntry): string => {
     if (entry.type === "collection_run") {

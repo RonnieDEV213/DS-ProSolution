@@ -59,6 +59,19 @@ export const queryKeys = {
     infinite: (orgId: string, filters?: SellerFilters) =>
       ["sellers", orgId, "infinite", filters] as const,
   },
+  /**
+   * Collection query keys
+   */
+  collection: {
+    runs: {
+      /** All collection run queries */
+      all: () => ["collection", "runs"] as const,
+      /** Active run polling query */
+      active: () => ["collection", "runs", "active"] as const,
+      /** Progress for a specific run */
+      progress: (runId: string) => ["collection", "runs", runId, "progress"] as const,
+    },
+  },
 } as const;
 
 /**
