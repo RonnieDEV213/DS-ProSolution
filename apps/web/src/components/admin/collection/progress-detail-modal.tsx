@@ -374,7 +374,7 @@ export function ProgressDetailModal({
         {/* 2-Panel Layout */}
         <div className="grid grid-cols-[1fr_320px] gap-6 flex-1 min-h-0 overflow-hidden">
           {/* Left Panel: Workers */}
-          <div className="overflow-y-auto">
+          <div className="overflow-y-auto scrollbar-thin">
             {expandedWorkerId === null ? (
               <WorkerStatusPanel
                 activities={activities}

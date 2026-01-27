@@ -121,7 +121,7 @@ export function PipelineFeed({ activities, maxEntries = 30 }: PipelineFeedProps)
   return (
     <div
       ref={containerRef}
-      className="space-y-1.5 h-full overflow-y-auto pr-1"
+      className="space-y-1.5 h-full overflow-y-auto scrollbar-thin pr-1"
     >
       <AnimatePresence mode="popLayout">
         {displayedActivities.map((entry) => (

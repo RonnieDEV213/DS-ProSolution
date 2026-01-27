@@ -273,7 +273,7 @@ export function LogDetailModal({
               <h4 className="text-sm font-medium text-foreground mb-2 flex-shrink-0">
                 Changes
               </h4>
-              <div className="flex-1 overflow-y-auto bg-muted rounded border border-border p-2 min-h-0">
+              <div className="flex-1 overflow-y-auto scrollbar-thin bg-muted rounded border border-border p-2 min-h-0">
                 {changesLoading ? (
                   <div className="text-muted-foreground text-sm">Loading changes...</div>
                 ) : !hasChanges ? (
@@ -340,7 +340,7 @@ export function LogDetailModal({
               <h4 className="text-sm font-medium text-foreground mb-2 flex-shrink-0">
                 Full History
               </h4>
-              <div className="flex-1 overflow-y-auto bg-muted rounded border border-border min-h-0">
+              <div className="flex-1 overflow-y-auto scrollbar-thin bg-muted rounded border border-border min-h-0">
                 {allEntries.map((entry) => {
                   if (entry.type === "manual_edit") {
                     // Manual edit entry

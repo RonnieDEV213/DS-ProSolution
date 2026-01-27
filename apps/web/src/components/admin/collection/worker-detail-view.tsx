@@ -181,7 +181,7 @@ export function WorkerDetailView({
       </div>
 
       {/* Scrollable log */}
-      <div className="flex-1 overflow-y-auto space-y-1 pr-2">
+      <div className="flex-1 overflow-y-auto scrollbar-thin space-y-1 pr-2">
         <TooltipProvider>
           {workerActivities.length === 0 ? (
             <div className="text-muted-foreground text-sm text-center py-8">

@@ -268,7 +268,7 @@ export function RunConfigModal({
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="grid grid-cols-[1fr_320px] gap-4 h-full min-h-0">
             {/* Left Panel: Category Selector */}
-            <div className="overflow-y-auto pr-2 min-h-0">
+            <div className="overflow-y-auto scrollbar-thin pr-2 min-h-0">
               <AmazonCategorySelector
                 selectedCategoryIds={selectedCategoryIds}
                 onSelectionChange={setSelectedCategoryIds}
@@ -276,7 +276,7 @@ export function RunConfigModal({
             </div>
 
             {/* Right Panel: Run Controls */}
-            <div className="border-l border-border pl-4 space-y-4 overflow-y-auto min-h-0">
+            <div className="border-l border-border pl-4 space-y-4 overflow-y-auto scrollbar-thin min-h-0">
               {/* Presets dropdown */}
               <div className="space-y-2">
                 <Label className="text-foreground">Quick Presets</Label>

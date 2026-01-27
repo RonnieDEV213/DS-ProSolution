@@ -156,7 +156,7 @@ export function HistoryPanel({
     <button
       key={`run-${entry.id}`}
       onClick={() => onCollectionRunClick(entry.id)}
-      className="w-full text-left px-3 py-2 rounded bg-card hover:bg-accent transition-colors border-l-2 border-blue-500"
+      className="w-full text-left px-3 py-1.5 rounded bg-card hover:bg-accent transition-colors border-l-2 border-blue-500"
     >
       <div className="flex items-center gap-2">
         <Bot className="h-4 w-4 text-blue-400 flex-shrink-0" />
@@ -167,25 +167,15 @@ export function HistoryPanel({
           {entry.status}
         </Badge>
       </div>
-      <div className="flex items-center justify-between mt-1">
-        <div className="flex items-center gap-2">
-          {entry.sellers_new > 0 && (
-            <span className="text-green-400 text-xs font-medium">
-              +{entry.sellers_new} sellers
-            </span>
-          )}
-          <span className="text-muted-foreground text-xs font-mono">
-            {entry.categories_count} categories
-          </span>
-          {entry.seller_count_snapshot !== undefined && (
-            <span className="text-muted-foreground text-xs font-mono">
-              ({entry.seller_count_snapshot} total)
-            </span>
-          )}
-        </div>
-        <span className="text-muted-foreground text-xs font-mono">
+      <div className="flex items-center gap-1.5 mt-0.5 text-muted-foreground text-xs">
+        <span className="font-mono">
           {formatDistanceToNow(new Date(getEntryTime(entry)), { addSuffix: true })}
         </span>
+        {entry.sellers_new > 0 && (
+          <span className="text-green-400 font-medium">
+            +{entry.sellers_new} sellers
+          </span>
+        )}
       </div>
     </button>
   );
@@ -194,7 +184,7 @@ export function HistoryPanel({
     <button
       key={`edit-${entry.id}`}
       onClick={() => onManualEditClick(entry.id)}
-      className="w-full text-left px-3 py-2 rounded bg-card hover:bg-accent transition-colors border-l-2 border-border"
+      className="w-full text-left px-3 py-1.5 rounded bg-card hover:bg-accent transition-colors border-l-2 border-border"
     >
       <div className="flex items-center gap-2">
         <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -207,11 +197,8 @@ export function HistoryPanel({
           </span>
         </div>
       </div>
-      <div className="flex items-center justify-between text-muted-foreground text-xs mt-1">
+      <div className="flex items-center text-muted-foreground text-xs mt-0.5">
         <span className="font-mono">{formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}</span>
-        {entry.seller_count_snapshot !== undefined && (
-          <span className="font-mono">{entry.seller_count_snapshot} sellers total</span>
-        )}
       </div>
     </button>
   );
@@ -225,7 +212,7 @@ export function HistoryPanel({
       </div>
 
       {/* History entries */}
-      <div className="flex-1 overflow-y-auto space-y-2 min-h-0 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto space-y-1 min-h-0 scrollbar-thin">
         {loading ? (
           <div className="text-muted-foreground text-sm">Loading...</div>
         ) : entries.length === 0 ? (
