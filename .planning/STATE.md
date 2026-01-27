@@ -5,18 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** Phase 28.1 complete — all milestones shipped
+**Current focus:** v4 milestone complete — all phases shipped and verified
 
 ## Current Position
 
-Phase: 28.1 (v4 Tech Debt Cleanup)
-Plan: 01 of 01
-Status: Complete
-Last activity: 2026-01-27 — Completed 28-07-PLAN.md (sellers RLS gap closure)
+Phase: 28 (Collection Storage & Rendering Infrastructure)
+Plan: 07 of 07
+Status: Complete — Phase verified (14/14 must-haves passed)
+Last activity: 2026-01-27 — Phase 28 execution complete, VERIFICATION.md created
 
-Progress: [██████████] 100% (v4 milestone + gap closure + tech debt cleanup complete)
-
-Phase 28 gap closure: 7/7 plans complete (6 original + 1 gap closure plan 28-07)
+Progress: [██████████] 100% (v4 milestone fully shipped: phases 22-28.1 all complete)
 
 ## Shipped Milestones
 
@@ -201,7 +199,7 @@ Phase 28.1 decisions:
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 28-07-PLAN.md (sellers RLS gap closure — all Phase 28 plans done)
+Stopped at: Phase 28 execution complete — verified 14/14 must-haves, all v4 phases shipped
 Resume file: None
 
 ### Roadmap Evolution
