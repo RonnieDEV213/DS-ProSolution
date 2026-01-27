@@ -875,13 +875,13 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       onSellerChange();
       // Trigger re-sync to pull new sellers into IndexedDB
       refetch();
-    } catch (e) {
+    } catch {
       setAddError("Failed to add seller");
     }
   };
 
   // Save edit
-  const saveEdit = () => {
+  const saveEdit = useCallback(() => {
     if (!editingId || !editValue?.trim()) {
       setEditingId(null);
       setEditValue("");
@@ -892,7 +892,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     setEditingId(null);
     setEditValue("");
     onSellerChange();
-  };
+  }, [editingId, editValue, updateMutation, onSellerChange]);
 
   // Get filtered sellers based on export options (uses current search filter as base)
   const getFilteredSellersForExport = useCallback(() => {
