@@ -5,20 +5,20 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** v4 UI/Design System — Phase 27 added
+**Current focus:** Phase 28 — Collection Storage & Rendering Infrastructure
 
 ## Current Position
 
-Phase: 27 of 27 (Sidebar Folder Reorganization) — In Progress
-Plan: 6 of 7 (27-01 through 27-06 complete, 27-05 also complete)
-Status: v4 milestone — Phase 27 active
-Last activity: 2026-01-27 — Completed 27-05 and 27-06 PLANs
+Phase: 28 of 28 (Collection Storage & Rendering Infrastructure)
+Plan: 1 of 6 complete
+Status: In progress
+Last activity: 2026-01-27 — Completed 28-01-PLAN.md
 
-Progress: [█████████░] 98% (v4 milestone, 34/34 plans complete)
+Progress: [█░░░░░░░░░] 17% (Phase 28, 1/6 plans complete)
 
 ## Shipped Milestones
 
-- **v4 UI/Design System** (2026-01-27) - 5 phases, 29 plans
+- **v4 UI/Design System** (2026-01-27) - 6 phases, 36 plans
   - See: .planning/milestones/v4-ROADMAP.md
 
 - **v3 Storage & Rendering Infrastructure** (2026-01-25) - 7 phases, 23 plans
@@ -151,6 +151,13 @@ Phase 27 decisions:
 - Sidebar footer now contains only Profile Settings button + Collapse toggle
 - VA without access profile shows empty sections array (only Dashboard visible)
 
+Phase 28 decisions:
+- sellerApi is a separate exported object, not merged into existing api object
+- getAccessToken exported as named function (was file-scoped) for downstream imports
+- Conflict detection guarded by mutation.table === 'records' (sellers use last-write-wins)
+- Seller update dispatch checks 'flagged' in data before 'name' for flag toggle routing
+- accounts case added as no-op stub in executeMutation for type exhaustiveness
+
 ### Pending Todos
 
 None.
@@ -163,11 +170,12 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-27T05:44:08Z
-Stopped at: Completed 27-06-PLAN.md (UI Labels & Navigation Consistency)
+Last session: 2026-01-27
+Stopped at: Completed 28-01-PLAN.md
 Resume file: None
-Next action: Continue Phase 27 (Plan 07 if exists) or complete Phase 27
+Next action: Execute 28-02-PLAN.md (useSyncSellers hook)
 
 ### Roadmap Evolution
 
 - Phase 27 added: Sidebar Folder Reorganization — reorganize sidebar into 3 collapsible folder groups with dropdown page tabs, enforce consistency for skeletons/SVGs/empty states across all pages
+- Phase 28 added: Collection Storage & Rendering Infrastructure — bring v3 bookkeeping infrastructure (cursor pagination, TanStack Query, IndexedDB persistence, incremental sync, virtualized rendering, streaming export) to collection feature
