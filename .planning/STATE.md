@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 26 of 26 (Polish & Micro-interactions)
-Plan: 8 of TBD (In progress)
+Plan: 9 of TBD (In progress)
 Status: Phase 26 in progress — polish and micro-interactions
-Last activity: 2026-01-27 — Completed 26-08-PLAN.md (UAT gap closure - fade-in and skeleton loading)
+Last activity: 2026-01-27 — Completed 26-09-PLAN.md (UAT gap closure - empty state integration)
 
-Progress: [██████████] 98% (v4 milestone, 28 of ~29+ plans estimated)
+Progress: [██████████] 98% (v4 milestone, 29 of ~30+ plans estimated)
 
 ## Shipped Milestones
 
@@ -111,6 +111,9 @@ Phase 26 decisions:
 - All page root wrappers use animate-fade-in for 300ms fade-in entry animation
 - Suspense fallbacks use skeleton components instead of plain text
 - Inline loading states use skeleton components instead of plain text
+- FirstTimeEmpty for all empty data scenarios (not just 'first time' but also no-results and no-selection states)
+- Custom description override for context-specific messaging (VA account assignment, agent pairing, account selection)
+- Empty state integration pattern: import FirstTimeEmpty, replace plain text with <FirstTimeEmpty entityName='...' />
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 26-08-PLAN.md (UAT gap closure - fade-in and skeleton loading) — Added animate-fade-in to all page root wrappers and replaced plain loading text with skeleton components
+Stopped at: Completed 26-09-PLAN.md (UAT gap closure - empty state integration) — Integrated FirstTimeEmpty component into all 7 table/list components (admin, automation, bookkeeping)
 Resume file: None
 Next action: Continue Phase 26 polish and micro-interactions
