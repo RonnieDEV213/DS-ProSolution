@@ -5,7 +5,7 @@
 - v1 Extension Auth & RBAC (Phases 1-7) - shipped 2026-01-20
 - v2 SellerCollection (Phases 8-14) - shipped 2026-01-23
 - v3 Storage & Rendering Infrastructure (Phases 15-21) - shipped 2026-01-25
-- v4 UI/Design System (Phases 22-26) - shipped 2026-01-27
+- v4 UI/Design System (Phases 22-27) - in progress
 
 ## Phases
 
@@ -30,7 +30,7 @@ See: .planning/milestones/v3-ROADMAP.md
 
 </details>
 
-### v4 UI/Design System (SHIPPED 2026-01-27)
+### v4 UI/Design System (IN PROGRESS)
 
 **Milestone Goal:** Transform DS-ProSolution into a polished Modern SaaS application with custom UI components and preset themes -- CSS-first, zero-re-render theme switching, performance-neutral minimum.
 
@@ -48,12 +48,12 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 23-02-PLAN.md -- ThemeProvider multi-theme config, system preference mapping (OS dark->Carbon, light->Dawn), themed Sonner toasts
   - [x] 23-03-PLAN.md -- Theme picker component with preview cards, ProfileSettingsDialog Theme tab, sidebar footer popover toggle
   - [x] 23-04-PLAN.md -- Human verification: all themes, transitions, picker UI, persistence, system detection
-- [ ] **Phase 24: Layout Component Consolidation** - Unified sidebar, breadcrumbs, page headers, spacing conventions
+- [x] **Phase 24: Layout Component Consolidation** - Unified sidebar, breadcrumbs, page headers, spacing conventions ✓ 2026-01-26
   **Plans:** 4 plans
-  - [ ] 24-01-PLAN.md -- Install shadcn/ui sidebar + breadcrumb primitives, NavItem types, navigation configs, spacing constants
-  - [ ] 24-02-PLAN.md -- Create AppSidebar, BreadcrumbNav, and PageHeader layout components
-  - [ ] 24-03-PLAN.md -- Refactor Admin/VA/Client layouts to use unified components, delete old sidebar
-  - [ ] 24-04-PLAN.md -- Human verification: all dashboards, navigation, RBAC, keyboard shortcuts
+  - [x] 24-01-PLAN.md -- Install shadcn/ui sidebar + breadcrumb primitives, NavItem types, navigation configs, spacing constants
+  - [x] 24-02-PLAN.md -- Create AppSidebar, BreadcrumbNav, and PageHeader layout components
+  - [x] 24-03-PLAN.md -- Refactor Admin/VA/Client layouts to use unified components, delete old sidebar
+  - [x] 24-04-PLAN.md -- Human verification: all dashboards, navigation, RBAC, keyboard shortcuts
 - [x] **Phase 25: Component Color Migration** - All 60+ files migrated from hardcoded grays to semantic tokens, monospace data formatting, theme verification ✓ 2026-01-26
   **Plans:** 8 plans
   - [x] 25-01-PLAN.md -- Bookkeeping components: semantic token migration + monospace data formatting (11 files, ~152 occurrences)
@@ -75,6 +75,15 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 26-07-PLAN.md -- Gap closure: card shadow, Ctrl+K toggle, scrollbar, vim role filtering, shortcuts modal styling
   - [x] 26-08-PLAN.md -- Gap closure: animate-fade-in on all pages + skeleton loading fallbacks
   - [x] 26-09-PLAN.md -- Gap closure: empty state component integration into all tables/lists
+- [ ] **Phase 27: Sidebar Folder Reorganization** - Reorganize sidebar into 3 collapsible section groups with role-based visibility, consolidate Access Profiles/Invites/Pairing Request into modals, clean up sidebar footer
+  **Plans:** 7 plans
+  - [ ] 27-01-PLAN.md -- Navigation config restructuring: SidebarSection type + grouped configs + getVisibleSections
+  - [ ] 27-02-PLAN.md -- Users page modal consolidation: AccessProfilesModal + InvitesModal + toolbar buttons
+  - [ ] 27-03-PLAN.md -- Accounts page: PairingRequestModal + agent expandable rows
+  - [ ] 27-04-PLAN.md -- Sync status move to Profile Settings dialog
+  - [ ] 27-05-PLAN.md -- AppSidebar collapsible sections + footer cleanup + layout integration
+  - [ ] 27-06-PLAN.md -- Breadcrumb + command palette + automation page rename (Extension Hub -> Automation Hub)
+  - [ ] 27-07-PLAN.md -- Human verification: all roles, sections, modals, naming
 
 ## Progress
 
@@ -85,12 +94,13 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 15-21 | v3 | 23/23 | Complete | 2026-01-25 |
 | 22 | v4 | 4/4 | Complete | 2026-01-25 |
 | 23 | v4 | 4/4 | Complete | 2026-01-26 |
-| 24 | v4 | 0/4 | Not started | - |
+| 24 | v4 | 4/4 | Complete | 2026-01-26 |
 | 25 | v4 | 8/8 | Complete | 2026-01-26 |
 | 26 | v4 | 9/9 | Complete | 2026-01-27 |
+| 27 | v4 | 0/7 | Planned | — |
 
-**Total:** 4 milestones, 26 phases, 93 plans (93 shipped)
+**Total:** 4 milestones, 27 phases, 100 plans (93 shipped)
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-27 - Phase 26 complete, v4 milestone shipped*
+*Last updated: 2026-01-27 - Phase 27 planned (7 plans, 3 waves)*
