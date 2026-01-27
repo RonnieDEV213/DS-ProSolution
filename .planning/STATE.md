@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 28 of 28 (Collection Storage & Rendering Infrastructure)
-Plan: 3 of 6 complete
-Status: In progress
-Last activity: 2026-01-27 — Completed 28-03-PLAN.md
+Plan: 6 of 6 complete
+Status: Phase complete
+Last activity: 2026-01-27 — Completed 28-06-PLAN.md
 
-Progress: [█████░░░░░] 50% (Phase 28, 3/6 plans complete)
+Progress: [██████████] 100% (Phase 28, 6/6 plans complete)
 
 ## Shipped Milestones
 
@@ -165,6 +165,10 @@ Phase 28 decisions:
 - No pagination at useSyncSellers hook level (react-window handles rendering performance)
 - Dexie boolean index queried with equals(1) for true with fallback to in-memory filter
 - useDeleteSeller accepts array of IDs for bulk delete support
+- SCHEMA_VERSION bumped from 2 to 3 for collection_runs table (triggers one-time data wipe + resync)
+- syncCollectionRuns uses /collection/runs/history endpoint (no dedicated sync endpoint)
+- history-panel.tsx keeps server fetch for audit logs while using IndexedDB for runs
+- useCollectionPolling return shape unchanged (backward compatible with CollectionProgressProvider)
 
 ### Pending Todos
 
@@ -179,9 +183,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 28-03-PLAN.md
+Stopped at: Completed 28-06-PLAN.md (Phase 28 complete)
 Resume file: None
-Next action: Execute 28-04-PLAN.md
+Next action: Phase 28 verification
 
 ### Roadmap Evolution
 
