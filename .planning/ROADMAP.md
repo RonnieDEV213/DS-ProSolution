@@ -75,15 +75,23 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 26-07-PLAN.md -- Gap closure: card shadow, Ctrl+K toggle, scrollbar, vim role filtering, shortcuts modal styling
   - [x] 26-08-PLAN.md -- Gap closure: animate-fade-in on all pages + skeleton loading fallbacks
   - [x] 26-09-PLAN.md -- Gap closure: empty state component integration into all tables/lists
-- [ ] **Phase 27: Sidebar Folder Reorganization** - Reorganize sidebar into 3 collapsible section groups with role-based visibility, consolidate Access Profiles/Invites/Pairing Request into modals, clean up sidebar footer
+- [x] **Phase 27: Sidebar Folder Reorganization** - Reorganize sidebar into 3 collapsible section groups with role-based visibility, consolidate Access Profiles/Invites/Pairing Request into modals, clean up sidebar footer ✓ 2026-01-27
   **Plans:** 7 plans
-  - [ ] 27-01-PLAN.md -- Navigation config restructuring: SidebarSection type + grouped configs + getVisibleSections
-  - [ ] 27-02-PLAN.md -- Users page modal consolidation: AccessProfilesModal + InvitesModal + toolbar buttons
-  - [ ] 27-03-PLAN.md -- Accounts page: PairingRequestModal + agent expandable rows
-  - [ ] 27-04-PLAN.md -- Sync status move to Profile Settings dialog
-  - [ ] 27-05-PLAN.md -- AppSidebar collapsible sections + footer cleanup + layout integration
-  - [ ] 27-06-PLAN.md -- Breadcrumb + command palette + automation page rename (Extension Hub -> Automation Hub)
-  - [ ] 27-07-PLAN.md -- Human verification: all roles, sections, modals, naming
+  - [x] 27-01-PLAN.md -- Navigation config restructuring: SidebarSection type + grouped configs + getVisibleSections
+  - [x] 27-02-PLAN.md -- Users page modal consolidation: AccessProfilesModal + InvitesModal + toolbar buttons
+  - [x] 27-03-PLAN.md -- Accounts page: PairingRequestModal + agent expandable rows
+  - [x] 27-04-PLAN.md -- Sync status move to Profile Settings dialog
+  - [x] 27-05-PLAN.md -- AppSidebar collapsible sections + footer cleanup + layout integration
+  - [x] 27-06-PLAN.md -- Breadcrumb + command palette + automation page rename (Extension Hub -> Automation Hub)
+  - [x] 27-07-PLAN.md -- Human verification: all roles, sections, modals, naming
+- [ ] **Phase 28: Collection Storage & Rendering Infrastructure** - Wire v3 sync infrastructure (IndexedDB, incremental sync, TanStack Query, mutation hooks) into the collection SellersGrid, replacing direct fetch+useState with cache-first offline-capable architecture
+  **Plans:** 5 plans
+  Plans:
+  - [ ] 28-01-PLAN.md -- Foundation: seller query keys, typed seller API functions, offline mutation dispatch
+  - [ ] 28-02-PLAN.md -- Server-side streaming CSV/JSON export endpoints for sellers
+  - [ ] 28-03-PLAN.md -- Sync hooks: useSyncSellers + seller mutation hooks (flag, update, delete)
+  - [ ] 28-04-PLAN.md -- SellersGrid data source migration: useSyncSellers replaces fetch+useState
+  - [ ] 28-05-PLAN.md -- SellersGrid mutation migration: all CRUD via hooks + IndexedDB, zero direct fetch
 
 ## Progress
 
@@ -97,10 +105,11 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 24 | v4 | 4/4 | Complete | 2026-01-26 |
 | 25 | v4 | 8/8 | Complete | 2026-01-26 |
 | 26 | v4 | 9/9 | Complete | 2026-01-27 |
-| 27 | v4 | 0/7 | Planned | — |
+| 27 | v4 | 7/7 | Complete | 2026-01-27 |
+| 28 | v4 | 0/5 | In Progress | -- |
 
-**Total:** 4 milestones, 27 phases, 100 plans (93 shipped)
+**Total:** 4 milestones, 28 phases, 105 plans (100 shipped)
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-27 - Phase 27 planned (7 plans, 3 waves)*
+*Last updated: 2026-01-27 - Phase 28 planned (Collection Storage & Rendering Infrastructure)*
