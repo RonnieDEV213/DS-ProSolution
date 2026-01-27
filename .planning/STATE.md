@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 26 of 26 (Polish & Micro-interactions)
-Plan: 2 of TBD (In progress)
+Plan: 3 of TBD (In progress)
 Status: Phase 26 in progress — polish and micro-interactions
-Last activity: 2026-01-27 — Completed 26-02-PLAN.md (Command palette dependencies)
+Last activity: 2026-01-27 — Completed 26-03-PLAN.md (Skeleton loading components)
 
 Progress: [██████████] 96% (v4 milestone, 24 of ~25+ plans estimated)
 
@@ -99,6 +99,10 @@ Phase 26 decisions:
 - Keywords array enhances cmdk fuzzy search (e.g., "bookkeeping" finds "Order Tracking")
 - Icon names stored as PascalCase strings matching Phase 24 navigation pattern
 - Kbd component uses theme semantic tokens (border-border, bg-muted, text-muted-foreground)
+- Base Skeleton primitive delegates styling to skeleton-shimmer CSS class from globals.css
+- Page-specific skeletons match exact structure (toolbar + table, header + metrics, header + cards)
+- TableSkeleton and CardGridSkeleton accept configurable props (rows, columns, cards) for reusability
+- All skeletons use animate-fade-in class for entry animation and border-border for theme compatibility
 
 ### Pending Todos
 
@@ -113,6 +117,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 26-02-PLAN.md (Command palette dependencies) — Installed cmdk, react-hotkeys-hook, created shortcut registry and command items
+Stopped at: Completed 26-03-PLAN.md (Skeleton loading components) — Created base Skeleton primitive and page-specific skeletons for dashboard, table, and card grid layouts
 Resume file: None
 Next action: Continue Phase 26 polish and micro-interactions
