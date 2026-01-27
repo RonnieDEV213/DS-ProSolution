@@ -5,16 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** Phase 28.1 — v4 tech debt cleanup
+**Current focus:** Phase 28.1 complete — all milestones shipped
 
 ## Current Position
 
 Phase: 28.1 (v4 Tech Debt Cleanup)
 Plan: 01 of 01
 Status: Complete
-Last activity: 2026-01-27 — Completed 28.1-01-PLAN.md (v4 tech debt cleanup)
+Last activity: 2026-01-27 — Completed 28-07-PLAN.md (sellers RLS gap closure)
 
 Progress: [██████████] 100% (v4 milestone + gap closure + tech debt cleanup complete)
+
+Phase 28 gap closure: 7/7 plans complete (6 original + 1 gap closure plan 28-07)
 
 ## Shipped Milestones
 
@@ -152,7 +154,7 @@ Phase 27 decisions:
 - Sidebar footer now contains only Profile Settings button + Collapse toggle
 - VA without access profile shows empty sections array (only Dashboard visible)
 
-Phase 28 decisions:
+Phase 28 decisions (including gap closure plan 07):
 - sellerApi is a separate exported object, not merged into existing api object
 - getAccessToken exported as named function (was file-scoped) for downstream imports
 - Conflict detection guarded by mutation.table === 'records' (sellers use last-write-wins)
@@ -178,6 +180,9 @@ Phase 28 decisions:
 - Server-side streaming export threshold: 10,000 sellers (below: client-side, above: server-side)
 - Add seller uses sellerApi directly (needs server-generated ID), then refetch() syncs to IndexedDB
 - All SellersGrid CRUD flows through mutation hooks (useFlagSeller, useUpdateSeller, useDeleteSeller)
+- Authenticated user RLS SELECT policy on sellers table scoped via memberships org_id (gap closure plan 07)
+- Only SELECT policy added for sellers (mutations go through service_role API client)
+- NULL updated_at backfill added for cursor pagination edge case
 
 ### Pending Todos
 
@@ -196,7 +201,7 @@ Phase 28.1 decisions:
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 28.1-01-PLAN.md
+Stopped at: Completed 28-07-PLAN.md (sellers RLS gap closure — all Phase 28 plans done)
 Resume file: None
 
 ### Roadmap Evolution
