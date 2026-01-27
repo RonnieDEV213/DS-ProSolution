@@ -54,7 +54,7 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [ ] 24-02-PLAN.md -- Create AppSidebar, BreadcrumbNav, and PageHeader layout components
   - [ ] 24-03-PLAN.md -- Refactor Admin/VA/Client layouts to use unified components, delete old sidebar
   - [ ] 24-04-PLAN.md -- Human verification: all dashboards, navigation, RBAC, keyboard shortcuts
-- [ ] **Phase 25: Component Color Migration** - All 60+ files migrated from hardcoded grays to semantic tokens, monospace data formatting, theme verification ✓ 2026-01-26
+- [x] **Phase 25: Component Color Migration** - All 60+ files migrated from hardcoded grays to semantic tokens, monospace data formatting, theme verification ✓ 2026-01-26
   **Plans:** 8 plans
   - [x] 25-01-PLAN.md -- Bookkeeping components: semantic token migration + monospace data formatting (11 files, ~152 occurrences)
   - [x] 25-02-PLAN.md -- Data management components + UI primitives migration (11 files, ~51 occurrences)
@@ -63,7 +63,7 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 25-05-PLAN.md -- Admin collection history, metrics, config, progress migration (14 files, ~177 occurrences)
   - [x] 25-06-PLAN.md -- Profile, sync, VA components + all page.tsx files migration (23 files, ~100 occurrences)
   - [x] 25-07-PLAN.md -- Automated audit + human verification across all 4 themes
-  - [ ] 25-08-PLAN.md -- Gap closure: UAT fixes for status column, COGS pill, scrollbars, history spacing
+  - [x] 25-08-PLAN.md -- Gap closure: UAT fixes for status column, COGS pill, scrollbars, history spacing
 - [ ] **Phase 26: Polish & Micro-interactions** - Transitions, skeletons, empty states, command palette, keyboard shortcuts
 
 ## Progress
@@ -76,11 +76,11 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 22 | v4 | 4/4 | Complete | 2026-01-25 |
 | 23 | v4 | 4/4 | Complete | 2026-01-26 |
 | 24 | v4 | 0/4 | Not started | - |
-| 25 | v4 | 7/8 | UAT gap closure | 2026-01-26 |
+| 25 | v4 | 8/8 | Complete | 2026-01-26 |
 | 26 | v4 | 0/TBD | Not started | - |
 
-**Total:** 4 milestones, 26 phases, 88 plans (87 shipped)
+**Total:** 4 milestones, 26 phases, 88 plans (88 shipped)
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-26 - Phase 25 UAT gap closure plan (25-08) added*
+*Last updated: 2026-01-26 - Phase 25 complete (all 8 plans shipped, UAT gaps closed)*
