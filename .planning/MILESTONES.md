@@ -1,5 +1,33 @@
 # Project Milestones: DS-ProSolution
 
+## v4 UI/Design System (Shipped: 2026-01-27)
+
+**Delivered:** Polished Modern SaaS design system with 4 CSS-first themes (Midnight, Dawn, Slate, Carbon), unified layout primitives, command palette, keyboard shortcuts, and collection V3 sync wiring — zero-rerender theme switching, 75 files migrated to semantic tokens.
+
+**Phases completed:** 22-28.1 (44 plans total)
+
+**Key accomplishments:**
+
+- CSS variable token system with 4 oklch themes and zero-rerender switching via data-theme + next-themes
+- Unified AppSidebar, BreadcrumbNav, PageHeader layout primitives — eliminated ~480 lines of duplicated sidebar code
+- 75 component files migrated from hardcoded grays to semantic tokens (836 token usages across all dashboards)
+- Command palette (Cmd+K), vim-style navigation, keyboard shortcuts registry with reference modal
+- Skeleton loading states, 4 contextual empty states with inline SVG illustrations, CSS shimmer animations
+- Collection SellersGrid wired to V3 sync infrastructure (IndexedDB + mutation hooks + streaming export + RLS)
+
+**Stats:**
+
+- 266 files modified
+- +34,985 / -5,375 lines of code (net +29,610)
+- 8 phases (7 + 1 decimal), 44 plans, 161 commits
+- 3 days from start to ship (2026-01-25 → 2026-01-27)
+
+**Git range:** `docs(22)` → `docs(v4)`
+
+**What's next:** v5 Collection Polish + App-Wide Cache
+
+---
+
 ## v3 Storage & Rendering Infrastructure (Shipped: 2026-01-25)
 
 **Delivered:** Scalable storage and rendering infrastructure enabling millions of records across hundreds of eBay accounts with cursor-based pagination, IndexedDB caching, offline sync, virtualized rendering, and streaming export/import.
