@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** v4 UI/Design System — All phases complete, milestone ready for audit
+**Current focus:** Phase 28 gap closure — sellers RLS policy for sync endpoint
 
 ## Current Position
 
-Phase: 28 of 28 (Collection Storage & Rendering Infrastructure) — Complete
-Plan: 6 of 6 (all plans complete, verification passed 14/14)
-Status: v4 milestone — All 7 phases (22-28) complete, 42 plans shipped
-Last activity: 2026-01-27 — Phase 28 verified (14/14 must-haves)
+Phase: 28 of 28 (Collection Storage & Rendering Infrastructure) — Gap closure
+Plan: 7 (gap closure: sellers authenticated RLS)
+Status: In progress — Task 1 complete, awaiting human verification (Task 2)
+Last activity: 2026-01-27 — Executing 28-07-PLAN.md (checkpoint: migration needs manual run)
 
-Progress: [██████████] 100% (v4 milestone complete, 42/42 plans)
+Progress: [██████████] 100% (v4 milestone + gap closure plan 07 in progress)
 
 ## Shipped Milestones
 
@@ -190,9 +190,9 @@ None. All v4 constraints satisfied.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Phase 28 complete — verification passed 14/14
-Resume file: None
-Next action: Audit v4 milestone or start v5
+Stopped at: 28-07 Task 1 complete, paused at checkpoint (Task 2: human-verify migration)
+Resume file: .planning/phases/28-collection-storage-rendering-infrastructure/28-07-PLAN.md
+Next action: Run migration 052, verify sellers load in grid, then complete 28-07 summary
 
 ### Roadmap Evolution
 
