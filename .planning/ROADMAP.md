@@ -85,13 +85,14 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 27-06-PLAN.md -- Breadcrumb + command palette + automation page rename (Extension Hub -> Automation Hub)
   - [x] 27-07-PLAN.md -- Human verification: all roles, sections, modals, naming
 - [ ] **Phase 28: Collection Storage & Rendering Infrastructure** - Wire v3 sync infrastructure (IndexedDB, incremental sync, TanStack Query, mutation hooks) into the collection SellersGrid, replacing direct fetch+useState with cache-first offline-capable architecture
-  **Plans:** 5 plans
+  **Plans:** 6 plans
   Plans:
   - [ ] 28-01-PLAN.md -- Foundation: seller query keys, typed seller API functions, offline mutation dispatch
   - [ ] 28-02-PLAN.md -- Server-side streaming CSV/JSON export endpoints for sellers
   - [ ] 28-03-PLAN.md -- Sync hooks: useSyncSellers + seller mutation hooks (flag, update, delete)
   - [ ] 28-04-PLAN.md -- SellersGrid data source migration: useSyncSellers replaces fetch+useState
-  - [ ] 28-05-PLAN.md -- SellersGrid mutation migration: all CRUD via hooks + IndexedDB, zero direct fetch
+  - [ ] 28-05-PLAN.md -- SellersGrid mutation migration: all CRUD via hooks + IndexedDB, zero direct fetch, server-side export routing
+  - [ ] 28-06-PLAN.md -- Run history IndexedDB persistence + useCollectionPolling TanStack Query migration
 
 ## Progress
 
@@ -106,10 +107,10 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 25 | v4 | 8/8 | Complete | 2026-01-26 |
 | 26 | v4 | 9/9 | Complete | 2026-01-27 |
 | 27 | v4 | 7/7 | Complete | 2026-01-27 |
-| 28 | v4 | 0/5 | In Progress | -- |
+| 28 | v4 | 0/6 | In Progress | -- |
 
-**Total:** 4 milestones, 28 phases, 105 plans (100 shipped)
+**Total:** 4 milestones, 28 phases, 106 plans (100 shipped)
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-27 - Phase 28 planned (Collection Storage & Rendering Infrastructure)*
+*Last updated: 2026-01-27 - Phase 28 revised (added Plan 06 for run history persistence + polling migration)*
