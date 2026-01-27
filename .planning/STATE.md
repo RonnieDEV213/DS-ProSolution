@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 26 of 26 (Polish & Micro-interactions)
-Plan: 9 of TBD (In progress)
+Plan: 7 of 9 (Completed)
 Status: Phase 26 in progress — polish and micro-interactions
-Last activity: 2026-01-27 — Completed 26-09-PLAN.md (UAT gap closure - empty state integration)
+Last activity: 2026-01-27 — Completed 26-07-PLAN.md (UAT gap closure - card shadow, Ctrl+K toggle, scrollbar, vim shortcuts, shortcuts modal styling)
 
-Progress: [██████████] 98% (v4 milestone, 29 of ~30+ plans estimated)
+Progress: [██████████] 97% (v4 milestone, 27 of ~28 plans estimated)
 
 ## Shipped Milestones
 
@@ -108,12 +108,14 @@ Phase 26 decisions:
 - Dual ProfileSettingsDialog instances: sidebar button + command palette action (only one open at a time)
 - Shortcuts disabled in form inputs via enableOnFormTags: false and explicit input checks
 - Vim-style navigation adapts paths based on basePath (navigateTo callback)
-- All page root wrappers use animate-fade-in for 300ms fade-in entry animation
-- Suspense fallbacks use skeleton components instead of plain text
-- Inline loading states use skeleton components instead of plain text
-- FirstTimeEmpty for all empty data scenarios (not just 'first time' but also no-results and no-selection states)
-- Custom description override for context-specific messaging (VA account assignment, agent pairing, account selection)
-- Empty state integration pattern: import FirstTimeEmpty, replace plain text with <FirstTimeEmpty entityName='...' />
+- Card shadow elevation: shadow-md → shadow-lg for clearly visible hover feedback
+- Command palette scrollbar uses global scrollbar-thin class for theme consistency
+- Ctrl+K toggle pattern (prev => !prev) allows keyboard-only users to close palette
+- Vim shortcuts respect role boundaries: G+A and G+B blocked for client role
+- Shortcuts modal uses bg-popover + text-xs uppercase headers to match command palette dialog
+- All command-style dialogs use bg-popover with overflow-hidden p-0 pattern
+- Group headers in command contexts use text-xs font-medium uppercase tracking-wider
+- Keyboard shortcuts must check basePath for role-based navigation filtering
 
 ### Pending Todos
 
@@ -128,6 +130,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 26-09-PLAN.md (UAT gap closure - empty state integration) — Integrated FirstTimeEmpty component into all 7 table/list components (admin, automation, bookkeeping)
+Stopped at: Completed 26-07-PLAN.md (UAT gap closure - card shadow, Ctrl+K toggle, scrollbar, vim shortcuts, shortcuts modal styling) — Fixed 5 UAT gaps with targeted single-file edits
 Resume file: None
-Next action: Continue Phase 26 polish and micro-interactions
+Next action: Phase 26 complete - ready for v4 milestone wrap-up
