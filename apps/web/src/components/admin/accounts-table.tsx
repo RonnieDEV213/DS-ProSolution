@@ -17,6 +17,7 @@ import { AccountDialog } from "./account-dialog";
 import { useUserRole } from "@/hooks/use-user-role";
 import { usePresence } from "@/hooks/use-presence";
 import { OccupancyBadge } from "@/components/presence/occupancy-badge";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -261,10 +262,15 @@ export function AccountsTable({
               </TableRow>
             ) : accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isViewOnly ? 3 : 6} className="text-center text-muted-foreground py-8">
-                  {isViewOnly
-                    ? "No accounts assigned to you. Contact an administrator."
-                    : "No accounts found. Create one to get started."}
+                <TableCell colSpan={isViewOnly ? 3 : 6} className="py-8">
+                  <FirstTimeEmpty
+                    entityName="accounts"
+                    description={
+                      isViewOnly
+                        ? "No accounts assigned to you. Contact an administrator."
+                        : undefined
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ) : (

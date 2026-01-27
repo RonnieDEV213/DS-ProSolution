@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/tooltip";
 import { UserEditDialog } from "./user-edit-dialog";
 import { TransferOwnershipDialog } from "./transfer-ownership-dialog";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -227,8 +228,8 @@ export function UsersTable({
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No users found
+                <TableCell colSpan={4} className="py-8">
+                  <FirstTimeEmpty entityName="users" />
                 </TableCell>
               </TableRow>
             ) : (

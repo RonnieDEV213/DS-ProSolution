@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DepartmentRoleDialog } from "./department-role-dialog";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -180,8 +181,8 @@ export function DepartmentRolesTable({
               </TableRow>
             ) : roles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  No access profiles found. Create one to get started.
+                <TableCell colSpan={6} className="py-8">
+                  <FirstTimeEmpty entityName="access profiles" />
                 </TableCell>
               </TableRow>
             ) : (

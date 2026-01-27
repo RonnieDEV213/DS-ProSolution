@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import {
   Table,
   TableBody,
@@ -138,7 +139,7 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
   if (invites.length === 0) {
     return (
       <div className="bg-card rounded-lg border border-border p-8">
-        <p className="text-muted-foreground text-center">No invites yet</p>
+        <FirstTimeEmpty entityName="invites" />
       </div>
     );
   }
