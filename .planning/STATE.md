@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 27 of 27 (Sidebar Folder Reorganization) — In Progress
-Plan: 6 of ? (27-01, 27-02, 27-03, 27-04 complete)
+Plan: 6 of 7 (27-01 through 27-06 complete)
 Status: v4 milestone — Phase 27 active
-Last activity: 2026-01-27 — Completed 27-03-PLAN.md (Pairing Request Modal & Agent Rows)
+Last activity: 2026-01-27 — Completed 27-06-PLAN.md (UI Labels & Navigation Consistency)
 
 Progress: [█████████░] 98% (v4 milestone, 34/34 plans complete)
 
@@ -140,6 +140,10 @@ Phase 27 decisions:
 - Expandable rows with Fragment wrapper for account + agent rows
 - Chevron icons only shown when account has linked agents
 - Event stopPropagation on edit button prevents row expansion toggle
+- Command palette "Extension Hub" renamed to "Collection" to reflect Collections tab focus
+- Breadcrumb and page titles use "Automation Hub" as the full descriptive name
+- Access Profiles and Invites removed from command palette (modal-only UI)
+- PageHeader component preferred over manual title/description markup for consistency
 
 ### Pending Todos
 
@@ -153,10 +157,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-27T05:42:00Z
-Stopped at: Completed 27-03-PLAN.md (Pairing Request Modal & Agent Rows)
+Last session: 2026-01-27T05:44:08Z
+Stopped at: Completed 27-06-PLAN.md (UI Labels & Navigation Consistency)
 Resume file: None
-Next action: Continue Phase 27 or plan next phase
+Next action: Continue Phase 27 (Plan 07 if exists) or complete Phase 27
 
 ### Roadmap Evolution
 
