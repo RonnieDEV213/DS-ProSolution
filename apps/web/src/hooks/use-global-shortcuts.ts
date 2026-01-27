@@ -43,11 +43,17 @@ export function useGlobalShortcuts({ basePath = "/admin" }: UseGlobalShortcutsOp
 
   // Vim-style navigation
   useHotkeys("g,d", () => navigateTo("/admin"), { enableOnFormTags: false })
-  useHotkeys("g,b", () => navigateTo("/admin/order-tracking"), { enableOnFormTags: false })
+  useHotkeys("g,b", () => {
+    if (basePath === "/client") return
+    navigateTo("/admin/order-tracking")
+  }, { enableOnFormTags: false })
   useHotkeys("g,u", () => {
     if (basePath === "/admin") router.push("/admin/users")
   }, { enableOnFormTags: false })
-  useHotkeys("g,a", () => navigateTo("/admin/accounts"), { enableOnFormTags: false })
+  useHotkeys("g,a", () => {
+    if (basePath === "/client") return
+    navigateTo("/admin/accounts")
+  }, { enableOnFormTags: false })
 
   return {
     commandOpen,

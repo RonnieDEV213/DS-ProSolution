@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DepartmentRolesTable } from "@/components/admin/department-roles-table";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 // Default org ID for single-org MVP
 const DEFAULT_ORG_ID = "a0000000-0000-0000-0000-000000000001";
@@ -34,14 +35,7 @@ export default function AdminDepartmentRolesPage() {
   };
 
   if (!orgId) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Access Profiles</h1>
-          <p className="text-muted-foreground mt-2">Loading...</p>
-        </div>
-      </div>
-    );
+    return <TableSkeleton columns={6} rows={5} />;
   }
 
   return (

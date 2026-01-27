@@ -18,23 +18,23 @@ interface ShortcutsReferenceProps {
 export function ShortcutsReference({ open, onOpenChange }: ShortcutsReferenceProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card border-border text-card-foreground">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg overflow-hidden p-0 bg-popover text-popover-foreground border-border">
+        <DialogHeader className="px-4 pt-4 pb-2">
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription className="text-muted-foreground">
             Navigate faster with keyboard shortcuts. Press <Kbd>?</Kbd> to toggle this reference.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 max-h-[60vh] overflow-y-auto scrollbar-thin pr-2">
+        <div className="px-4 pb-4 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-thin">
           {SHORTCUT_GROUPS.map((group) => {
             const groupShortcuts = SHORTCUTS.filter((s) => s.group === group)
             if (groupShortcuts.length === 0) return null
 
             return (
               <div key={group}>
-                <h4 className="text-sm font-semibold text-foreground mb-3">{group}</h4>
-                <div className="grid grid-cols-[1fr,auto] gap-y-2.5 gap-x-4">
+                <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">{group}</h4>
+                <div className="grid grid-cols-[1fr,auto] gap-y-2 gap-x-4">
                   {groupShortcuts.map((shortcut) => (
                     <div key={shortcut.key} className="contents">
                       <span className="text-sm text-muted-foreground">{shortcut.description}</span>
