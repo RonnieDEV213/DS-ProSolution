@@ -56,37 +56,40 @@ function CollapsibleSection({
   section,
   pathname,
   isItemActive,
+  sidebarCollapsed,
 }: {
   section: SidebarSection
   pathname: string
   isItemActive: (item: NavItem) => boolean
+  sidebarCollapsed: boolean
 }) {
   const [open, setOpen] = useSectionState(section.id)
+  const effectiveOpen = sidebarCollapsed ? false : open
   const SectionIcon = LucideIcons[section.icon as keyof typeof LucideIcons] as React.ElementType
 
   return (
-    <Collapsible.Root open={open} onOpenChange={setOpen}>
+    <Collapsible.Root open={effectiveOpen} onOpenChange={setOpen}>
       <SidebarGroup className="py-0">
         <Collapsible.Trigger asChild>
-          <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors">
-            {SectionIcon && <SectionIcon className="mr-2" />}
+          <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors text-sm font-semibold text-sidebar-foreground">
+            {SectionIcon && <SectionIcon className="mr-2 h-4 w-4" />}
             <span>{section.label}</span>
             <ChevronDown className={cn(
               "ml-auto h-4 w-4 transition-transform duration-200",
-              open && "rotate-180"
+              effectiveOpen && "rotate-180"
             )} />
           </SidebarGroupLabel>
         </Collapsible.Trigger>
         <Collapsible.Content>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="pl-4">
               {section.items.map((item) => {
                 const Icon = LucideIcons[item.icon as keyof typeof LucideIcons] as React.ElementType
                 const isActive = isItemActive(item)
 
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.label} size="sm">
                       <Link href={item.href}>
                         {Icon && <Icon />}
                         <span>{item.label}</span>
@@ -108,6 +111,7 @@ export function AppSidebar({ sections, basePath, roleLabel, role }: AppSidebarPr
   const [profileOpen, setProfileOpen] = useState(false)
   const { toggleSidebar, state } = useSidebar()
 
+  const sidebarCollapsed = state === "collapsed"
   const visibleSections = getVisibleSections(sections, role)
   const dashboard = dashboardNavItem(basePath)
 
@@ -157,6 +161,7 @@ export function AppSidebar({ sections, basePath, roleLabel, role }: AppSidebarPr
               section={section}
               pathname={pathname}
               isItemActive={isItemActive}
+              sidebarCollapsed={sidebarCollapsed}
             />
           ))}
         </SidebarContent>

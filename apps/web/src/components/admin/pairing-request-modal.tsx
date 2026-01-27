@@ -30,7 +30,7 @@ export function PairingRequestModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-[90vw] w-[90vw] max-h-[85vh] overflow-y-auto scrollbar-thin">
         <DialogHeader>
           <DialogTitle>Pairing Requests</DialogTitle>
           <DialogDescription>

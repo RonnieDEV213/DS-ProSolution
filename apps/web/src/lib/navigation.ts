@@ -31,11 +31,11 @@ export const adminSidebarSections: SidebarSection[] = [
   },
   {
     id: "automation",
-    label: "Automation Hub",   // Renamed from "Extension Hub"
+    label: "Automation Hub",
     icon: "Zap",
     items: [
-      { href: "/admin/automation", label: "Collection", icon: "Zap" },
-      // Jobs: future item, not included yet
+      { href: "/admin/automation", label: "Collection", icon: "Database" },
+      { href: "/admin/jobs", label: "Jobs", icon: "ListChecks" },
     ],
     roles: ["admin", "va"],
   },
