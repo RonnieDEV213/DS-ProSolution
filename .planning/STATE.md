@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 27 of 27 (Sidebar Folder Reorganization) — In Progress
-Plan: 5 of ? (27-01, 27-02, 27-04 complete)
+Plan: 6 of ? (27-01, 27-02, 27-03, 27-04 complete)
 Status: v4 milestone — Phase 27 active
-Last activity: 2026-01-27 — Completed 27-02-PLAN.md (Access Profiles & Invites Modal Consolidation)
+Last activity: 2026-01-27 — Completed 27-03-PLAN.md (Pairing Request Modal & Agent Rows)
 
-Progress: [█████████░] 98% (v4 milestone, 33/33 plans complete)
+Progress: [█████████░] 98% (v4 milestone, 34/34 plans complete)
 
 ## Shipped Milestones
 
@@ -135,6 +135,11 @@ Phase 27 decisions:
 - Modal consolidation pattern: Toolbar buttons open Dialog wrappers around existing page content
 - Modal sizing: max-w-5xl for tables, max-w-4xl for lists, max-h-[80vh] for scrolling
 - Modal changes trigger parent table refresh via callback for immediate UI feedback
+- Pairing Request button visible only to admin users via useUserRole hook
+- Agents fetched separately and grouped by account_id client-side for expandable rows
+- Expandable rows with Fragment wrapper for account + agent rows
+- Chevron icons only shown when account has linked agents
+- Event stopPropagation on edit button prevents row expansion toggle
 
 ### Pending Todos
 
@@ -148,8 +153,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-27T05:36:00Z
-Stopped at: Completed 27-02-PLAN.md (Access Profiles & Invites Modal Consolidation)
+Last session: 2026-01-27T05:42:00Z
+Stopped at: Completed 27-03-PLAN.md (Pairing Request Modal & Agent Rows)
 Resume file: None
 Next action: Continue Phase 27 or plan next phase
 
