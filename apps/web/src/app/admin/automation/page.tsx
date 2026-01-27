@@ -12,6 +12,7 @@ import { LogDetailModal } from "@/components/admin/collection/log-detail-modal";
 import { ProgressBar } from "@/components/admin/collection/progress-bar";
 import { RunConfigModal } from "@/components/admin/collection/run-config-modal";
 import { useCollectionProgress } from "@/contexts/collection-progress-context";
+import { PageHeader } from "@/components/layout/page-header";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -112,13 +113,10 @@ export default function AutomationPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Extension Hub</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage Chrome Extension agents, pairing requests, automation jobs, and seller collections.
-        </p>
-      </div>
+      <PageHeader
+        title="Automation Hub"
+        description="Manage Chrome Extension agents, automation jobs, and seller collections."
+      />
 
       {/* Tabs */}
       <div className="border-b border-border">
