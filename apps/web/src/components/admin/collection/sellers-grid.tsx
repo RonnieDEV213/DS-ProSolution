@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Grid, type GridImperativeAPI } from "react-window";
 import type { CSSProperties, ReactElement } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -18,10 +17,18 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSyncSellers } from "@/hooks/sync/use-sync-sellers";
 import { useFlagSeller } from "@/hooks/mutations/use-flag-seller";
+import { useUpdateSeller } from "@/hooks/mutations/use-update-seller";
+import { useDeleteSeller } from "@/hooks/mutations/use-delete-seller";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { db } from "@/lib/db";
+import { sellerApi } from "@/lib/api";
+import { getAccessToken } from "@/lib/api";
 import type { SellerRecord } from "@/lib/db/schema";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+// Server-side streaming export threshold (sellers)
+const LARGE_EXPORT_THRESHOLD = 10_000;
 
 // Grid configuration
 const MIN_CELL_WIDTH = 180; // Minimum cell width to determine column count
@@ -35,12 +42,9 @@ interface SellersGridProps {
   newSellerIds?: Set<string>;
 }
 
-// Undo/redo types for delete operations
-interface DeletedSeller extends SellerRecord {
-  originalIndex: number;
-}
+// Undo type for delete operations (single-level per CONTEXT.md)
 interface UndoEntry {
-  sellers: DeletedSeller[];
+  sellers: (SellerRecord & { originalIndex: number })[];
   timestamp: number;
 }
 
@@ -219,12 +223,8 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
   // Mutation hooks (IndexedDB + API, offline-capable)
   const flagMutation = useFlagSeller();
-
-  // Backward-compat: setSellers is kept as a no-op shim so existing mutation code
-  // (undo, redo, bulk delete, flag painting, export flagging) continues to compile.
-  // These calls are effectively redundant since useLiveQuery will re-render with
-  // authoritative IndexedDB data. Plan 05 replaces all mutations and removes this.
-  const [, setSellers] = useState<SellerRecord[]>([]);
+  const updateMutation = useUpdateSeller();
+  const deleteMutation = useDeleteSeller();
 
   const [isAddInputFocused, setIsAddInputFocused] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -242,9 +242,8 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   // Shift+hover preview state
   const [shiftPreviewIds, setShiftPreviewIds] = useState<Set<string>>(new Set());
 
-  // Undo/redo stacks for delete operations
+  // Single-level undo stack for delete operations (per CONTEXT.md)
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
-  const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
 
   // Drag selection state
   const isDraggingRef = useRef(false);
@@ -278,8 +277,6 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const [exportFirstN, setExportFirstN] = useState("");
   const [exportRangeStart, setExportRangeStart] = useState("");
   const [exportRangeEnd, setExportRangeEnd] = useState("");
-
-  const supabase = createClient();
 
   // Calculate grid dimensions
   const { columnCount, cellWidth } = useMemo(() => {
@@ -403,126 +400,59 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     }, 200);
   }, [editingId, filteredSellers, selectionAnchor, toggleSelection]);
 
-  // Undo last delete operation
+  // Undo last delete operation (single-level per CONTEXT.md)
   const handleUndo = useCallback(async () => {
     if (undoStack.length === 0) return;
 
     const lastEntry = undoStack[undoStack.length - 1];
-
-    // Move to redo stack
     setUndoStack(prev => prev.slice(0, -1));
-    setRedoStack(prev => [...prev, lastEntry]);
 
-    // Restore sellers to UI (optimistic)
-    setSellers(prev => {
-      const restored = [...prev];
-      // Sort by original index to insert in correct positions
-      const sorted = [...lastEntry.sellers].sort((a, b) => a.originalIndex - b.originalIndex);
-      for (const seller of sorted) {
-        // Insert at original position or at end if position is beyond current length
-        const idx = Math.min(seller.originalIndex, restored.length);
-        restored.splice(idx, 0, seller);
-      }
-      return restored;
-    });
+    // Restore to IndexedDB immediately (useLiveQuery reacts)
+    await db.sellers.bulkPut(lastEntry.sellers);
 
-    // Re-add to backend
+    // Re-add to server
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
       const names = lastEntry.sellers.map(s => s.display_name);
       if (names.length === 1) {
-        await fetch(`${API_BASE}/sellers`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ name: names[0] }),
-        });
+        await sellerApi.createSeller(names[0]);
       } else {
-        await fetch(`${API_BASE}/sellers/bulk`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ names }),
-        });
+        await sellerApi.createSellersBulk(names);
       }
       toast.success(`Restored ${names.length} seller${names.length > 1 ? 's' : ''}`);
       onSellerChange();
-      refetch(); // Refresh to get new IDs
+      refetch(); // Re-sync to get correct server IDs
     } catch (e) {
       console.error("Undo failed:", e);
       toast.error("Failed to restore sellers");
     }
-  }, [undoStack, supabase.auth, onSellerChange, refetch]);
-
-  // Redo last undone delete operation
-  const handleRedo = useCallback(async () => {
-    if (redoStack.length === 0) return;
-
-    const lastEntry = redoStack[redoStack.length - 1];
-
-    // Move to undo stack
-    setRedoStack(prev => prev.slice(0, -1));
-    setUndoStack(prev => [...prev, lastEntry]);
-
-    // Remove from UI
-    const idsToRemove = new Set(lastEntry.sellers.map(s => s.id));
-    setSellers(prev => prev.filter(s => !idsToRemove.has(s.id)));
-
-    // Delete from backend
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const ids = lastEntry.sellers.map(s => s.id);
-      await fetch(`${API_BASE}/sellers/bulk/delete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ ids }),
-      });
-      toast.success(`Re-deleted ${ids.length} seller${ids.length > 1 ? 's' : ''}`);
-      onSellerChange();
-    } catch (e) {
-      console.error("Redo failed:", e);
-      toast.error("Failed to re-delete sellers");
-    }
-  }, [redoStack, supabase.auth, onSellerChange]);
+  }, [undoStack, onSellerChange, refetch]);
 
   // Bulk delete handler with undo support
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
     const idsArray = Array.from(selectedIds);
 
-    // Capture deleted sellers with their original positions for undo
-    const deletedSellers: DeletedSeller[] = idsArray.map(id => {
-      const originalIndex = filteredSellers.findIndex(s => s.id === id);
-      const seller = sellers.find(s => s.id === id)!;
-      return { ...seller, originalIndex };
-    });
+    // Capture deleted sellers from IndexedDB for undo (before deletion)
+    const deletedSellers: (SellerRecord & { originalIndex: number })[] = [];
+    for (const id of idsArray) {
+      const seller = await db.sellers.get(id);
+      if (seller) {
+        const originalIndex = filteredSellers.findIndex(s => s.id === id);
+        deletedSellers.push({ ...seller, originalIndex });
+      }
+    }
 
-    // Push to undo stack
-    setUndoStack(prev => [...prev, { sellers: deletedSellers, timestamp: Date.now() }]);
-    setRedoStack([]); // Clear redo stack on new action
-
-    // Optimistically remove from UI
-    setSellers(prev => prev.filter(s => !selectedIds.has(s.id)));
+    // Push to undo stack (single-level: overwrite)
+    setUndoStack([{ sellers: deletedSellers, timestamp: Date.now() }]);
     setSelectedIds(new Set());
+
+    // Delete via mutation hook (handles IndexedDB removal + API)
+    deleteMutation.mutate({ ids: idsArray });
 
     // Show toast with undo option
     toast.success(
-      `Deleted ${deletedSellers.length} seller${deletedSellers.length > 1 ? 's' : ''}`,
+      `Deleted ${idsArray.length} seller${idsArray.length > 1 ? 's' : ''}`,
       {
         duration: 5000,
         action: {
@@ -531,32 +461,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
         },
       }
     );
-
-    // Perform actual delete
-    try {
-      if (idsArray.length === 1) {
-        await fetch(`${API_BASE}/sellers/${idsArray[0]}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-      } else {
-        await fetch(`${API_BASE}/sellers/bulk/delete`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ ids: idsArray }),
-        });
-      }
-      onSellerChange();
-    } catch (e) {
-      console.error("Delete failed:", e);
-      // Restore on failure
-      setSellers(prev => [...prev, ...deletedSellers]);
-      setUndoStack(prev => prev.slice(0, -1));
-      toast.error("Failed to delete sellers");
-    }
+    onSellerChange();
   };
 
   // Auto-scroll during drag
@@ -885,7 +790,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [filteredSellers, selectedIds]);
 
-  // Ctrl+Z for undo, Ctrl+Shift+Z for redo
+  // Ctrl+Z for undo (single-level, no redo per CONTEXT.md)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if typing in input
@@ -893,22 +798,15 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       const isInputFocused = activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA';
       if (isInputFocused) return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        if (e.shiftKey) {
-          // Ctrl+Shift+Z = Redo
-          e.preventDefault();
-          handleRedo();
-        } else {
-          // Ctrl+Z = Undo
-          e.preventDefault();
-          handleUndo();
-        }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo]);
 
   // Clear selection when clicking outside
   useEffect(() => {
@@ -955,54 +853,22 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     if (sellerNames.length === 0) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Use bulk endpoint for multiple sellers, single endpoint for one
       if (sellerNames.length === 1) {
-        const response = await fetch(`${API_BASE}/sellers`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ name: sellerNames[0] }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          setAddError(data.detail || "Failed to add seller");
-          return;
-        }
+        await sellerApi.createSeller(sellerNames[0]);
       } else {
-        // Use bulk endpoint
-        const response = await fetch(`${API_BASE}/sellers/bulk`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ names: sellerNames }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          setAddError(data.detail || "Failed to add sellers");
-          return;
-        }
-
-        const result = await response.json();
+        const result = await sellerApi.createSellersBulk(sellerNames);
         if (result.failed_count > 0) {
           if (result.success_count > 0) {
             setAddError(`Added ${result.success_count}, failed ${result.failed_count}: ${result.errors[0]}${result.errors.length > 1 ? '...' : ''}`);
           } else {
             setAddError(result.errors[0] || "Failed to add sellers");
+            return;
           }
         }
       }
-
       setNewSellerName("");
       onSellerChange();
+      // Trigger re-sync to pull new sellers into IndexedDB
       refetch();
     } catch (e) {
       setAddError("Failed to add seller");
@@ -1010,32 +876,17 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   };
 
   // Save edit
-  const saveEdit = async () => {
+  const saveEdit = () => {
     if (!editingId || !editValue?.trim()) {
       setEditingId(null);
       setEditValue("");
       return;
     }
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await fetch(`${API_BASE}/sellers/${editingId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ name: editValue.trim() }),
-      });
-
-      setEditingId(null);
-      onSellerChange();
-      refetch();
-    } catch (e) {
-      console.error("Failed to update seller:", e);
-    }
+    updateMutation.mutate({ id: editingId, name: editValue.trim() });
+    setEditingId(null);
+    setEditValue("");
+    onSellerChange();
   };
 
   // Get filtered sellers based on export options (uses current search filter as base)
@@ -1080,11 +931,52 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return getFilteredSellersForExport().length;
   }, [getFilteredSellersForExport]);
 
-  // Export functions
-  const downloadCSV = () => {
+  // Helper: trigger blob download
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Server-side streaming export (authenticated fetch + blob download)
+  const serverSideExport = useCallback(async (format: 'csv' | 'json') => {
+    const token = await getAccessToken();
+    const params = new URLSearchParams();
+    if (exportFlagOnExport) params.set('flagged', 'false'); // export unflagged to flag them
+    const url = `${API_BASE}/export/sellers/${format}?${params}`;
+
+    const res = await fetch(url, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!res.ok) {
+      toast.error(`Export failed: ${res.statusText}`);
+      return;
+    }
+
+    const blob = await res.blob();
+    const dateStr = new Date().toISOString().split("T")[0];
+    downloadBlob(blob, `sellers_${dateStr}.${format}`);
+    setExportOpen(false);
+  }, [exportFlagOnExport]);
+
+  // Export functions with large dataset routing
+  const downloadCSV = useCallback(async () => {
     const filtered = getFilteredSellersForExport();
     if (filtered.length === 0) return;
 
+    // Route to server-side streaming for large datasets
+    if (totalCount > LARGE_EXPORT_THRESHOLD) {
+      await serverSideExport('csv');
+      return;
+    }
+
+    // Client-side export for small datasets
     const headers = ["display_name", "platform", "times_seen", "updated_at"];
     const rows = filtered.map(s => [
       `"${s.display_name.replace(/"/g, '""')}"`,
@@ -1095,22 +987,24 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
     const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sellers_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `sellers_${new Date().toISOString().split("T")[0]}.csv`);
 
     // Flag exported sellers
     flagExportedSellers(filtered.map(s => s.id));
     setExportOpen(false);
-  };
+  }, [getFilteredSellersForExport, totalCount, serverSideExport, flagExportedSellers]);
 
-  const downloadJSON = () => {
+  const downloadJSON = useCallback(async () => {
     const filtered = getFilteredSellersForExport();
     if (filtered.length === 0) return;
 
+    // Route to server-side streaming for large datasets
+    if (totalCount > LARGE_EXPORT_THRESHOLD) {
+      await serverSideExport('json');
+      return;
+    }
+
+    // Client-side export for small datasets
     const data = {
       exported_at: new Date().toISOString(),
       count: filtered.length,
@@ -1123,17 +1017,12 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sellers_${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `sellers_${new Date().toISOString().split("T")[0]}.json`);
 
     // Flag exported sellers
     flagExportedSellers(filtered.map(s => s.id));
     setExportOpen(false);
-  };
+  }, [getFilteredSellersForExport, totalCount, serverSideExport, flagExportedSellers]);
 
   const copyRawText = async () => {
     const filtered = getFilteredSellersForExport();
