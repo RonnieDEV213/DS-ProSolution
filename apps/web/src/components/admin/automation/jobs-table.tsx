@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import {
   Select,
   SelectContent,
@@ -122,8 +123,8 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
               </TableRow>
             ) : !jobs || jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No jobs found
+                <TableCell colSpan={5} className="py-8">
+                  <FirstTimeEmpty entityName="jobs" />
                 </TableCell>
               </TableRow>
             ) : (

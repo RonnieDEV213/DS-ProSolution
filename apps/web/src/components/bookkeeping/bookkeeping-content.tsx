@@ -12,6 +12,7 @@ import { AccountSelector } from "@/components/bookkeeping/account-selector";
 import { RecordsToolbar } from "@/components/bookkeeping/records-toolbar";
 import { VirtualizedRecordsList } from "@/components/bookkeeping/virtualized-records-list";
 import { AddRecordDialog } from "@/components/bookkeeping/add-record-dialog";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { useRowDensity } from "@/hooks/use-row-density";
 import { useUserRole } from "@/hooks/use-user-role";
 import { useAccounts } from "@/hooks/queries/use-accounts";
@@ -236,8 +237,11 @@ export function BookkeepingContent() {
       )}
 
       {!selectedAccountId ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <p className="text-lg">Select an account to view records</p>
+        <div className="py-16">
+          <FirstTimeEmpty
+            entityName="records"
+            description="Select an account from the dropdown above to view order tracking records."
+          />
         </div>
       ) : (
         <>
