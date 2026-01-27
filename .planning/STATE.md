@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 28 of 28 (Collection Storage & Rendering Infrastructure)
-Plan: 1 of 6 complete
+Plan: 2 of 6 complete
 Status: In progress
-Last activity: 2026-01-27 — Completed 28-01-PLAN.md
+Last activity: 2026-01-27 — Completed 28-02-PLAN.md
 
-Progress: [█░░░░░░░░░] 17% (Phase 28, 1/6 plans complete)
+Progress: [███░░░░░░░] 33% (Phase 28, 2/6 plans complete)
 
 ## Shipped Milestones
 
@@ -157,6 +157,10 @@ Phase 28 decisions:
 - Conflict detection guarded by mutation.table === 'records' (sellers use last-write-wins)
 - Seller update dispatch checks 'flagged' in data before 'name' for flag toggle routing
 - accounts case added as no-op stub in executeMutation for type exhaustiveness
+- Seller export uses org_id scope (not account_id) since sellers are org-wide
+- Seller export excludes internal columns (id, org_id, run IDs, updated_at, deleted_at)
+- Permission gated by seller_collection.read to match sync endpoint pattern
+- Cursor pagination on (created_at DESC, id DESC) for deterministic export ordering
 
 ### Pending Todos
 
@@ -171,9 +175,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 28-01-PLAN.md
+Stopped at: Completed 28-02-PLAN.md
 Resume file: None
-Next action: Execute 28-02-PLAN.md (useSyncSellers hook)
+Next action: Execute 28-03-PLAN.md
 
 ### Roadmap Evolution
 
