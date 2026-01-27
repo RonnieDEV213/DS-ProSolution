@@ -18,8 +18,6 @@ const segmentLabels: Record<string, string> = {
   client: "Client",
   users: "Manage Users",
   accounts: "Manage Accounts",
-  "department-roles": "Access Profiles",
-  invites: "Manage Invites",
   "order-tracking": "Order Tracking",
   automation: "Automation Hub",
   jobs: "Jobs",

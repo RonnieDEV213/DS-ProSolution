@@ -67,21 +67,3 @@ export function getVisibleSections(
     .filter(section => section.roles.includes(role))
     .filter(section => section.items.length > 0)  // Hide empty sections
 }
-
-// Deprecated flat exports for backward compatibility
-/** @deprecated Use adminSidebarSections + dashboardNavItem instead */
-export const adminNavItems: NavItem[] = [
-  dashboardNavItem("/admin"),
-  ...adminSidebarSections.flatMap(s => s.items),
-]
-
-/** @deprecated Use vaSidebarSections + dashboardNavItem instead */
-export const vaNavItems: NavItem[] = [
-  dashboardNavItem("/va"),
-  ...vaSidebarSections.flatMap(s => s.items),
-]
-
-/** @deprecated Use clientSidebarSections + dashboardNavItem instead */
-export const clientNavItems: NavItem[] = [
-  dashboardNavItem("/client"),
-]
