@@ -1,7 +1,7 @@
 """Sync endpoints with cursor-based pagination for client sync."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -74,11 +74,20 @@ def _build_response(items: list, limit: int, item_class, remarks: tuple[dict, di
         # Handle both dict and model instances
         if isinstance(last, dict):
             updated_at = last["updated_at"]
+            if updated_at is None:
+                updated_at = last.get("created_at")
             if isinstance(updated_at, str):
                 updated_at = datetime.fromisoformat(updated_at)
+            if updated_at is None:
+                updated_at = datetime(1970, 1, 1, tzinfo=timezone.utc)
             next_cursor = encode_cursor(updated_at, last["id"])
         else:
-            next_cursor = encode_cursor(last.updated_at, last.id)
+            updated_at = last.updated_at
+            if updated_at is None:
+                updated_at = getattr(last, "created_at", None)
+            if updated_at is None:
+                updated_at = datetime(1970, 1, 1, tzinfo=timezone.utc)
+            next_cursor = encode_cursor(updated_at, last.id)
 
     # Build items with remarks if provided
     if remarks is not None:
