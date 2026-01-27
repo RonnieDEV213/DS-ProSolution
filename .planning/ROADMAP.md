@@ -93,10 +93,9 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
   - [x] 28-05-PLAN.md -- SellersGrid mutation migration: all CRUD via hooks + IndexedDB, zero direct fetch, server-side export routing
   - [x] 28-06-PLAN.md -- Run history IndexedDB persistence + useCollectionPolling TanStack Query migration
   - [ ] 28-07-PLAN.md -- Gap closure: add authenticated user RLS SELECT policy on sellers table
-- [ ] **Phase 28.1: v4 Tech Debt Cleanup** - Address 4 non-blocking tech debt items from v4 milestone audit: naming inconsistency, orphaned pages, dead exports, unused skeleton
+- [x] **Phase 28.1: v4 Tech Debt Cleanup** - Address 4 non-blocking tech debt items from v4 milestone audit: naming inconsistency, orphaned pages, dead exports, unused skeleton ✓ 2026-01-27
   **Plans:** 1 plan
-  Plans:
-  - [ ] 28.1-01-PLAN.md -- Fix automation breadcrumb naming, delete orphaned pages + dead code (spacing.ts, CardGridSkeleton, deprecated nav exports)
+  - [x] 28.1-01-PLAN.md -- Fix automation breadcrumb naming, delete orphaned pages + dead code (spacing.ts, CardGridSkeleton, deprecated nav exports)
 
 ## Progress
 
@@ -112,10 +111,10 @@ See: .planning/milestones/v4-ROADMAP.md for full phase details.
 | 26 | v4 | 9/9 | Complete | 2026-01-27 |
 | 27 | v4 | 7/7 | Complete | 2026-01-27 |
 | 28 | v4 | 6/7 | Gap Closure | 2026-01-27 |
-| 28.1 | v4 | 0/1 | Planned | - |
+| 28.1 | v4 | 1/1 | Complete | 2026-01-27 |
 
-**Total:** 4 milestones, 28.1 phases, 108 plans (106 shipped, 1 gap closure, 1 tech debt)
+**Total:** 4 milestones, 28.1 phases, 108 plans (107 shipped, 1 gap closure)
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-27 - Phase 28.1 planned: 1 plan for v4 tech debt cleanup*
+*Last updated: 2026-01-27 - Phase 28.1 complete: v4 tech debt cleanup shipped*
