@@ -394,7 +394,7 @@ export function VirtualizedRecordsList({
           <div
             ref={containerRef}
             tabIndex={0}
-            className="rounded-md border border-border overflow-x-auto focus:outline-none"
+            className="rounded-md border border-border overflow-x-auto scrollbar-thin focus:outline-none"
             aria-label="Records list"
             onFocus={() => setFocusedIndex((prev) => (prev < 0 ? 0 : prev))}
           >
@@ -410,7 +410,7 @@ export function VirtualizedRecordsList({
               <div className="w-20 shrink-0 text-right font-mono">COGS</div>
               <div className="w-20 shrink-0 text-right pr-4 font-mono">Profit</div>
               <div className="w-52 shrink-0 font-mono">Amazon Order</div>
-              <div className="w-40 shrink-0">Status</div>
+              <div className="w-48 shrink-0">Status</div>
               <div className="w-10 shrink-0 ml-auto">
                 <span className="sr-only">Actions</span>
               </div>

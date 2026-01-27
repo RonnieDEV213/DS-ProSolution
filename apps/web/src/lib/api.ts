@@ -26,7 +26,7 @@ export const STATUS_LABELS: Record<BookkeepingStatus, string> = {
   SUCCESSFUL: "Successful",
   RETURN_LABEL_PROVIDED: "Return Label",
   RETURN_CLOSED: "Return Closed",
-  REFUND_NO_RETURN: "Refund (No Return)",
+  REFUND_NO_RETURN: "Refund",
 };
 
 export interface BookkeepingRecord {

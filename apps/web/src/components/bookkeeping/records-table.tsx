@@ -56,17 +56,17 @@ const STATUS_OPTIONS: { value: BookkeepingStatus; label: string }[] = [
   { value: "SUCCESSFUL", label: "Successful" },
   { value: "RETURN_LABEL_PROVIDED", label: "Return Label" },
   { value: "RETURN_CLOSED", label: "Return Closed" },
-  { value: "REFUND_NO_RETURN", label: "Refund (No Return)" },
+  { value: "REFUND_NO_RETURN", label: "Refund" },
 ];
 
 const STRIKE_CLASS = "line-through text-muted-foreground/70";
 
 // Status icons for accessibility (aria-hidden, text label remains)
 const STATUS_ICONS: Record<BookkeepingStatus, React.ReactNode> = {
-  SUCCESSFUL: <Check className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
-  RETURN_LABEL_PROVIDED: <RotateCcw className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
-  RETURN_CLOSED: <X className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
-  REFUND_NO_RETURN: <PackageX className="w-3 h-3 mr-1 inline" aria-hidden="true" />,
+  SUCCESSFUL: <Check className="w-4 h-4 mr-1 inline" aria-hidden="true" />,
+  RETURN_LABEL_PROVIDED: <RotateCcw className="w-4 h-4 mr-1 inline" aria-hidden="true" />,
+  RETURN_CLOSED: <X className="w-4 h-4 mr-1 inline" aria-hidden="true" />,
+  REFUND_NO_RETURN: <PackageX className="w-4 h-4 mr-1 inline" aria-hidden="true" />,
 };
 
 // Field configuration for editing
@@ -362,7 +362,7 @@ export function RecordsTable({
   }
 
   return (
-    <div className="rounded-md border border-border overflow-x-auto">
+    <div className="rounded-md border border-border overflow-x-auto scrollbar-thin">
       {error && (
         <div className="bg-red-900/50 border-b border-red-700 text-red-200 px-4 py-2 text-sm">
           {error}
@@ -485,7 +485,7 @@ export function RecordsTable({
                   <TableCell
                     className={`text-right ${strikeAll ? STRIKE_CLASS : "text-foreground"}`}
                   >
-                    <span className="font-mono text-sm">{formatCents(record.cogs_total_cents)}</span>
+                    <span className="font-mono text-sm px-1.5 py-0.5 rounded bg-primary/10">{formatCents(record.cogs_total_cents)}</span>
                   </TableCell>
 
                   {/* Profit */}
@@ -527,7 +527,7 @@ export function RecordsTable({
                             }
                             disabled={isPending || updateMutation.isPending}
                           >
-                            <SelectTrigger className="min-w-[160px] h-7 text-xs bg-muted border-border" aria-label="Order status">
+                            <SelectTrigger className="min-w-[192px] h-7 text-xs bg-muted border-border" aria-label="Order status">
                               <SelectValue>
                                 <Badge
                                   variant={getStatusBadgeVariant(displayStatus)}
