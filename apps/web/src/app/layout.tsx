@@ -38,6 +38,14 @@ export default function RootLayout({
           enableSystem={true}
           themes={["system", "midnight", "dawn", "slate", "carbon"]}
           disableTransitionOnChange={false}
+          value={{
+            midnight: "midnight",
+            dawn: "dawn",
+            slate: "slate",
+            carbon: "carbon",
+            dark: "carbon",
+            light: "dawn",
+          }}
         >
           <TooltipProvider>
             <DatabaseProvider>

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { BreadcrumbNav } from "@/components/layout/breadcrumb-nav"
 import { vaNavItems } from "@/lib/navigation"
@@ -36,19 +36,19 @@ export default function VALayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar
-          navItems={navItemsToShow}
-          dashboardTitle="VA Dashboard"
-        />
-        <main className="flex-1 overflow-auto">
-          <div className="p-8">
-            <BreadcrumbNav />
-            {children}
-          </div>
-        </main>
-      </div>
+    <SidebarProvider>
+      <AppSidebar
+        navItems={navItemsToShow}
+        roleLabel="VA"
+      />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center border-b border-border px-4">
+          <BreadcrumbNav />
+        </header>
+        <div className="flex-1 p-8">
+          {children}
+        </div>
+      </SidebarInset>
     </SidebarProvider>
   )
 }

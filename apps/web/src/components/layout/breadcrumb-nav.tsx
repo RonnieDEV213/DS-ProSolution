@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -46,7 +47,7 @@ export function BreadcrumbNav() {
   if (segments.length <= 1) return null
 
   return (
-    <Breadcrumb className="mb-4">
+    <Breadcrumb>
       <BreadcrumbList>
         {segments.map((segment, index) => {
           const href = "/" + segments.slice(0, index + 1).join("/")
@@ -62,12 +63,14 @@ export function BreadcrumbNav() {
           }
 
           return (
-            <BreadcrumbItem key={href}>
-              <BreadcrumbLink asChild>
-                <Link href={href}>{label}</Link>
-              </BreadcrumbLink>
+            <React.Fragment key={href}>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link href={href}>{label}</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
               <BreadcrumbSeparator />
-            </BreadcrumbItem>
+            </React.Fragment>
           )
         })}
       </BreadcrumbList>
