@@ -14,7 +14,7 @@ export default function AdminInvitesPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Manage Invites</h1>

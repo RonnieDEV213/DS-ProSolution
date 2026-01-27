@@ -1,6 +1,6 @@
 export default function ClientDashboardPage() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Client Dashboard</h1>
         <p className="text-muted-foreground mt-2">Welcome to your client portal</p>

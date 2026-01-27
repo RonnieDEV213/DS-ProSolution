@@ -111,7 +111,7 @@ export default function AutomationPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Extension Hub</h1>

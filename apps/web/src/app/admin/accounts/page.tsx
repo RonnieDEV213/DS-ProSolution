@@ -9,7 +9,7 @@ export default function AdminAccountsPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Manage Accounts</h1>
         <p className="text-muted-foreground mt-2">
