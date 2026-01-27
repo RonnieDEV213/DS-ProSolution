@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 28 of 28 (Collection Storage & Rendering Infrastructure)
-Plan: 6 of 6 complete
-Status: Phase complete
-Last activity: 2026-01-27 — Completed 28-06-PLAN.md
+Plan: 4 of 6 in progress
+Status: In progress
+Last activity: 2026-01-27 — Completed 28-04-PLAN.md
 
-Progress: [██████████] 100% (Phase 28, 6/6 plans complete)
+Progress: [████████░░] 80% (Phase 28, 4/6 plans complete)
 
 ## Shipped Milestones
 
@@ -169,6 +169,10 @@ Phase 28 decisions:
 - syncCollectionRuns uses /collection/runs/history endpoint (no dedicated sync endpoint)
 - history-panel.tsx keeps server fetch for audit logs while using IndexedDB for runs
 - useCollectionPolling return shape unchanged (backward compatible with CollectionProgressProvider)
+- setSellers kept as no-op shim for incremental migration (Plan 05 removes)
+- totalCount from useSyncSellers used for empty-state distinction (not sellers.length)
+- Export functions use updated_at instead of created_at (SellerRecord schema)
+- useDebouncedValue hook created as generic utility for 300ms search debounce
 
 ### Pending Todos
 
@@ -183,9 +187,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 28-06-PLAN.md (Phase 28 complete)
+Stopped at: Completed 28-04-PLAN.md
 Resume file: None
-Next action: Phase 28 verification
+Next action: Execute 28-05-PLAN.md (mutation migration)
 
 ### Roadmap Evolution
 
