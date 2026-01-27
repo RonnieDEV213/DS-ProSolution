@@ -4,7 +4,8 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as LucideIcons from "lucide-react"
-import { Palette, Settings, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { Settings, ChevronsLeft, ChevronsRight, ChevronDown } from "lucide-react"
+import * as Collapsible from "@radix-ui/react-collapsible"
 import {
   Sidebar,
   SidebarContent,
@@ -13,45 +14,115 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ThemePickerCompact } from "@/components/profile/theme-picker"
 import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog"
-import { SyncStatusIndicator } from "@/components/sync/sync-status-indicator"
-import { NavItem } from "@/types/navigation"
+import { SidebarSection, NavItem } from "@/types/navigation"
+import { dashboardNavItem, getVisibleSections } from "@/lib/navigation"
+import { cn } from "@/lib/utils"
 
 interface AppSidebarProps {
-  navItems: NavItem[]
+  sections: SidebarSection[]
+  basePath: string
   roleLabel: string
-  showSyncStatus?: boolean
+  role: "admin" | "va" | "client"
 }
 
-export function AppSidebar({ navItems, roleLabel, showSyncStatus = false }: AppSidebarProps) {
+const SIDEBAR_SECTION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
+
+function useSectionState(sectionId: string, defaultOpen = true) {
+  const [open, setOpen] = useState(() => {
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(
+        new RegExp(`(?:^|; )sidebar:section:${sectionId}=([^;]*)`)
+      )
+      return match ? match[1] === "true" : defaultOpen
+    }
+    return defaultOpen
+  })
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    document.cookie = `sidebar:section:${sectionId}=${nextOpen}; path=/; max-age=${SIDEBAR_SECTION_COOKIE_MAX_AGE}`
+  }
+
+  return [open, handleOpenChange] as const
+}
+
+function CollapsibleSection({
+  section,
+  pathname,
+  isItemActive,
+}: {
+  section: SidebarSection
+  pathname: string
+  isItemActive: (item: NavItem) => boolean
+}) {
+  const [open, setOpen] = useSectionState(section.id)
+  const SectionIcon = LucideIcons[section.icon as keyof typeof LucideIcons] as React.ElementType
+
+  return (
+    <Collapsible.Root open={open} onOpenChange={setOpen}>
+      <SidebarGroup className="py-0">
+        <Collapsible.Trigger asChild>
+          <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors">
+            {SectionIcon && <SectionIcon className="mr-2" />}
+            <span>{section.label}</span>
+            <ChevronDown className={cn(
+              "ml-auto h-4 w-4 transition-transform duration-200",
+              open && "rotate-180"
+            )} />
+          </SidebarGroupLabel>
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {section.items.map((item) => {
+                const Icon = LucideIcons[item.icon as keyof typeof LucideIcons] as React.ElementType
+                const isActive = isItemActive(item)
+
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
+                      <Link href={item.href}>
+                        {Icon && <Icon />}
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </Collapsible.Content>
+      </SidebarGroup>
+    </Collapsible.Root>
+  )
+}
+
+export function AppSidebar({ sections, basePath, roleLabel, role }: AppSidebarProps) {
   const pathname = usePathname()
   const [profileOpen, setProfileOpen] = useState(false)
   const { toggleSidebar, state } = useSidebar()
 
+  const visibleSections = getVisibleSections(sections, role)
+  const dashboard = dashboardNavItem(basePath)
+
   const isItemActive = (item: NavItem) => {
-    if (item.indent) {
-      return pathname === item.href
+    // For dashboard: exact match only
+    if (item.href === basePath) {
+      return pathname === basePath
     }
 
-    const dashboardRoots = ["/admin", "/va", "/client"]
-    if (dashboardRoots.includes(item.href)) {
-      return pathname === item.href
-    }
-
-    const hasExactIndentMatch = navItems.some(
-      (ni) => ni.indent && pathname === ni.href
-    )
-
-    if (hasExactIndentMatch) {
-      return false
-    }
-
+    // For section items: exact match OR startsWith with trailing slash
     return pathname === item.href || pathname.startsWith(item.href + "/")
   }
+
+  const DashboardIcon = LucideIcons[dashboard.icon as keyof typeof LucideIcons] as React.ElementType
+  const isDashboardActive = isItemActive(dashboard)
 
   return (
     <>
@@ -70,47 +141,28 @@ export function AppSidebar({ navItems, roleLabel, showSyncStatus = false }: AppS
 
         <SidebarContent className="p-2">
           <SidebarMenu>
-            {navItems.map((item) => {
-              const Icon = LucideIcons[item.icon as keyof typeof LucideIcons] as React.ElementType
-              const isActive = isItemActive(item)
-
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive}
-                    tooltip={item.label}
-                    className={item.indent ? "text-xs ml-4" : undefined}
-                  >
-                    <Link href={item.href}>
-                      {Icon && <Icon />}
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })}
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isDashboardActive} tooltip={dashboard.label}>
+                <Link href={dashboard.href}>
+                  {DashboardIcon && <DashboardIcon />}
+                  <span>{dashboard.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
+
+          {visibleSections.map((section) => (
+            <CollapsibleSection
+              key={section.id}
+              section={section}
+              pathname={pathname}
+              isItemActive={isItemActive}
+            />
+          ))}
         </SidebarContent>
 
         <SidebarFooter className="border-t border-sidebar-border">
-          {showSyncStatus && <SyncStatusIndicator />}
-
           <SidebarMenu>
-            <SidebarMenuItem>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <SidebarMenuButton tooltip="Theme">
-                    <Palette />
-                    <span>Theme</span>
-                  </SidebarMenuButton>
-                </PopoverTrigger>
-                <PopoverContent side="right" align="end" className="w-48 p-2">
-                  <ThemePickerCompact />
-                </PopoverContent>
-              </Popover>
-            </SidebarMenuItem>
-
             <SidebarMenuItem>
               <SidebarMenuButton tooltip="Profile Settings" onClick={() => setProfileOpen(true)}>
                 <Settings />
