@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 27 of 27 (Sidebar Folder Reorganization) — In Progress
-Plan: 6 of 7 (27-01 through 27-06 complete)
+Plan: 6 of 7 (27-01 through 27-06 complete, 27-05 also complete)
 Status: v4 milestone — Phase 27 active
-Last activity: 2026-01-27 — Completed 27-06-PLAN.md (UI Labels & Navigation Consistency)
+Last activity: 2026-01-27 — Completed 27-05 and 27-06 PLANs
 
 Progress: [█████████░] 98% (v4 milestone, 34/34 plans complete)
 
@@ -144,6 +144,12 @@ Phase 27 decisions:
 - Breadcrumb and page titles use "Automation Hub" as the full descriptive name
 - Access Profiles and Invites removed from command palette (modal-only UI)
 - PageHeader component preferred over manual title/description markup for consistency
+- Collapsible sections use Radix Collapsible (not accordion) for independent toggle behavior
+- Section state persisted via cookies (sidebar:section:{id}) with 7-day max age
+- Dashboard rendered as top-level SidebarMenuItem above all collapsible sections
+- Theme picker and sync status removed from sidebar footer (moved to Profile Settings)
+- Sidebar footer now contains only Profile Settings button + Collapse toggle
+- VA without access profile shows empty sections array (only Dashboard visible)
 
 ### Pending Todos
 
