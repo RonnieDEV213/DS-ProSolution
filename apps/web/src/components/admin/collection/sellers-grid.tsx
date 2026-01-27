@@ -199,6 +199,12 @@ function SellerDetailPanel({ seller }: { seller: SellerRecord | null }) {
   );
 }
 
+// Data flow architecture:
+// - useSyncSellers (useLiveQuery on IndexedDB) is the single source of truth
+// - All mutations go through hooks (useFlagSeller, useUpdateSeller, useDeleteSeller)
+//   which update IndexedDB first, then sync to API. useLiveQuery reacts automatically.
+// - No SSE handlers push seller data directly; parent refreshTrigger triggers re-sync
+// - Export routes to server-side streaming for large datasets (>10k sellers)
 export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new Set() }: SellersGridProps) {
   const [newSellerName, setNewSellerName] = useState("");
 
