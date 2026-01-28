@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Minus, Edit3, Bot, FileQuestion } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -265,7 +266,35 @@ export function LogDetailModal({
         </DialogHeader>
 
         {loading ? (
-          <div className="text-muted-foreground p-4">Loading...</div>
+          <div className="grid grid-cols-2 gap-4 flex-1 min-h-0 animate-fade-in">
+            {/* Left panel skeleton - changes list */}
+            <div className="flex flex-col min-h-0">
+              <Skeleton className="h-4 w-16 mb-2" />
+              <div className="flex-1 rounded border border-border p-2 space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5">
+                    <Skeleton className="h-3.5 w-3.5" />
+                    <Skeleton className="h-3 flex-1" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Right panel skeleton - history list */}
+            <div className="flex flex-col min-h-0">
+              <Skeleton className="h-4 w-20 mb-2" />
+              <div className="flex-1 rounded border border-border space-y-0">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="px-3 py-2 border-b border-border last:border-0">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-4" />
+                      <Skeleton className="h-3 flex-1" />
+                    </div>
+                    <Skeleton className="h-2 w-28 mt-1" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
             {/* Left: Changes panel */}
@@ -275,7 +304,14 @@ export function LogDetailModal({
               </h4>
               <div className="flex-1 overflow-y-auto scrollbar-thin bg-muted rounded border border-border p-2 min-h-0">
                 {changesLoading ? (
-                  <div className="text-muted-foreground text-sm">Loading changes...</div>
+                  <div className="space-y-2 animate-fade-in">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded border-l-2 border-border">
+                        <Skeleton className="h-3.5 w-3.5" />
+                        <Skeleton className="h-3 flex-1" />
+                      </div>
+                    ))}
+                  </div>
                 ) : !hasChanges ? (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <FileQuestion className="h-12 w-12 mb-2 text-muted-foreground/60" />
