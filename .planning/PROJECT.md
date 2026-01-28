@@ -2,7 +2,7 @@
 
 ## What This Is
 
-An in-house eBay automation and competitive intelligence platform — the "Bloomberg of eBay" for agency operations. The platform tracks orders, manages bookkeeping, coordinates VAs, provides client dashboards, and discovers dropshippers at scale. It supports three user types (Admin, VA, Client) with role-based access control, a Chrome extension for VA workflows, an automated seller collection pipeline, a scalable storage/rendering infrastructure handling millions of records, and a polished design system with 4 CSS-first themes, command palette, and keyboard shortcuts.
+An in-house eBay automation and competitive intelligence platform — the "Bloomberg of eBay" for agency operations. The platform tracks orders, manages bookkeeping, coordinates VAs, provides client dashboards, and discovers dropshippers at scale. It supports three user types (Admin, VA, Client) with role-based access control, a Chrome extension for VA workflows, an automated seller collection pipeline, a scalable storage/rendering infrastructure handling millions of records, a polished design system with 4 CSS-first themes, and instant-loading pages app-wide via persistent IndexedDB caching with collection history and keyboard shortcuts.
 
 **Vision:** Build the definitive competitive intelligence tool for eBay arbitrage — starting with dropshipper discovery (20K+ sellers), expanding to listing-level analytics (75-100M listings), and eventually surfacing real-time profit opportunities across the marketplace.
 
@@ -12,10 +12,10 @@ Automate repetitive eBay operations — from VA task coordination to dropshipper
 
 ## Current State
 
-**Shipped:** v4 UI/Design System (2026-01-27), v3 Storage & Rendering (2026-01-25), v2 SellerCollection (2026-01-23), v1 Extension Auth & RBAC (2026-01-20)
-**Planning:** v5 Collection Polish + App-Wide Cache
+**Shipped:** v5 Collection Polish + App-Wide Cache (2026-01-28), v4 UI/Design System (2026-01-27), v3 Storage & Rendering (2026-01-25), v2 SellerCollection (2026-01-23), v1 Extension Auth & RBAC (2026-01-20)
+**Planning:** v6 Competitor Research
 **Tech Stack:** Next.js 14+, FastAPI, Supabase (PostgreSQL + RLS), Chrome Extension MV3, Dexie.js (IndexedDB), TanStack Query, next-themes, cmdk, react-hotkeys-hook, react-window v2
-**Codebase:** ~130,000+ lines across 530+ files
+**Codebase:** ~138,000+ lines across 540+ files
 
 ## Scale Numbers
 
@@ -137,17 +137,18 @@ Even 2 accounts loaded via API is slower than 740 records loaded from IndexedDB.
 - ✓ 3 collapsible sidebar section groups with role-based visibility
 - ✓ Collection SellersGrid wired to V3 sync (IndexedDB + mutation hooks)
 
+**v5 Collection Polish + App-Wide Cache (shipped 2026-01-28):**
+- ✓ `useCachedQuery()` — persistent IndexedDB cache for any TanStack Query dataset — v5
+- ✓ All 5 legacy admin pages + dashboard load instantly from cache on revisit — v5
+- ✓ Accounts V3 completion (useSyncAccounts with useLiveQuery + syncAccounts) — v5
+- ✓ Zero "Loading..." text app-wide — all skeleton placeholders + SVG empty states — v5
+- ✓ Collection history system (export/flag events recorded, filterable viewer with day grouping) — v5
+- ✓ Collection keyboard shortcuts (Delete, F, E, S, Escape with page-contextual reference) — v5
+- ✓ Seller export modal with audit trail logging — v5
+
 ### Active
 
 <!-- Current scope. Building toward these. -->
-
-**v5 Collection Polish + App-Wide Cache (in progress):**
-- [ ] `useCachedQuery()` — persistent IndexedDB cache for any TanStack Query dataset
-- [ ] All legacy pages load instantly from cache on revisit
-- [ ] Accounts V3 completion (wire existing db.accounts + syncAccounts to UI)
-- [ ] Collection history system (export/flag events recorded, history viewer)
-- [ ] History-based rollback (point-in-time restoration, replaces undo toasts)
-- [ ] Collection keyboard shortcuts (mirror bookkeeping patterns)
 
 ### Planned
 
@@ -166,6 +167,9 @@ Even 2 accounts loaded via API is slower than 740 records loaded from IndexedDB.
 - [ ] Dedicated analytics DB if Supabase can't handle load
 - [ ] V3.5 hybrid caching (hot data in IndexedDB, cold data server-side)
 
+**Deferred from v5:**
+- [ ] History-based rollback (point-in-time restoration from collection history) — dropped Phase 32
+
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
@@ -173,6 +177,9 @@ Even 2 accounts loaded via API is slower than 740 records loaded from IndexedDB.
 **Deferred from v3:**
 - PAGI-08: Filter presets with backend persistence — future quality-of-life feature
 - PDF export — future addition to export formats
+
+**Deferred from v5:**
+- History-based rollback (ROLL-01/ROLL-02) — undo toast is sufficient; Phase 32 dropped
 
 **Deferred from v4:**
 - THEME-CUSTOM-01/02: User-customizable accent colors
@@ -259,7 +266,12 @@ Even 2 accounts loaded via API is slower than 740 records loaded from IndexedDB.
 | oklch color space for theme tokens | Modern, perceptually uniform, wide gamut | ✓ Good — v4 |
 | next-themes (~2KB) for ThemeProvider | Handles SSR + flash prevention + localStorage | ✓ Good — v4 |
 | cmdk + react-hotkeys-hook for shortcuts | Lightweight, well-maintained, lazy-loadable | ✓ Good — v4 |
-| V3 Lite over full V3 for legacy datasets | Persistent cache is sufficient; no sync endpoints needed for low-churn admin data | Planned — v5 |
+| V3 Lite over full V3 for legacy datasets | Persistent cache is sufficient; no sync endpoints needed for low-churn admin data | ✓ Good — v5 |
+| useCachedQuery as drop-in useQuery replacement | initialData from IndexedDB + background refresh via TanStack Query staleness | ✓ Good — v5 |
+| Full V3 sync for accounts (not useCachedQuery) | db.accounts + syncAccounts() already existed; useLiveQuery provides reactive updates | ✓ Good — v5 |
+| Bulk audit entries (1 entry per batch operation) | Scales to 100k+ events; server-side filtering via action_types/date params | ✓ Good — v5 |
+| Phase 32 (rollback) dropped from v5 | Undo toast is sufficient for seller delete; full rollback is overkill | ✓ Good — v5 |
+| Custom event bridge for cross-component shortcuts | dspro:shortcut:startrun avoids prop drilling between SellersGrid and page.tsx | ✓ Good — v5 |
 | Listings stay server-side (not IndexedDB) | 75-100M records can't fit in browser storage | Planned — v6 |
 
 ## Milestone Roadmap
@@ -270,27 +282,20 @@ Even 2 accounts loaded via API is slower than 740 records loaded from IndexedDB.
 | v2 | SellerCollection | SHIPPED 2026-01-23 | 6-14 |
 | v3 | Storage & Rendering Infrastructure | SHIPPED 2026-01-25 | 15-21 |
 | v4 | UI/Design System | SHIPPED 2026-01-27 | 22-28.1 |
-| **v5** | **Collection Polish + App-Wide Cache** | **Planning** | 29-33 |
-| v6 | Competitor Research | Planned | TBD |
+| v5 | Collection Polish + App-Wide Cache | SHIPPED 2026-01-28 | 29-31, 33 |
+| **v6** | **Competitor Research** | **Planned** | TBD |
 | v7 | Scale Infrastructure | Planned (when real data exists) | TBD |
 
-## Current Milestone: v5 Collection Polish + App-Wide Cache
+## Next Milestone: v6 Competitor Research
 
-**Goal:** Make the entire app feel instant-loading with persistent caching, polish the collection workflow with history and keyboard shortcuts.
+**Goal:** Build listing-level scraping pipeline and analytics engine for competitive intelligence across 20K+ sellers.
 
-**Key Phases:**
-- Phase 29: App-Wide Persistent Cache (V3 Lite) — `useCachedQuery()` for all legacy pages
-- Phase 30: Consistent Skeletons & Empty States — wire existing components to all pages
-- Phase 31: Collection History System — record export/flag events, history viewer
-- Phase 32: History-Based Rollback — point-in-time restoration from history
-- Phase 33: Collection Keyboard Shortcuts — mirror bookkeeping patterns
-
-**Success criteria:**
-- Every page loads instantly on revisit (from IndexedDB cache)
-- No "Loading..." text anywhere in the app — all skeleton placeholders
-- Collection history records all actions with browsable UI
-- Users can rollback any collection operation from history
-- Collection page has full keyboard shortcut support
+**Key areas:**
+- Listing scraping pipeline (5K avg listings/seller × 20K sellers)
+- Listings storage schema with proper indexes
+- Analytics engine (seller ranking, product profitability, margin analysis)
+- Competitor research UI (browse listings, compare sellers)
+- Server-side pagination for listings (NOT full IndexedDB sync)
 
 ---
-*Last updated: 2026-01-27 after v4 UI/Design System milestone archived*
+*Last updated: 2026-01-28 after v5 Collection Polish + App-Wide Cache milestone*

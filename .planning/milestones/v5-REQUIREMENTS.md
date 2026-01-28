@@ -1,3 +1,13 @@
+# Requirements Archive: v5 Collection Polish + App-Wide Cache
+
+**Archived:** 2026-01-28
+**Status:** ✅ SHIPPED
+
+This is the archived requirements specification for v5.
+For current requirements, see `.planning/REQUIREMENTS.md` (created for next milestone).
+
+---
+
 # Requirements: DS-ProSolution v5 Collection Polish + App-Wide Cache
 
 **Defined:** 2026-01-27
@@ -23,44 +33,19 @@
 
 ### Collection History System
 
-- [ ] **HIST-01**: Export events are recorded in the collection history/activity system
-- [ ] **HIST-02**: Flag events (flag/unflag sellers) are recorded in the collection history system
-- [ ] **HIST-03**: History viewer UI enables browsing and filtering historical collection actions
+- [x] **HIST-01**: Export events are recorded in the collection history/activity system
+- [x] **HIST-02**: Flag events (flag/unflag sellers) are recorded in the collection history system
+- [x] **HIST-03**: History viewer UI enables browsing and filtering historical collection actions
 
-### History-Based Rollback
+### History-Based Rollback — DROPPED
 
-- [ ] **ROLL-01**: Users can select a historical state and restore sellers to that point-in-time
-- [ ] **ROLL-02**: Rollback from history replaces undo toasts — more robust and scales to any operation
+- [~] **ROLL-01**: ~~Users can select a historical state and restore sellers to that point-in-time~~ — Phase 32 dropped; undo toast sufficient
+- [~] **ROLL-02**: ~~Rollback from history replaces undo toasts — more robust and scales to any operation~~ — Phase 32 dropped
 
 ### Collection Keyboard Shortcuts
 
-- [ ] **KEYS-01**: Collection page has keyboard shortcuts mirroring bookkeeping patterns (selection, navigation, actions)
-- [ ] **KEYS-02**: Collection keyboard shortcuts integrated with existing command palette (Cmd+K)
-
-## Future Requirements
-
-### Deferred from v4
-
-- **THEME-CUSTOM-01**: User-customizable accent color picker
-- **THEME-CUSTOM-02**: Runtime theme generation from user color input
-- **LAYOUT-RESPONSIVE-01**: Responsive sidebar collapse for mobile/tablet
-- **DENSE-01**: Data-dense dashboard layout option
-- **DENSE-02**: Compact table mode with reduced padding/font
-
-### Deferred from v3
-
-- PAGI-08: Filter presets with backend persistence
-- PDF export
-
-## Out of Scope
-
-| Feature | Reason |
-|---------|--------|
-| Full V3 sync for all legacy datasets | V3 Lite (persistent cache) is sufficient — no sync endpoints needed for admin tables |
-| Real-time sync indicators for admin pages | These are low-churn datasets; stale-while-revalidate is enough |
-| Offline mutation queue for admin pages | Admin pages are read-mostly; mutations are rare and network-dependent |
-| Competitor research / listing scraping | Deferred to v6 milestone |
-| Scale infrastructure optimization | Deferred to v7 milestone |
+- [x] **KEYS-01**: Collection page has keyboard shortcuts mirroring bookkeeping patterns (selection, navigation, actions)
+- [x] **KEYS-02**: Collection keyboard shortcuts integrated with existing command palette (Cmd+K)
 
 ## Traceability
 
@@ -76,18 +61,26 @@
 | SKEL-01 | Phase 30 | Complete |
 | SKEL-02 | Phase 30 | Complete |
 | SKEL-03 | Phase 30 | Complete |
-| HIST-01 | Phase 31 | Pending |
-| HIST-02 | Phase 31 | Pending |
-| HIST-03 | Phase 31 | Pending |
-| ROLL-01 | Phase 32 | Pending |
-| ROLL-02 | Phase 32 | Pending |
-| KEYS-01 | Phase 33 | Pending |
-| KEYS-02 | Phase 33 | Pending |
+| HIST-01 | Phase 31 | Complete |
+| HIST-02 | Phase 31 | Complete |
+| HIST-03 | Phase 31 | Complete |
+| ROLL-01 | Phase 32 | Dropped |
+| ROLL-02 | Phase 32 | Dropped |
+| KEYS-01 | Phase 33 | Complete |
+| KEYS-02 | Phase 33 | Complete |
 
 **Coverage:**
 - v5 requirements: 17 total
-- Mapped to phases: 17
-- Unmapped: 0
+- Shipped: 15
+- Dropped: 2 (ROLL-01, ROLL-02 — Phase 32 removed from milestone)
 
 ---
-*Requirements defined: 2026-01-27*
+
+## Milestone Summary
+
+**Shipped:** 15 of 17 v5 requirements
+**Adjusted:** None — all shipped requirements matched original specification
+**Dropped:** ROLL-01, ROLL-02 (History-Based Rollback) — Phase 32 removed from milestone scope; existing undo toast for seller delete is sufficient
+
+---
+*Archived: 2026-01-28 as part of v5 milestone completion*

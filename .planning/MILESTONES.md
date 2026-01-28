@@ -1,5 +1,33 @@
 # Project Milestones: DS-ProSolution
 
+## v5 Collection Polish + App-Wide Cache (Shipped: 2026-01-28)
+
+**Delivered:** Persistent IndexedDB cache for instant page loads app-wide, zero "Loading..." text with skeleton placeholders and SVG empty states, collection history system with export/flag event recording and filterable viewer, and page-scoped keyboard shortcuts for collection power-user workflows.
+
+**Phases completed:** 29-31, 33 (14 plans total; Phase 32 dropped)
+
+**Key accomplishments:**
+
+- `useCachedQuery()` persistent cache hook — any TanStack Query dataset loads instantly from IndexedDB on revisit with background refresh
+- All 5 legacy admin pages + dashboard + VA accounts wired to persistent cache (V3 Lite + full V3 sync)
+- Zero "Loading..." text app-wide — all data-loading pages use skeleton placeholders, all empty states use SVG illustrations
+- Collection history system with export/flag event recording, server-side filtered viewer, infinite scroll, and day grouping
+- Collection keyboard shortcuts (Delete, F, E, S, Escape) with page-contextual reference and first-visit discovery hint
+- Seller export redesigned as modal dialog with format selection, flag toggle, range inputs, and audit trail logging
+
+**Stats:**
+
+- 78 files modified
+- +10,983 / -2,803 lines of code (net +8,180)
+- 4 phases, 14 plans, 57 commits
+- 2 days from start to ship (2026-01-27 → 2026-01-28)
+
+**Git range:** `test(29)` → `docs(33)`
+
+**What's next:** v6 Competitor Research
+
+---
+
 ## v4 UI/Design System (Shipped: 2026-01-27)
 
 **Delivered:** Polished Modern SaaS design system with 4 CSS-first themes (Midnight, Dawn, Slate, Carbon), unified layout primitives, command palette, keyboard shortcuts, and collection V3 sync wiring — zero-rerender theme switching, 75 files migrated to semantic tokens.

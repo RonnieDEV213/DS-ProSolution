@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-27)
+See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** v5 Collection Polish + App-Wide Cache — SHIPPED 2026-01-28
+**Current focus:** Planning next milestone (v6 Competitor Research)
 
 ## Current Position
 
-Phase: v5 milestone complete
-Plan: All plans complete
-Status: v5 milestone shipped — ready for audit or next milestone
-Last activity: 2026-01-28 — Phase 33 verified, v5 shipped
+Phase: No active phase — between milestones
+Plan: N/A
+Status: v5 milestone archived — ready for /gsd:new-milestone
+Last activity: 2026-01-28 — v5 Collection Polish + App-Wide Cache archived
 
-Progress: [██████████] 100% (v5 milestone: 4/4 phases complete)
+Progress: [██████████] 100% (5 milestones shipped)
 
 ## Shipped Milestones
 
@@ -59,5 +59,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: v5 milestone shipped — ready for audit or next milestone
+Stopped at: v5 milestone archived — ready for /gsd:new-milestone
 Resume file: None
