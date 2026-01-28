@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-27)
 
 **Core value:** Automate repetitive eBay operations so the business can scale without proportional headcount growth
-**Current focus:** v5 Collection Polish + App-Wide Cache — Phase 32 next
+**Current focus:** v5 Collection Polish + App-Wide Cache — Phase 33 in progress
 
 ## Current Position
 
-Phase: 32 (ready to plan)
-Plan: Not started
-Status: Phase 31 verified and complete, ready to plan Phase 32
-Last activity: 2026-01-27 — Phase 31 executed (5 plans, 3 waves) and verified (6/6 must-haves passed)
+Phase: 33 of 33 (collection-keyboard-shortcuts)
+Plan: 1 of 2
+Status: In progress
+Last activity: 2026-01-28 — Completed 33-01-PLAN.md
 
-Progress: [██████░░░░] 60% (v5 milestone: 3/5 phases)
+Progress: [████████░░] 78% (v5 milestone: Phase 33 plan 1/2 complete)
 
 ## Shipped Milestones
 
@@ -54,6 +54,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-27
-Stopped at: Phase 31 complete and verified — ready to plan Phase 32
+Last session: 2026-01-28
+Stopped at: Completed 33-01-PLAN.md
 Resume file: None
