@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { History, Plus, Minus, Edit3, Bot, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -229,7 +230,14 @@ export function HistoryPanel({
             ))}
           </div>
         ) : entries.length === 0 ? (
-          <div className="text-muted-foreground text-sm">No activity yet</div>
+          <div className="flex items-center justify-center h-full">
+            <FirstTimeEmpty
+              entityName="history entries"
+              description="Run a collection or add sellers to see activity here."
+              actionLabel="Start Collection"
+              onAction={onStartRunClick}
+            />
+          </div>
         ) : (
           entries.map((entry) =>
             entry.type === "collection_run"

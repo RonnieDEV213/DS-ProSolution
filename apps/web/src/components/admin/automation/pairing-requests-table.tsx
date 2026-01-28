@@ -39,6 +39,7 @@ import {
 import { useAutomationPolling } from "@/hooks/use-automation-polling";
 import { RejectDialog } from "./reject-dialog";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { AlertTriangle, User } from "lucide-react";
 
 interface PairingRequestsTableProps {
@@ -209,8 +210,11 @@ export function PairingRequestsTable({
               </TableRow>
             ) : !requests || requests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No pending pairing requests
+                <TableCell colSpan={5} className="py-8">
+                  <FirstTimeEmpty
+                    entityName="pairing requests"
+                    description="No Chrome Extensions are waiting to be paired."
+                  />
                 </TableCell>
               </TableRow>
             ) : (
