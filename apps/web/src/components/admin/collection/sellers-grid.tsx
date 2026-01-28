@@ -29,7 +29,7 @@ import { NoResults } from "@/components/empty-states/no-results";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSyncSellers } from "@/hooks/sync/use-sync-sellers";
-import { useFlagSeller } from "@/hooks/mutations/use-flag-seller";
+import { useFlagSeller, useBatchFlagSellers } from "@/hooks/mutations/use-flag-seller";
 import { useUpdateSeller } from "@/hooks/mutations/use-update-seller";
 import { useDeleteSeller } from "@/hooks/mutations/use-delete-seller";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -241,6 +241,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
   // Mutation hooks (IndexedDB + API, offline-capable)
   const flagMutation = useFlagSeller();
+  const batchFlagMutation = useBatchFlagSellers();
   const updateMutation = useUpdateSeller();
   const deleteMutation = useDeleteSeller();
 
@@ -755,11 +756,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
     if (idsToToggle.length === 0) return;
 
-    // Flag each seller via mutation hook (updates IndexedDB + API, useLiveQuery reacts)
-    for (const id of idsToToggle) {
-      flagMutation.mutate({ id, flagged: mode });
-    }
-  }, [flagMutation, getGridPositionFromPixels, columnCount]);
+    // Batch flag all sellers in the drag rectangle (single API call + single audit entry)
+    batchFlagMutation.mutate({ ids: idsToToggle, flagged: mode });
+  }, [flagMutation, batchFlagMutation, getGridPositionFromPixels, columnCount]);
 
   const handleMouseUp = useCallback(() => {
     // End left-click drag selection
@@ -946,7 +945,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return filtered;
   }, [filteredSellers, exportFirstN, exportRangeStart, exportRangeEnd]);
 
-  // Flag exported sellers
+  // Flag exported sellers (batch operation - single API call + single audit entry)
   const flagExportedSellers = useCallback((sellerIds: string[]) => {
     if (!exportFlagOnExport || sellerIds.length === 0) return;
 
@@ -959,11 +958,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
     if (idsToFlag.length === 0) return;
 
-    // Flag each via mutation hook (updates IndexedDB + API, useLiveQuery reacts)
-    for (const id of idsToFlag) {
-      flagMutation.mutate({ id, flagged: true });
-    }
-  }, [exportFlagOnExport, flagMutation]);
+    // Batch flag all exported sellers (single API call + single audit entry)
+    batchFlagMutation.mutate({ ids: idsToFlag, flagged: true });
+  }, [exportFlagOnExport, batchFlagMutation]);
 
   // Export count preview
   const exportPreviewCount = useMemo(() => {
