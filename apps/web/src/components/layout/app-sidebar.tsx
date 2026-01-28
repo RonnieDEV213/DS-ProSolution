@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as LucideIcons from "lucide-react"
@@ -14,9 +14,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog"
@@ -34,15 +34,20 @@ interface AppSidebarProps {
 const SIDEBAR_SECTION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 
 function useSectionState(sectionId: string, defaultOpen = true) {
-  const [open, setOpen] = useState(() => {
-    if (typeof document !== "undefined") {
-      const match = document.cookie.match(
-        new RegExp(`(?:^|; )sidebar:section:${sectionId}=([^;]*)`)
-      )
-      return match ? match[1] === "true" : defaultOpen
+  const [open, setOpen] = useState(defaultOpen)
+
+  // Restore from cookie after hydration to avoid SSR/client mismatch
+  useEffect(() => {
+    const match = document.cookie.match(
+      new RegExp(`(?:^|; )sidebar:section:${sectionId}=([^;]*)`)
+    )
+    if (match) {
+      const cookieValue = match[1] === "true"
+      if (cookieValue !== defaultOpen) {
+        setOpen(cookieValue)
+      }
     }
-    return defaultOpen
-  })
+  }, [sectionId, defaultOpen])
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen)
@@ -68,41 +73,39 @@ function CollapsibleSection({
   const SectionIcon = LucideIcons[section.icon as keyof typeof LucideIcons] as React.ElementType
 
   return (
-    <Collapsible.Root open={effectiveOpen} onOpenChange={setOpen}>
-      <SidebarGroup className="py-0">
+    <SidebarMenuItem>
+      <Collapsible.Root open={effectiveOpen} onOpenChange={setOpen}>
         <Collapsible.Trigger asChild>
-          <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors text-sm font-semibold text-sidebar-foreground">
-            {SectionIcon && <SectionIcon className="mr-2 h-4 w-4" />}
+          <SidebarMenuButton tooltip={section.label}>
+            {SectionIcon && <SectionIcon />}
             <span>{section.label}</span>
             <ChevronDown className={cn(
               "ml-auto h-4 w-4 transition-transform duration-200",
               effectiveOpen && "rotate-180"
             )} />
-          </SidebarGroupLabel>
+          </SidebarMenuButton>
         </Collapsible.Trigger>
         <Collapsible.Content>
-          <SidebarGroupContent>
-            <SidebarMenu className="pl-4">
-              {section.items.map((item) => {
-                const Icon = LucideIcons[item.icon as keyof typeof LucideIcons] as React.ElementType
-                const isActive = isItemActive(item)
+          <SidebarMenuSub>
+            {section.items.map((item) => {
+              const Icon = LucideIcons[item.icon as keyof typeof LucideIcons] as React.ElementType
+              const isActive = isItemActive(item)
 
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.label} size="sm">
-                      <Link href={item.href}>
-                        {Icon && <Icon />}
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
+              return (
+                <SidebarMenuSubItem key={item.href}>
+                  <SidebarMenuSubButton asChild isActive={isActive}>
+                    <Link href={item.href}>
+                      {Icon && <Icon />}
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              )
+            })}
+          </SidebarMenuSub>
         </Collapsible.Content>
-      </SidebarGroup>
-    </Collapsible.Root>
+      </Collapsible.Root>
+    </SidebarMenuItem>
   )
 }
 
@@ -153,17 +156,17 @@ export function AppSidebar({ sections, basePath, roleLabel, role }: AppSidebarPr
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          </SidebarMenu>
 
-          {visibleSections.map((section) => (
-            <CollapsibleSection
-              key={section.id}
-              section={section}
-              pathname={pathname}
-              isItemActive={isItemActive}
-              sidebarCollapsed={sidebarCollapsed}
-            />
-          ))}
+            {visibleSections.map((section) => (
+              <CollapsibleSection
+                key={section.id}
+                section={section}
+                pathname={pathname}
+                isItemActive={isItemActive}
+                sidebarCollapsed={sidebarCollapsed}
+              />
+            ))}
+          </SidebarMenu>
         </SidebarContent>
 
         <SidebarFooter className="border-t border-sidebar-border">
