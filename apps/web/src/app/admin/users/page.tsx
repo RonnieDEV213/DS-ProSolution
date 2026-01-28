@@ -6,13 +6,15 @@ import { UsersTable } from "@/components/admin/users-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
-import { AccessProfilesModal } from "@/components/admin/access-profiles-modal";
+import { DepartmentRoleDialog } from "@/components/admin/department-role-dialog";
 import { InvitesModal } from "@/components/admin/invites-modal";
+
+const DEFAULT_ORG_ID = "a0000000-0000-0000-0000-000000000001";
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [accessProfilesOpen, setAccessProfilesOpen] = useState(false);
+  const [createProfileOpen, setCreateProfileOpen] = useState(false);
   const [invitesOpen, setInvitesOpen] = useState(false);
 
   const handleUserUpdated = () => {
@@ -28,7 +30,7 @@ export default function AdminUsersPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => setAccessProfilesOpen(true)}
+              onClick={() => setCreateProfileOpen(true)}
             >
               <Shield className="mr-2 h-4 w-4" />
               Access Profiles
@@ -58,9 +60,19 @@ export default function AdminUsersPage() {
         onUserUpdated={handleUserUpdated}
       />
 
-      <AccessProfilesModal
-        open={accessProfilesOpen}
-        onOpenChange={setAccessProfilesOpen}
+      <DepartmentRoleDialog
+        open={createProfileOpen}
+        onOpenChange={setCreateProfileOpen}
+        orgId={DEFAULT_ORG_ID}
+        role={null}
+        onSaved={() => {
+          setCreateProfileOpen(false);
+          handleUserUpdated();
+        }}
+        onDeleted={() => {
+          setCreateProfileOpen(false);
+          handleUserUpdated();
+        }}
         onRoleUpdated={handleUserUpdated}
       />
 

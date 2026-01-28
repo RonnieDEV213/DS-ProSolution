@@ -39,10 +39,15 @@ export function useSyncRecords({ accountId, filters }: UseSyncRecordsOptions): U
   const [error, setError] = useState<Error | null>(null);
   const syncingRef = useRef(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // Track whether the first sync for the current account has completed.
+  // Prevents false "no records" empty state when useLiveQuery returns []
+  // before IndexedDB data is available on component remount.
+  const hasSyncedOnceRef = useRef(false);
 
   // Live query - reactive to IndexedDB changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
+    hasSyncedOnceRef.current = false;
   }, [accountId]);
 
   const records = useLiveQuery(async () => {
@@ -103,6 +108,7 @@ export function useSyncRecords({ accountId, filters }: UseSyncRecordsOptions): U
       console.error('[useSyncRecords] Sync failed:', err);
     } finally {
       syncingRef.current = false;
+      hasSyncedOnceRef.current = true;
       setIsSyncing(false);
     }
   }, [accountId]);
@@ -113,9 +119,19 @@ export function useSyncRecords({ accountId, filters }: UseSyncRecordsOptions): U
     doSync();
   }, [accountId, doSync]);
 
+  // Loading when:
+  // 1. useLiveQuery hasn't returned yet (records === undefined), OR
+  // 2. Records array is empty AND we haven't completed the first sync.
+  //    This prevents a false "no records" empty state flash when the
+  //    IndexedDB query returns [] momentarily before real data appears
+  //    on component remount (e.g., navigating back to the page).
+  const isLoading =
+    records === undefined ||
+    (records !== undefined && records.length === 0 && !hasSyncedOnceRef.current && !!accountId);
+
   return {
     records: records ?? [],
-    isLoading: records === undefined,
+    isLoading,
     isSyncing,
     error,
     hasMore,

@@ -73,6 +73,13 @@ export interface SyncMeta {
   cursor: string | null; // Opaque cursor for resuming partial sync
 }
 
+// Generic query cache for persistent TanStack Query data
+export interface QueryCacheEntry {
+  key: string;           // Primary key (cache key, e.g., "admin:users:1")
+  data: unknown;         // Cached response payload
+  cached_at: string;     // ISO timestamp of when data was stored
+}
+
 // Pending mutations queue for offline changes
 export interface PendingMutation {
   id: string;              // UUID for the mutation

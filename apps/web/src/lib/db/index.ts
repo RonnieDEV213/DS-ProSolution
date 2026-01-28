@@ -1,9 +1,9 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { AccountRecord, BookkeepingRecord, SellerRecord, CollectionRunRecord, SyncMeta, PendingMutation } from './schema';
+import type { AccountRecord, BookkeepingRecord, SellerRecord, CollectionRunRecord, SyncMeta, PendingMutation, QueryCacheEntry } from './schema';
 
 // Schema version - increment to clear and resync all data
-// NOTE: Version 3 adds collection_runs table for run history persistence
-export const SCHEMA_VERSION = 3;
+// NOTE: Version 4 adds _query_cache table for persistent TanStack Query caching
+export const SCHEMA_VERSION = 4;
 
 // Database singleton
 const db = new Dexie('DSProSolution') as Dexie & {
@@ -13,6 +13,7 @@ const db = new Dexie('DSProSolution') as Dexie & {
   collection_runs: EntityTable<CollectionRunRecord, 'id'>;
   _sync_meta: EntityTable<SyncMeta, 'table_name'>;
   _pending_mutations: EntityTable<PendingMutation, 'id'>;
+  _query_cache: EntityTable<QueryCacheEntry, 'key'>;
 };
 
 db.version(SCHEMA_VERSION).stores({
@@ -23,7 +24,8 @@ db.version(SCHEMA_VERSION).stores({
   collection_runs: 'id, status, started_at, updated_at',
   _sync_meta: 'table_name',
   _pending_mutations: 'id, record_id, table, status, timestamp',
+  _query_cache: 'key',
 });
 
 export { db };
-export type { AccountRecord, BookkeepingRecord, SellerRecord, CollectionRunRecord, SyncMeta, PendingMutation };
+export type { AccountRecord, BookkeepingRecord, SellerRecord, CollectionRunRecord, SyncMeta, PendingMutation, QueryCacheEntry };

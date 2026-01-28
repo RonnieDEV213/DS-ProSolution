@@ -50,7 +50,7 @@ export function AccessProfilesModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[90vw] w-[90vw] max-h-[85vh] overflow-y-auto scrollbar-thin">
+      <DialogContent className="max-w-[50vw] sm:max-w-[50vw] w-[50vw] max-h-[95vh] overflow-y-auto scrollbar-thin">
         <DialogHeader>
           <DialogTitle>Access Profiles</DialogTitle>
           <DialogDescription>

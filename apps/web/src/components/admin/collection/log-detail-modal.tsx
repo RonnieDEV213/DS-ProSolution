@@ -14,7 +14,7 @@ import { Plus, Minus, Bot, FileQuestion, CalendarIcon, Loader2, Download, Flag, 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { HistoryFilterChips } from "@/components/admin/collection/history-filter-chips";
 import type { DateRange } from "react-day-picker";
@@ -87,6 +87,7 @@ const statusStyles: Record<string, string> = {
 const eventBadgeStyles: Record<string, string> = {
   export: "bg-purple-500/20 text-purple-400",
   flag: "bg-yellow-500/20 text-yellow-400",
+  unflag: "bg-gray-500/20 text-gray-400",
   add: "bg-green-500/20 text-green-400",
   edit: "bg-blue-500/20 text-blue-400",
   remove: "bg-red-500/20 text-red-400",
@@ -95,10 +96,22 @@ const eventBadgeStyles: Record<string, string> = {
 const eventLabels: Record<string, string> = {
   export: "Export",
   flag: "Flag",
-  add: "Run",
+  unflag: "Unflag",
+  add: "Add",
   edit: "Edit",
   remove: "Remove",
 };
+
+/** Resolve display action — returns "unflag" for flag entries where flagged=false */
+function getDisplayAction(entry: ManualLogEntry): string {
+  if (entry.action === "flag" && entry.new_value) {
+    try {
+      const parsed = JSON.parse(entry.new_value);
+      if (parsed.flagged === false) return "unflag";
+    } catch { /* fall through */ }
+  }
+  return entry.action;
+}
 
 // Day grouping helpers
 function getDayLabel(dateStr: string): string {
@@ -221,40 +234,45 @@ export function LogDetailModal({
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return [];
 
-    const params = new URLSearchParams();
-    params.set("limit", String(PAGE_SIZE));
-    params.set("offset", String(offset));
-    if (actionTypes) params.set("action_types", actionTypes.join(","));
-    if (range?.from) params.set("date_from", range.from.toISOString());
-    if (range?.to) params.set("date_to", range.to.toISOString());
+    // Separate sentinel from real action types for the API
+    const realActionTypes = actionTypes?.filter((t) => t !== "__runs__") ?? null;
+    const shouldFetchRuns =
+      !actionTypes || actionTypes.includes("__runs__");
 
     const headers = { Authorization: `Bearer ${session.access_token}` };
     const mergedEntries: HistoryEntry[] = [];
 
-    // Fetch audit log entries
-    const logsRes = await fetch(
-      `${API_BASE}/sellers/audit-log?${params}`,
-      { headers }
-    );
-    if (logsRes.ok) {
-      const data = await logsRes.json();
-      for (const log of data.entries || []) {
-        mergedEntries.push({
-          type: "manual_edit",
-          id: log.id,
-          action: log.action,
-          seller_name: log.seller_name,
-          source: log.source,
-          affected_count: log.affected_count || 1,
-          created_at: log.created_at,
-          new_value: log.new_value,
-        });
+    // Fetch audit log entries (skip when only the runs sentinel is active)
+    if (!realActionTypes || realActionTypes.length > 0) {
+      const params = new URLSearchParams();
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
+      if (realActionTypes && realActionTypes.length > 0) {
+        params.set("action_types", realActionTypes.join(","));
+      }
+      if (range?.from) params.set("date_from", range.from.toISOString());
+      if (range?.to) params.set("date_to", range.to.toISOString());
+
+      const logsRes = await fetch(
+        `${API_BASE}/sellers/audit-log?${params}`,
+        { headers }
+      );
+      if (logsRes.ok) {
+        const data = await logsRes.json();
+        for (const log of data.entries || []) {
+          mergedEntries.push({
+            type: "manual_edit",
+            id: log.id,
+            action: log.action,
+            seller_name: log.seller_name,
+            source: log.source,
+            affected_count: log.affected_count || 1,
+            created_at: log.created_at,
+            new_value: log.new_value,
+          });
+        }
       }
     }
-
-    // Fetch collection runs only when filter is "all" or "runs" (action type "add")
-    const shouldFetchRuns =
-      !actionTypes || actionTypes.includes("add");
     if (shouldFetchRuns && offset === 0) {
       // Only fetch runs on first page to avoid duplication
       const runsParams = new URLSearchParams();
@@ -364,7 +382,41 @@ export function LogDetailModal({
           await fetchChangesForRun(selectedRunId);
         } else if (selectedLogId && !viewingEntry) {
           setViewingEntry({ type: "log", id: selectedLogId });
-          await fetchChangesForEntry(selectedLogId);
+
+          // Find the matched entry to determine its action type
+          const matched = entries.find(
+            (e) => e.type === "manual_edit" && e.id === selectedLogId
+          ) as ManualLogEntry | undefined;
+
+          if (matched?.action === "export" && matched.new_value) {
+            try {
+              const parsed = JSON.parse(matched.new_value);
+              setChanges({
+                type: "export",
+                added: [],
+                removed: [],
+                exportFormat: parsed.format || "CSV",
+                exportedSellers: parsed.sellers || [],
+              });
+            } catch {
+              setChanges({ type: "export", added: [], removed: [], exportFormat: "CSV", exportedSellers: [] });
+            }
+          } else if (matched?.action === "flag" && matched.new_value) {
+            try {
+              const parsed = JSON.parse(matched.new_value);
+              setChanges({
+                type: "flag",
+                added: [],
+                removed: [],
+                flagged: parsed.flagged ?? true,
+                flaggedSellers: parsed.sellers || [],
+              });
+            } catch {
+              setChanges({ type: "flag", added: [], removed: [], flagged: true, flaggedSellers: [] });
+            }
+          } else {
+            await fetchChangesForEntry(selectedLogId);
+          }
         }
       } catch (e) {
         console.error("Failed to fetch log data:", e);
@@ -393,6 +445,8 @@ export function LogDetailModal({
 
   // Unified click handler for all entry types
   const handleEntryClick = (entry: HistoryEntry) => {
+    if (isViewing(entry)) return;
+
     if (entry.type === "manual_edit") {
       setViewingEntry({ type: "log", id: entry.id });
 
@@ -458,7 +512,7 @@ export function LogDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-background border-border max-w-5xl h-[80vh] flex flex-col" showCloseButton={false}>
+      <DialogContent className="bg-background border-border w-fit sm:max-w-[95vw] max-w-[95vw] h-[80vh] flex flex-col" showCloseButton={false}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-foreground">
             History Entry
@@ -466,9 +520,9 @@ export function LogDetailModal({
         </DialogHeader>
 
         {historyLoading ? (
-          <div className="grid grid-cols-5 gap-4 flex-1 min-h-0 animate-fade-in">
-            {/* Left panel skeleton - changes list (col-span-2) */}
-            <div className="col-span-2 flex flex-col min-h-0">
+          <div className="flex gap-4 flex-1 min-h-0 animate-fade-in">
+            {/* Left panel skeleton - changes list (narrow) */}
+            <div className="w-[234px] shrink-0 flex flex-col min-h-0">
               <Skeleton className="h-4 w-16 mb-2" />
               <div className="flex-1 rounded border border-border p-2 space-y-2">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -479,27 +533,36 @@ export function LogDetailModal({
                 ))}
               </div>
             </div>
-            {/* Right panel skeleton - history list (col-span-3) */}
-            <div className="col-span-3 flex flex-col min-h-0">
+            {/* Right panel skeleton - history list (wider) */}
+            <div className="shrink-0 flex flex-col min-h-0">
               <Skeleton className="h-4 w-20 mb-2" />
-              <Skeleton className="h-6 w-48 mb-2" />
-              <div className="flex-1 rounded border border-border space-y-0">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="px-3 py-2 border-b border-border last:border-0">
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-4 w-12" />
-                      <Skeleton className="h-3 flex-1" />
-                      <Skeleton className="h-3 w-16" />
+              <div className="flex items-center gap-2 mb-2">
+                <Skeleton className="h-5 w-10" />
+                <Skeleton className="h-5 w-16" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="flex-1 relative min-h-0">
+                <div className="absolute inset-0 rounded border border-border space-y-0 overflow-y-auto">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="px-3 py-2 border-b border-border last:border-0">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-12" />
+                        <Skeleton className="h-3 w-48" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-5 gap-4 flex-1 min-h-0">
-            {/* Left: Changes panel (col-span-2) */}
-            <div className="col-span-2 flex flex-col min-h-0">
+          <div className="flex gap-4 flex-1 min-h-0">
+            {/* Left: Changes panel */}
+            <div className="w-[234px] shrink-0 flex flex-col min-h-0">
               <h4 className="text-sm font-medium text-foreground mb-2 flex-shrink-0">
                 Changes
               </h4>
@@ -582,6 +645,11 @@ export function LogDetailModal({
                       </div>
                     )}
                   </div>
+                ) : !viewingEntry ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <FileQuestion className="h-12 w-12 mb-2 text-muted-foreground/60" />
+                    <span className="text-sm">Select an entry</span>
+                  </div>
                 ) : !hasChanges ? (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <FileQuestion className="h-12 w-12 mb-2 text-muted-foreground/60" />
@@ -641,22 +709,24 @@ export function LogDetailModal({
               </div>
             </div>
 
-            {/* Right: Full history (col-span-3) */}
-            <div className="col-span-3 flex flex-col min-h-0">
+            {/* Right: Full history - width driven by chip bar */}
+            <div className="shrink-0 flex flex-col min-h-0">
               <h4 className="text-sm font-medium text-foreground mb-2 flex-shrink-0">
                 Full History
               </h4>
 
               {/* Filter UI */}
-              <div className="flex items-center gap-2 mb-2 flex-shrink-0 flex-wrap">
+              <div className="flex items-center gap-2 mb-2 flex-shrink-0">
                 <HistoryFilterChips
                   activeFilter={activeFilter}
                   onFilterChange={(id, types) => {
                     setActiveFilter(id);
                     setFilterActionTypes(types);
-                    // Reset entries and refetch (handled by useEffect)
+                    // Reset entries, selection, and changes panel
                     setAllEntries([]);
                     setHasMore(true);
+                    setViewingEntry(null);
+                    setChanges({ type: "diff", added: [], removed: [] });
                   }}
                 />
                 {/* Date range picker */}
@@ -679,6 +749,8 @@ export function LogDetailModal({
                         setDateRange(range);
                         setAllEntries([]);
                         setHasMore(true);
+                        setViewingEntry(null);
+                        setChanges({ type: "diff", added: [], removed: [] });
                       }}
                       numberOfMonths={2}
                     />
@@ -686,8 +758,9 @@ export function LogDetailModal({
                 </Popover>
               </div>
 
-              {/* Scrollable entry list with day grouping */}
-              <div className="flex-1 overflow-y-auto scrollbar-thin bg-muted rounded border border-border min-h-0">
+              {/* Scrollable entry list with day grouping - absolute so it doesn't widen the panel */}
+              <div className="flex-1 relative min-h-0">
+              <div className="absolute inset-0 overflow-y-auto scrollbar-thin bg-muted rounded border border-border">
                 {loading && allEntries.length === 0 ? (
                   <div className="space-y-0">
                     {Array.from({ length: 8 }).map((_, i) => (
@@ -707,10 +780,10 @@ export function LogDetailModal({
                   </div>
                 ) : (
                   <>
-                    {groupedEntries.map(([dayLabel, entries]) => (
-                      <div key={dayLabel}>
+                    {groupedEntries.map(([dayLabel, entries], groupIndex) => (
+                      <div key={dayLabel} className={groupIndex > 0 ? "mt-2 border-t border-border" : undefined}>
                         {/* Sticky day header */}
-                        <div className="sticky top-0 bg-muted/80 backdrop-blur-sm px-3 py-1 text-xs text-muted-foreground font-medium border-b border-border z-10">
+                        <div className="sticky top-0 bg-muted backdrop-blur-sm px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b border-border z-10">
                           {dayLabel}
                         </div>
                         {entries.map((entry) => {
@@ -727,8 +800,8 @@ export function LogDetailModal({
                                 )}
                               >
                                 <div className="flex items-center gap-2">
-                                  <Badge className={cn("text-xs", eventBadgeStyles[entry.action] || actionColors[entry.action])}>
-                                    {eventLabels[entry.action] || entry.action}
+                                  <Badge className={cn("text-xs", eventBadgeStyles[getDisplayAction(entry)] || actionColors[entry.action])}>
+                                    {eventLabels[getDisplayAction(entry)] || entry.action}
                                   </Badge>
                                   <span className="text-foreground text-sm truncate flex-1">
                                     {entry.affected_count > 1
@@ -736,7 +809,7 @@ export function LogDetailModal({
                                       : entry.seller_name}
                                   </span>
                                   <span className="text-muted-foreground text-xs font-mono flex-shrink-0">
-                                    {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
+                                    {format(new Date(entry.created_at), "HH:mm")}
                                   </span>
                                 </div>
                               </button>
@@ -769,7 +842,7 @@ export function LogDetailModal({
                                     </span>
                                   )}
                                   <span className="text-muted-foreground text-xs font-mono">
-                                    {formatDistanceToNow(new Date(getEntryTime(entry)), { addSuffix: true })}
+                                    {format(new Date(getEntryTime(entry)), "HH:mm")}
                                   </span>
                                 </div>
                               </button>
@@ -789,6 +862,7 @@ export function LogDetailModal({
                     {hasMore && <div ref={sentinelRef} className="h-8" />}
                   </>
                 )}
+              </div>
               </div>
             </div>
           </div>

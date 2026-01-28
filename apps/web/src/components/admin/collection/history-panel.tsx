@@ -5,7 +5,7 @@ import { getAccessToken } from "@/lib/api";
 import { useSyncRunHistory } from "@/hooks/sync/use-sync-run-history";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { History, Plus, Minus, Edit3, Bot, User, Download, Flag } from "lucide-react";
+import { History, Plus, Minus, Edit3, Bot, User, Download, Flag, FlagOff } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { formatDistanceToNow } from "date-fns";
@@ -61,7 +61,19 @@ const actionIcons: Record<string, React.ReactNode> = {
   remove: <Minus className="h-3 w-3 text-red-400" />,
   export: <Download className="h-3 w-3 text-purple-400" />,
   flag: <Flag className="h-3 w-3 text-yellow-400" />,
+  unflag: <FlagOff className="h-3 w-3 text-gray-400" />,
 };
+
+/** Resolve display action — returns "unflag" for flag entries where flagged=false */
+function getDisplayAction(entry: ManualEditEntry): string {
+  if (entry.action === "flag" && entry.new_value) {
+    try {
+      const parsed = JSON.parse(entry.new_value);
+      if (parsed.flagged === false) return "unflag";
+    } catch { /* fall through */ }
+  }
+  return entry.action;
+}
 
 export function HistoryPanel({
   refreshTrigger,
@@ -220,7 +232,7 @@ export function HistoryPanel({
       <div className="flex items-center gap-2">
         <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <div className="flex items-center gap-1.5">
-          {actionIcons[entry.action]}
+          {actionIcons[getDisplayAction(entry)]}
           <span className="text-foreground text-sm truncate">
             {getManualEditLabel(entry)}
           </span>

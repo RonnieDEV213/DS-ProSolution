@@ -18,7 +18,11 @@ interface ShortcutsReferenceProps {
 
 export function ShortcutsReference({ open, onOpenChange }: ShortcutsReferenceProps) {
   const pathname = usePathname()
-  const activeScope = pathname?.includes("/automation") ? "collection" : undefined
+  const activeScope = pathname?.includes("/automation")
+    ? "collection"
+    : pathname?.includes("/order-tracking")
+      ? "order-tracking"
+      : undefined
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -33,7 +37,7 @@ export function ShortcutsReference({ open, onOpenChange }: ShortcutsReferencePro
         <div className="px-4 pb-4 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-thin">
           {SHORTCUT_GROUPS.map((group) => {
             const groupShortcuts = SHORTCUTS.filter(
-              (s) => s.group === group && (!s.scope || s.scope === activeScope)
+              (s) => s.group === group && s.scope === activeScope
             )
             if (groupShortcuts.length === 0) return null
 

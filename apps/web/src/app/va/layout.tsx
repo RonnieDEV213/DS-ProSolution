@@ -22,6 +22,13 @@ const CommandPalette = dynamic(
 function VaLayoutShortcuts({ children }: { children: React.ReactNode }) {
   const { commandOpen, setCommandOpen, shortcutsOpen, setShortcutsOpen, settingsOpen, setSettingsOpen } = useGlobalShortcuts({ basePath: "/va" })
 
+  // Listen for keyboard shortcuts button click from toolbar
+  useEffect(() => {
+    const handleToggle = () => setShortcutsOpen(prev => !prev)
+    window.addEventListener("dspro:shortcut:toggle-shortcuts", handleToggle)
+    return () => window.removeEventListener("dspro:shortcut:toggle-shortcuts", handleToggle)
+  }, [setShortcutsOpen])
+
   return (
     <>
       {children}

@@ -8,8 +8,8 @@ export const HISTORY_FILTERS = [
   { id: "all", label: "All", actionTypes: null },
   { id: "exports", label: "Exports", actionTypes: ["export"] },
   { id: "flags", label: "Flags", actionTypes: ["flag"] },
-  { id: "runs", label: "Runs", actionTypes: ["add"] },
-  { id: "edits", label: "Edits", actionTypes: ["edit", "remove"] },
+  { id: "runs", label: "Collection Runs", actionTypes: ["__runs__"] },
+  { id: "edits", label: "Edits", actionTypes: ["edit", "remove", "add"] },
 ] as const;
 
 interface HistoryFilterChipsProps {
@@ -36,7 +36,7 @@ export function HistoryFilterChips({
 
   return (
     <div
-      className="flex flex-wrap items-center gap-2"
+      className="flex items-center gap-2"
       role="radiogroup"
       aria-label="History type filters"
     >

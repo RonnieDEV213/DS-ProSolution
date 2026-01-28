@@ -309,12 +309,13 @@ export async function getLastSyncTime(tableKey: string): Promise<string | null> 
  * Used for error recovery or user-initiated refresh.
  */
 export async function clearAllData(): Promise<void> {
-  await db.transaction('rw', [db.accounts, db.records, db.sellers, db.collection_runs, db._sync_meta], async () => {
+  await db.transaction('rw', [db.accounts, db.records, db.sellers, db.collection_runs, db._sync_meta, db._query_cache], async () => {
     await db.accounts.clear();
     await db.records.clear();
     await db.sellers.clear();
     await db.collection_runs.clear();
     await db._sync_meta.clear();
+    await db._query_cache.clear();
   });
   console.log('[Sync] Cleared all local data');
 }

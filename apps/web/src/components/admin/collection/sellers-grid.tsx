@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Loader2, Download, Flag } from "lucide-react";
+import { Plus, Trash2, Loader2, Download, Flag, Keyboard } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { NoResults } from "@/components/empty-states/no-results";
@@ -31,6 +31,11 @@ import { sellerApi } from "@/lib/api";
 import type { SellerRecord } from "@/lib/db/schema";
 import { useCollectionShortcuts } from "@/hooks/use-collection-shortcuts";
 import { Kbd } from "@/components/ui/kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { STORAGE_KEYS } from "@/lib/storage-keys";
 import { SellerExportModal } from "./seller-export-modal";
 
@@ -1130,6 +1135,19 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
             Export
             <Kbd className="ml-1.5 text-[10px]">E</Kbd>
           </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => window.dispatchEvent(new CustomEvent("dspro:shortcut:toggle-shortcuts"))}
+                className="h-8 w-8"
+              >
+                <Keyboard className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

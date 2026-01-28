@@ -20,7 +20,11 @@ import { OccupancyBadge } from "@/components/presence/occupancy-badge";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { NoResults } from "@/components/empty-states/no-results";
 import { ChevronDown, ChevronRight, User } from "lucide-react";
-import { automationApi, Agent } from "@/lib/api";
+import { automationApi, Agent, getAccessToken } from "@/lib/api";
+import { useSyncAccounts } from "@/hooks/sync/use-sync-accounts";
+import { useCachedQuery } from "@/hooks/use-cached-query";
+import { queryKeys } from "@/lib/query-keys";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -71,20 +75,79 @@ export function AccountsTable({
   viewOnly = false,
 }: AccountsTableProps) {
   const { isAdmin, loading: roleLoading, userId } = useUserRole();
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [editingAccount, setEditingAccount] = useState<AccountFull | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [expandedAccountIds, setExpandedAccountIds] = useState<Set<string>>(new Set());
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const pageSize = 20;
 
   // Determine if we're in view-only mode
   const isViewOnly = viewOnly || !isAdmin;
+
+  // Debounce search
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  // --- VA mode: cache-first from IndexedDB via V3 sync ---
+  const syncResult = useSyncAccounts({
+    search: isViewOnly ? debouncedSearch : undefined,
+  });
+
+  // --- Admin mode: persistent cache via TanStack Query + IndexedDB ---
+  const adminQuery = useCachedQuery<{ accounts: AccountFull[]; total: number }>({
+    queryKey: [...queryKeys.accounts.all("default"), "admin", debouncedSearch, page],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not authenticated");
+
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.set("q", debouncedSearch);
+      params.set("page", page.toString());
+      params.set("page_size", pageSize.toString());
+
+      const res = await fetch(`${API_BASE}/admin/accounts?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: "Failed to fetch accounts" }));
+        throw new Error(error.detail || "Failed to fetch accounts");
+      }
+
+      return res.json();
+    },
+    cacheKey: `admin:accounts:${debouncedSearch || ''}:${page}`,
+    staleTime: 30 * 1000,
+    enabled: !isViewOnly && !roleLoading,
+  });
+
+  // Unified data from either source
+  const accounts: Account[] = isViewOnly
+    ? syncResult.accounts
+    : adminQuery.data?.accounts ?? [];
+  const total = isViewOnly
+    ? syncResult.totalCount
+    : adminQuery.data?.total ?? 0;
+  const loading = isViewOnly
+    ? syncResult.isLoading
+    : adminQuery.isLoading;
+
+  // Re-fetch when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      if (isViewOnly) {
+        syncResult.refetch();
+      } else {
+        adminQuery.refetch();
+      }
+    }
+  }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toggle function for expanding/collapsing accounts
   const toggleAccount = (accountId: string) => {
@@ -100,7 +163,7 @@ export function AccountsTable({
   };
 
   // Fetch presence data via realtime subscription
-  const { presence, loading: presenceLoading } = usePresence({
+  const { presence } = usePresence({
     orgId: orgId || "",
     enabled: !!orgId,
   });
@@ -126,22 +189,13 @@ export function AccountsTable({
   }, []);
 
   const fetchUsers = useCallback(async () => {
-    // Only fetch users for admin mode
     if (isViewOnly) return;
-
     try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const token = await getAccessToken();
+      if (!token) return;
 
-      if (!session) return;
-
-      // Fetch all users (for client dropdown and display)
       const res = await fetch(`${API_BASE}/admin/users?page_size=100`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -154,9 +208,7 @@ export function AccountsTable({
   }, [isViewOnly]);
 
   const fetchAgents = useCallback(async () => {
-    // Only fetch agents for admin mode
     if (isViewOnly) return;
-
     try {
       const result = await automationApi.getAgents();
       setAgents(result.agents);
@@ -165,79 +217,12 @@ export function AccountsTable({
     }
   }, [isViewOnly]);
 
-  const fetchAccounts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      if (isViewOnly) {
-        // VA mode: use /accounts endpoint (returns basic info)
-        const res = await fetch(`${API_BASE}/accounts`, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({ detail: "Failed to fetch accounts" }));
-          throw new Error(error.detail || "Failed to fetch accounts");
-        }
-
-        const data = await res.json();
-        setAccounts(data);
-        setTotal(data.length);
-      } else {
-        // Admin mode: use /admin/accounts endpoint (returns full info)
-        const params = new URLSearchParams();
-        if (search) params.set("q", search);
-        params.set("page", page.toString());
-        params.set("page_size", pageSize.toString());
-
-        const res = await fetch(`${API_BASE}/admin/accounts?${params}`, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({ detail: "Failed to fetch accounts" }));
-          throw new Error(error.detail || "Failed to fetch accounts");
-        }
-
-        const data = await res.json();
-        setAccounts(data.accounts);
-        setTotal(data.total);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to fetch accounts");
-    } finally {
-      setLoading(false);
-    }
-  }, [search, page, pageSize, isViewOnly]);
-
   useEffect(() => {
     if (!roleLoading) {
       fetchUsers();
       fetchAgents();
     }
   }, [fetchUsers, fetchAgents, roleLoading]);
-
-  useEffect(() => {
-    if (roleLoading) return;
-
-    const debounce = setTimeout(() => {
-      fetchAccounts();
-    }, 300);
-    return () => clearTimeout(debounce);
-  }, [fetchAccounts, refreshTrigger, roleLoading]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
@@ -246,13 +231,9 @@ export function AccountsTable({
 
   const totalPages = Math.ceil(total / pageSize);
 
-  // Show loading state while determining role
+  // Show skeleton while determining role
   if (roleLoading) {
-    return (
-      <div className="text-center text-muted-foreground py-8">
-        Loading...
-      </div>
-    );
+    return <TableSkeleton columns={isViewOnly ? 3 : 7} rows={5} />;
   }
 
   return (
@@ -286,10 +267,10 @@ export function AccountsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {loading && accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isViewOnly ? 3 : 7} className="text-center text-muted-foreground py-8">
-                  Loading...
+                <TableCell colSpan={isViewOnly ? 3 : 7} className="p-0">
+                  <TableSkeleton columns={isViewOnly ? 3 : 7} rows={5} />
                 </TableCell>
               </TableRow>
             ) : accounts.length === 0 ? (

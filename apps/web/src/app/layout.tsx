@@ -29,6 +29,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Inline blocking script: fix data-theme for system theme resolution.
+            next-themes' inline script applies the value map to `class` but NOT to
+            `data-theme` attributes. When the stored theme is "system", the script
+            sets data-theme="light"/"dark" instead of data-theme="dawn"/"carbon".
+            This observer patches the value before first paint so CSS selectors
+            like [data-theme="dawn"] match immediately. Disconnects after first
+            correction to avoid interfering with React hydration. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var d=document.documentElement,m={light:"dawn",dark:"carbon"};new MutationObserver(function(muts,obs){var v=d.getAttribute("data-theme");if(v&&m[v]){d.setAttribute("data-theme",m[v])}obs.disconnect()}).observe(d,{attributes:true,attributeFilter:["data-theme"]})})()`,
+          }}
+          suppressHydrationWarning
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -37,7 +52,7 @@ export default function RootLayout({
           defaultTheme="system"
           enableSystem={true}
           themes={["system", "midnight", "dawn", "slate", "carbon"]}
-          disableTransitionOnChange={false}
+          disableTransitionOnChange={true}
           value={{
             midnight: "midnight",
             dawn: "dawn",

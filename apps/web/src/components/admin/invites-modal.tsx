@@ -33,7 +33,7 @@ export function InvitesModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[90vw] w-[90vw] max-h-[85vh] overflow-y-auto scrollbar-thin">
+      <DialogContent className="max-w-[62vw] sm:max-w-[62vw] w-[62vw] max-h-[95vh] overflow-y-auto scrollbar-thin">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>

@@ -11,6 +11,7 @@ export const SHORTCUT_GROUPS = [
   "Navigation",
   "Actions",
   "Command Palette",
+  "Order Tracking",
   "Collection",
 ] as const
 
@@ -26,7 +27,7 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     group: "Command Palette",
   },
   {
-    key: "shift+/",
+    key: "?",
     label: "Shortcuts Reference",
     description: "Open keyboard shortcuts reference",
     display: ["?"],
@@ -98,6 +99,40 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     description: "Close modal or dialog",
     display: ["Esc"],
     group: "Actions",
+  },
+
+  // Order Tracking (page-scoped)
+  {
+    key: "j",
+    label: "Next Row",
+    description: "Move to next row",
+    display: ["J"],
+    group: "Order Tracking",
+    scope: "order-tracking",
+  },
+  {
+    key: "k",
+    label: "Previous Row",
+    description: "Move to previous row",
+    display: ["K"],
+    group: "Order Tracking",
+    scope: "order-tracking",
+  },
+  {
+    key: "Enter",
+    label: "Expand / Collapse",
+    description: "Expand or collapse selected row",
+    display: ["Enter"],
+    group: "Order Tracking",
+    scope: "order-tracking",
+  },
+  {
+    key: "Escape",
+    label: "Clear Focus",
+    description: "Clear row focus",
+    display: ["Esc"],
+    group: "Order Tracking",
+    scope: "order-tracking",
   },
 
   // Collection (page-scoped)

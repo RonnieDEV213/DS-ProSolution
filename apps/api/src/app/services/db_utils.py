@@ -21,9 +21,10 @@ QUERY_BATCH_SIZE = 150
 # Using 500 for safety margin
 INSERT_BATCH_SIZE = 500
 
-# Max parallel requests - limited by Supabase connection pool (~20-60)
-# Using 15 to leave room for other app connections
-MAX_CONCURRENT = 15
+# Max parallel requests - limited by HTTP/2 stream multiplexing on single
+# TCP connection. Values >5 cause SSL write errors ("EOF occurred in
+# violation of protocol") under bulk operations (e.g. 4700-ID deletes).
+MAX_CONCURRENT = 5
 
 T = TypeVar('T')
 

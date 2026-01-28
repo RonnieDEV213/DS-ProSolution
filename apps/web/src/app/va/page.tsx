@@ -1,12 +1,12 @@
+import { PageHeader } from "@/components/layout/page-header";
+
 export default async function VADashboardPage() {
   return (
     <div className="space-y-8 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">VA Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Welcome to your virtual assistant dashboard
-        </p>
-      </div>
+      <PageHeader
+        title="VA Dashboard"
+        description="Welcome to your virtual assistant dashboard"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-card rounded-lg p-6 border border-border">

@@ -57,20 +57,71 @@ function useSectionState(sectionId: string, defaultOpen = true) {
   return [open, handleOpenChange] as const
 }
 
+/**
+ * Renders sidebar nav items for a section.
+ * Extracted to avoid duplication between SSR fallback and client collapsible.
+ */
+function SectionItems({
+  section,
+  isItemActive,
+}: {
+  section: SidebarSection
+  isItemActive: (item: NavItem) => boolean
+}) {
+  return (
+    <SidebarMenuSub>
+      {section.items.map((item) => {
+        const Icon = LucideIcons[item.icon as keyof typeof LucideIcons] as React.ElementType
+        const isActive = isItemActive(item)
+
+        return (
+          <SidebarMenuSubItem key={item.href}>
+            <SidebarMenuSubButton asChild isActive={isActive}>
+              <Link href={item.href}>
+                {Icon && <Icon />}
+                <span>{item.label}</span>
+              </Link>
+            </SidebarMenuSubButton>
+          </SidebarMenuSubItem>
+        )
+      })}
+    </SidebarMenuSub>
+  )
+}
+
 function CollapsibleSection({
   section,
   pathname,
   isItemActive,
   sidebarCollapsed,
+  mounted,
 }: {
   section: SidebarSection
   pathname: string
   isItemActive: (item: NavItem) => boolean
   sidebarCollapsed: boolean
+  mounted: boolean
 }) {
   const [open, setOpen] = useSectionState(section.id)
   const effectiveOpen = sidebarCollapsed ? false : open
   const SectionIcon = LucideIcons[section.icon as keyof typeof LucideIcons] as React.ElementType
+
+  // Before hydration, render without Radix Collapsible to avoid ID mismatch.
+  // Radix generates unique IDs via React.useId() which can differ between
+  // server and client when the component tree has client-only differences
+  // (e.g., dynamic imports with ssr:false, cookie-based state).
+  if (!mounted) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton tooltip={section.label}>
+          {SectionIcon && <SectionIcon />}
+          <span>{section.label}</span>
+          <ChevronDown className="ml-auto h-4 w-4" />
+        </SidebarMenuButton>
+        <SectionItems section={section} isItemActive={isItemActive} />
+      </SidebarMenuItem>
+    )
+  }
 
   return (
     <SidebarMenuItem>
@@ -86,23 +137,7 @@ function CollapsibleSection({
           </SidebarMenuButton>
         </Collapsible.Trigger>
         <Collapsible.Content>
-          <SidebarMenuSub>
-            {section.items.map((item) => {
-              const Icon = LucideIcons[item.icon as keyof typeof LucideIcons] as React.ElementType
-              const isActive = isItemActive(item)
-
-              return (
-                <SidebarMenuSubItem key={item.href}>
-                  <SidebarMenuSubButton asChild isActive={isActive}>
-                    <Link href={item.href}>
-                      {Icon && <Icon />}
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              )
-            })}
-          </SidebarMenuSub>
+          <SectionItems section={section} isItemActive={isItemActive} />
         </Collapsible.Content>
       </Collapsible.Root>
     </SidebarMenuItem>
@@ -113,6 +148,10 @@ export function AppSidebar({ sections, basePath, roleLabel, role }: AppSidebarPr
   const pathname = usePathname()
   const [profileOpen, setProfileOpen] = useState(false)
   const { toggleSidebar, state } = useSidebar()
+  // Track client mount to defer Radix Collapsible rendering until after
+  // hydration, preventing React useId() mismatch between server/client.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   const sidebarCollapsed = state === "collapsed"
   const visibleSections = getVisibleSections(sections, role)
@@ -164,6 +203,7 @@ export function AppSidebar({ sections, basePath, roleLabel, role }: AppSidebarPr
                 pathname={pathname}
                 isItemActive={isItemActive}
                 sidebarCollapsed={sidebarCollapsed}
+                mounted={mounted}
               />
             ))}
           </SidebarMenu>

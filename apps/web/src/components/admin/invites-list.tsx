@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useCachedQuery } from "@/hooks/use-cached-query";
+import { queryKeys } from "@/lib/query-keys";
 
 interface Invite {
   id: string;
@@ -39,43 +42,50 @@ interface InvitesListProps {
 }
 
 export function InvitesList({ refreshTrigger }: InvitesListProps) {
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [loading, setLoading] = useState(true);
   const [inviteToRevoke, setInviteToRevoke] = useState<Invite | null>(null);
   const [revoking, setRevoking] = useState(false);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const pageSize = 20;
 
-  const loadInvites = useCallback(async () => {
-    setLoading(true);
-    const supabase = createClient();
+  // Fetch invites via persistent cache
+  const {
+    data: invitesData,
+    isLoading: loading,
+    refetch: refetchInvites,
+  } = useCachedQuery<{ invites: Invite[]; total: number }>({
+    queryKey: queryKeys.admin.invites(page),
+    queryFn: async () => {
+      const supabase = createClient();
 
-    // Get total count
-    const { count } = await supabase
-      .from("invites")
-      .select("*", { count: "exact", head: true });
-    setTotal(count ?? 0);
+      // Get total count
+      const { count } = await supabase
+        .from("invites")
+        .select("*", { count: "exact", head: true });
 
-    // Get paginated data
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    const { data, error } = await supabase
-      .from("invites")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      // Get paginated data
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const { data, error } = await supabase
+        .from("invites")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
-    if (!error && data) {
-      setInvites(data);
-    }
-    setLoading(false);
-  }, [page, pageSize]);
+      if (error) throw error;
 
+      return { invites: data ?? [], total: count ?? 0 };
+    },
+    cacheKey: `admin:invites:${page}`,
+    staleTime: 30 * 1000,
+  });
+
+  const invites = invitesData?.invites ?? [];
+  const total = invitesData?.total ?? 0;
+
+  // Re-fetch when refreshTrigger changes
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on mount/refresh
-    void loadInvites();
-  }, [loadInvites, refreshTrigger]);
+    if (refreshTrigger && refreshTrigger > 0) refetchInvites();
+  }, [refreshTrigger, refetchInvites]);
 
   const handleRevokeClick = (invite: Invite) => {
     setInviteToRevoke(invite);
@@ -88,7 +98,7 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
     try {
       const supabase = createClient();
       await supabase.from("invites").update({ status: "revoked" }).eq("id", inviteToRevoke.id);
-      loadInvites();
+      refetchInvites();
     } finally {
       setRevoking(false);
       setInviteToRevoke(null);
@@ -128,10 +138,10 @@ export function InvitesList({ refreshTrigger }: InvitesListProps) {
     });
   };
 
-  if (loading) {
+  if (loading && invites.length === 0) {
     return (
-      <div className="bg-card rounded-lg border border-border p-8">
-        <p className="text-muted-foreground text-center">Loading invites...</p>
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <TableSkeleton columns={6} rows={3} />
       </div>
     );
   }

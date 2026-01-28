@@ -2,6 +2,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { db, type SellerRecord } from '@/lib/db';
 import { sellerApi } from '@/lib/api';
+import { syncSellers } from '@/lib/db/sync';
 import { useOnlineStatus } from '@/hooks/sync/use-online-status';
 import { queueMutation } from '@/lib/db/pending-mutations';
 
@@ -57,7 +58,20 @@ export function useDeleteSeller() {
     onError: async (_error, _vars, context) => {
       // Rollback: restore deleted records
       if (context?.deletedRecords?.length) {
-        await db.sellers.bulkPut(context.deletedRecords);
+        try {
+          await db.sellers.bulkPut(context.deletedRecords);
+        } catch (rollbackErr) {
+          console.error('[useDeleteSeller] Rollback failed, resetting sync state:', rollbackErr);
+        }
+      }
+      // Reset sync checkpoint and trigger immediate full re-sync.
+      // This is the safety net: even if bulkPut rollback above fails,
+      // the server still has the records and a full sync will restore them.
+      try {
+        await db._sync_meta.delete('sellers');
+        await syncSellers();
+      } catch {
+        // Best-effort — sync will self-heal on next page load
       }
     },
     retry: (failureCount, error) => {

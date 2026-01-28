@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useHotkeys } from "react-hotkeys-hook"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -22,15 +22,22 @@ export function useGlobalShortcuts({ basePath = "/admin" }: UseGlobalShortcutsOp
     setCommandOpen(prev => !prev)
   }, { enableOnFormTags: false })
 
-  // Shortcuts reference: ? (Shift+/)
-  useHotkeys("shift+/", (e) => {
-    const target = e.target as HTMLElement
-    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
-      return
+  // Shortcuts reference: ? — uses raw addEventListener (same pattern as order tracker)
+  // useHotkeys has matching issues with shifted characters like ?
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key !== "?") return
+      const target = e.target as HTMLElement | null
+      if (target) {
+        const tag = target.tagName
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return
+      }
+      e.preventDefault()
+      setShortcutsOpen(prev => !prev)
     }
-    e.preventDefault()
-    setShortcutsOpen(true)
-  })
+    window.addEventListener("keydown", handleKey)
+    return () => window.removeEventListener("keydown", handleKey)
+  }, [])
 
   const navigateTo = useCallback((adminPath: string) => {
     if (basePath === "/admin") {
@@ -53,6 +60,25 @@ export function useGlobalShortcuts({ basePath = "/admin" }: UseGlobalShortcutsOp
   useHotkeys("g,a", () => {
     if (basePath === "/client") return
     navigateTo("/admin/accounts")
+  }, { enableOnFormTags: false })
+
+  // Action shortcuts: N=new, F=filter, E=export
+  useHotkeys("n", () => {
+    window.dispatchEvent(new CustomEvent("dspro:shortcut:new"))
+  }, { enableOnFormTags: false })
+
+  useHotkeys("f", () => {
+    const searchInput = document.querySelector<HTMLInputElement>(
+      'input[placeholder*="earch"], input[placeholder*="ilter"]'
+    )
+    if (searchInput) {
+      searchInput.focus()
+      searchInput.select()
+    }
+  }, { enableOnFormTags: false })
+
+  useHotkeys("e", () => {
+    window.dispatchEvent(new CustomEvent("dspro:shortcut:export"))
   }, { enableOnFormTags: false })
 
   return {

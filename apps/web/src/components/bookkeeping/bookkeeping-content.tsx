@@ -2,8 +2,6 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { ListImperativeAPI } from "react-window";
 
@@ -13,7 +11,6 @@ import { RecordsToolbar } from "@/components/bookkeeping/records-toolbar";
 import { VirtualizedRecordsList } from "@/components/bookkeeping/virtualized-records-list";
 import { AddRecordDialog } from "@/components/bookkeeping/add-record-dialog";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
-import { FilteredEmpty } from "@/components/empty-states/filtered-empty";
 import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRowDensity } from "@/hooks/use-row-density";
@@ -37,7 +34,6 @@ export function BookkeepingContent() {
   );
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
-  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const persistenceApplied = useRef(false);
   const listRef = useRef<ListImperativeAPI | null>(null);
   const listContainerRef = useRef<HTMLDivElement | null>(null);
@@ -199,39 +195,11 @@ export function BookkeepingContent() {
     ? filteredRecords.length
     : totalCount || filteredRecords.length;
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "?") return;
-
-      const target = event.target as HTMLElement | null;
-      if (target) {
-        const tagName = target.tagName;
-        if (
-          tagName === "INPUT" ||
-          tagName === "TEXTAREA" ||
-          target.isContentEditable
-        ) {
-          return;
-        }
-      }
-
-      event.preventDefault();
-      setHelpModalOpen(true);
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
   // Error display (handle both null and undefined from different hooks)
   const error = accountsError?.message || recordsError?.message || null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <div className="animate-fade-in">
       <PageHeader
         title="Order Tracking"
         actions={
@@ -289,8 +257,6 @@ export function BookkeepingContent() {
               onToggleDensity={toggleDensity}
               recordCount={displayTotalCount}
               isFiltered={isFiltered}
-              helpOpen={helpModalOpen}
-              onHelpOpenChange={setHelpModalOpen}
               accountId={selectedAccountId}
               totalRecords={totalCount}
               onAddRecord={() => setAddDialogOpen(true)}
@@ -325,6 +291,6 @@ export function BookkeepingContent() {
           onRecordAdded={handleRecordAdded}
         />
       )}
-    </motion.div>
+    </div>
   );
 }

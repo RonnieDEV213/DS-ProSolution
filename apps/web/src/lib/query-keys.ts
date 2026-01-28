@@ -60,6 +60,24 @@ export const queryKeys = {
       ["sellers", orgId, "infinite", filters] as const,
   },
   /**
+   * Admin query keys (users, department roles, invites, dashboard)
+   */
+  admin: {
+    /** Users list with optional search + pagination */
+    users: (search?: string, page?: number) =>
+      ["admin", "users", search ?? "", page ?? 1] as const,
+    /** Department roles for an org */
+    departmentRoles: (orgId: string) =>
+      ["admin", "department-roles", orgId] as const,
+    /** Invites list with pagination */
+    invites: (page?: number) =>
+      ["admin", "invites", page ?? 1] as const,
+    /** Dashboard aggregate counts */
+    dashboardCounts: () =>
+      ["admin", "dashboard-counts"] as const,
+  },
+
+  /**
    * Collection query keys
    */
   collection: {
