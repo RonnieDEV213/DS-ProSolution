@@ -1,5 +1,6 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,9 @@ interface ShortcutsReferenceProps {
 }
 
 export function ShortcutsReference({ open, onOpenChange }: ShortcutsReferenceProps) {
+  const pathname = usePathname()
+  const activeScope = pathname?.includes("/automation") ? "collection" : undefined
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg overflow-hidden p-0 bg-popover text-popover-foreground border-border">
@@ -28,7 +32,9 @@ export function ShortcutsReference({ open, onOpenChange }: ShortcutsReferencePro
 
         <div className="px-4 pb-4 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-thin">
           {SHORTCUT_GROUPS.map((group) => {
-            const groupShortcuts = SHORTCUTS.filter((s) => s.group === group)
+            const groupShortcuts = SHORTCUTS.filter(
+              (s) => s.group === group && (!s.scope || s.scope === activeScope)
+            )
             if (groupShortcuts.length === 0) return null
 
             return (
