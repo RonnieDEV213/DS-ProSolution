@@ -1,28 +1,28 @@
 # Milestone v5: Collection Polish + App-Wide Cache
 
 **Status:** In Progress
-**Phases:** 29-33
+**Phases:** 29-31, 33 (Phase 32 dropped)
 **Total Plans:** TBD
 
 ## Overview
 
-v5 makes the entire application feel instant-loading by introducing a persistent cache layer for all legacy pages, completes the Accounts V3 migration, and polishes the collection workflow with a full history system, rollback capability, and keyboard shortcuts. The key insight: the speed difference between V3 pages (instant from IndexedDB) and legacy pages (network-dependent) isn't about dataset size — it's the cache-first pattern. V3 Lite brings that pattern to every page without requiring new sync endpoints.
+v5 makes the entire application feel instant-loading by introducing a persistent cache layer for all legacy pages, completes the Accounts V3 migration, and polishes the collection workflow with a full history system and keyboard shortcuts. The key insight: the speed difference between V3 pages (instant from IndexedDB) and legacy pages (network-dependent) isn't about dataset size — it's the cache-first pattern. V3 Lite brings that pattern to every page without requiring new sync endpoints.
 
 ## Critical Constraints
 
 - **No new sync endpoints for legacy datasets** — `useCachedQuery()` wraps TanStack Query with IndexedDB persistence, reusing existing REST APIs
 - **TanStack Query still manages freshness** — IndexedDB is a persistent cache layer, not a replacement for stale-while-revalidate
 - **Skeleton-first loading** — every page shows skeletons, never "Loading..." text or blank screens
-- **Collection history is append-only** — events are recorded, never modified; rollback creates new events
-- **Keyboard shortcuts must not conflict** — collection shortcuts integrate with existing command palette and vim-style navigation
+- **Collection history is append-only** — events are recorded, never modified
+- **Keyboard shortcuts must not conflict** — collection shortcuts integrate with existing shortcuts reference and vim-style navigation
 
 ## Phases
 
 - [x] **Phase 29: App-Wide Persistent Cache (V3 Lite)** — `useCachedQuery()` hook, wire to 5 legacy pages, complete Accounts V3
 - [x] **Phase 30: Consistent Skeletons & Empty States** — Wire skeletons to all legacy pages, standardize empty states
 - [x] **Phase 31: Collection History System** — Record export/flag events, build history viewer UI
-- [ ] **Phase 32: History-Based Rollback** — Point-in-time restoration from history, replace undo toasts
-- [ ] **Phase 33: Collection Keyboard Shortcuts** — Mirror bookkeeping shortcuts, integrate with command palette
+- ~~Phase 32: History-Based Rollback~~ — **DROPPED** (only undo toast is seller delete in sellers-grid.tsx; Ctrl+Z removal folded into Phase 33)
+- [ ] **Phase 33: Collection Keyboard Shortcuts** — Page-scoped shortcuts for collection actions, page-contextual shortcuts reference
 
 ## Phase Details
 
@@ -72,27 +72,25 @@ Plans:
 - [x] 31-04-PLAN.md — History viewer: filtering, infinite scroll, day grouping
 - [x] 31-05-PLAN.md — Changes panel variants and clickable History header
 
-### Phase 32: History-Based Rollback
+### ~~Phase 32: History-Based Rollback~~ — DROPPED
 
-**Goal**: Users can restore sellers to a historical point-in-time, replacing the undo toast pattern with a more robust mechanism
-**Depends on**: Phase 31 (requires history events to be recorded)
-**Requirements**: ROLL-01, ROLL-02
-**Success Criteria** (what must be TRUE):
-  1. User can select a historical state in the history viewer and restore sellers to that point (re-adding deleted sellers, removing added sellers)
-  2. Rollback creates a new history event (append-only), not a mutation of existing history
-  3. Undo toasts replaced by "Rollback" action in history, which works for any operation type
-**Plans**: TBD
+**Reason:** The only undo toast in the app is for seller delete (sellers-grid.tsx). Full point-in-time rollback is overkill. Ctrl+Z removal folded into Phase 33.
 
 ### Phase 33: Collection Keyboard Shortcuts
 
-**Goal**: Collection page has keyboard shortcuts matching bookkeeping patterns for power-user workflows
+**Goal**: Collection page has page-scoped keyboard shortcuts for power-user workflows, with page-contextual shortcuts reference
 **Depends on**: Phase 26 (existing keyboard shortcut infrastructure — cmdk, react-hotkeys-hook, SHORTCUTS registry)
 **Requirements**: KEYS-01, KEYS-02
 **Success Criteria** (what must be TRUE):
-  1. Collection page supports keyboard shortcuts: selection (click, shift+click, Ctrl+A), navigation (j/k), actions (Delete, F=flag, E=export, S=start run)
-  2. Collection shortcuts appear in the command palette (Cmd+K) and shortcuts reference (?)
+  1. Collection page supports keyboard shortcuts: selection (click, shift+click, Ctrl+A), actions (Delete, F=flag, E=export, S=start run), Escape to clear selection
+  2. Collection shortcuts appear in the shortcuts reference (? key) only when on the collection page (page-contextual filtering)
   3. Shortcuts work only when on the collection page (no conflict with other pages)
-**Plans**: TBD
+  4. Ctrl+Z keyboard shortcut KEPT as-is (per user override — undoes bulk delete, 1 level)
+  5. Command palette (Cmd+K) stays navigation-only (no collection shortcuts added)
+**Plans**: 2 plans, 2 waves
+Plans:
+- [ ] 33-01-PLAN.md — Registry extension + page-contextual ShortcutsReference
+- [ ] 33-02-PLAN.md — useCollectionShortcuts hook, wiring, toolbar, hint
 
 ---
 
@@ -113,13 +111,14 @@ Plans:
 | HIST-01 | Phase 31 | History |
 | HIST-02 | Phase 31 | History |
 | HIST-03 | Phase 31 | History |
-| ROLL-01 | Phase 32 | Rollback |
-| ROLL-02 | Phase 32 | Rollback |
+| ~~ROLL-01~~ | ~~Phase 32~~ | ~~Rollback~~ (dropped) |
+| ~~ROLL-02~~ | ~~Phase 32~~ | ~~Rollback~~ (dropped) |
 | KEYS-01 | Phase 33 | Shortcuts |
 | KEYS-02 | Phase 33 | Shortcuts |
 
-**Total: 17 requirements mapped to 5 phases. 0 orphaned.**
+**Total: 15 active requirements mapped to 4 phases. 2 dropped (ROLL-01, ROLL-02).**
 
 ---
 *Roadmap created: 2026-01-27*
+*Updated: 2026-01-28 — Phase 33 planned (2 plans, 2 waves)*
 *For current project status, see .planning/ROADMAP.md*
