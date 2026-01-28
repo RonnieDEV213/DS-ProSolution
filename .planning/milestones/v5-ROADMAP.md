@@ -19,7 +19,7 @@ v5 makes the entire application feel instant-loading by introducing a persistent
 ## Phases
 
 - [x] **Phase 29: App-Wide Persistent Cache (V3 Lite)** — `useCachedQuery()` hook, wire to 5 legacy pages, complete Accounts V3
-- [ ] **Phase 30: Consistent Skeletons & Empty States** — Wire skeletons to all legacy pages, standardize empty states
+- [x] **Phase 30: Consistent Skeletons & Empty States** — Wire skeletons to all legacy pages, standardize empty states
 - [ ] **Phase 31: Collection History System** — Record export/flag events, build history viewer UI
 - [ ] **Phase 32: History-Based Rollback** — Point-in-time restoration from history, replace undo toasts
 - [ ] **Phase 33: Collection Keyboard Shortcuts** — Mirror bookkeeping shortcuts, integrate with command palette
@@ -48,12 +48,12 @@ v5 makes the entire application feel instant-loading by introducing a persistent
   1. All 5 legacy admin pages show skeleton loading states (using existing DashboardSkeleton, TableSkeleton, CardGridSkeleton components) instead of "Loading..." text
   2. SVG empty state illustrations (existing from Phase 26) are wired into collection and admin pages consistently
   3. No page in the application shows a "Loading..." text string — all use skeleton placeholders
-**Plans**: 4 plans
+**Plans**: 4 plans, 2 waves — COMPLETE
 Plans:
-- [ ] 30-01-PLAN.md — Page-level & automation table skeleton loading states
-- [ ] 30-02-PLAN.md — Collection component skeleton loading states
-- [ ] 30-03-PLAN.md — Modal/dialog & import history skeleton loading states
-- [ ] 30-04-PLAN.md — Empty state illustration standardization
+- [x] 30-01-PLAN.md — Page-level & automation table skeleton loading states
+- [x] 30-02-PLAN.md — Collection component skeleton loading states
+- [x] 30-03-PLAN.md — Modal/dialog & import history skeleton loading states
+- [x] 30-04-PLAN.md — Empty state illustration standardization
 
 ### Phase 31: Collection History System
 
