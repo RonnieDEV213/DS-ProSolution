@@ -5,13 +5,6 @@ import { Grid, type GridImperativeAPI } from "react-window";
 import type { CSSProperties, ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Download, FileText, Braces, Plus, ChevronDown, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { NoResults } from "@/components/empty-states/no-results";
@@ -34,13 +27,9 @@ import { useUpdateSeller } from "@/hooks/mutations/use-update-seller";
 import { useDeleteSeller } from "@/hooks/mutations/use-delete-seller";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { db } from "@/lib/db";
-import { sellerApi, getAccessToken } from "@/lib/api";
+import { sellerApi } from "@/lib/api";
 import type { SellerRecord } from "@/lib/db/schema";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-
-// Server-side streaming export threshold (sellers)
-const LARGE_EXPORT_THRESHOLD = 10_000;
+import { SellerExportModal } from "./seller-export-modal";
 
 // Grid configuration
 const MIN_CELL_WIDTH = 180; // Minimum cell width to determine column count
@@ -295,12 +284,8 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const [isDeleting, setIsDeleting] = useState(false);
   const pendingDeleteIdsRef = useRef<string[]>([]);
 
-  // Export options state
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exportFlagOnExport, setExportFlagOnExport] = useState(true);
-  const [exportFirstN, setExportFirstN] = useState("");
-  const [exportRangeStart, setExportRangeStart] = useState("");
-  const [exportRangeEnd, setExportRangeEnd] = useState("");
+  // Export modal state
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   // Calculate grid dimensions
   const { columnCount, cellWidth } = useMemo(() => {
@@ -927,151 +912,6 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     onSellerChange();
   }, [editingId, editValue, updateMutation, onSellerChange]);
 
-  // Get filtered sellers based on export options (uses current search filter as base)
-  const getFilteredSellersForExport = useCallback(() => {
-    let filtered = [...filteredSellers];
-
-    // Apply limit - First N takes priority over range
-    const n = parseInt(exportFirstN, 10);
-    const start = parseInt(exportRangeStart, 10);
-    const end = parseInt(exportRangeEnd, 10);
-
-    if (!isNaN(n) && n > 0) {
-      filtered = filtered.slice(0, n);
-    } else if (!isNaN(start) && !isNaN(end) && start >= 1 && end >= start) {
-      filtered = filtered.slice(start - 1, end); // Convert to 0-indexed
-    }
-
-    return filtered;
-  }, [filteredSellers, exportFirstN, exportRangeStart, exportRangeEnd]);
-
-  // Flag exported sellers (batch operation - single API call + single audit entry)
-  const flagExportedSellers = useCallback((sellerIds: string[]) => {
-    if (!exportFlagOnExport || sellerIds.length === 0) return;
-
-    // Find sellers that aren't already flagged
-    const currentSellers = sellersRef.current;
-    const idsToFlag = sellerIds.filter(id => {
-      const seller = currentSellers.find(s => s.id === id);
-      return seller && !seller.flagged;
-    });
-
-    if (idsToFlag.length === 0) return;
-
-    // Batch flag all exported sellers (single API call + single audit entry)
-    batchFlagMutation.mutate({ ids: idsToFlag, flagged: true });
-  }, [exportFlagOnExport, batchFlagMutation]);
-
-  // Export count preview
-  const exportPreviewCount = useMemo(() => {
-    return getFilteredSellersForExport().length;
-  }, [getFilteredSellersForExport]);
-
-  // Helper: trigger blob download
-  const downloadBlob = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Server-side streaming export (authenticated fetch + blob download)
-  const serverSideExport = useCallback(async (format: 'csv' | 'json') => {
-    const token = await getAccessToken();
-    const params = new URLSearchParams();
-    if (exportFlagOnExport) params.set('flagged', 'false'); // export unflagged to flag them
-    const url = `${API_BASE}/export/sellers/${format}?${params}`;
-
-    const res = await fetch(url, {
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-    });
-
-    if (!res.ok) {
-      toast.error(`Export failed: ${res.statusText}`);
-      return;
-    }
-
-    const blob = await res.blob();
-    const dateStr = new Date().toISOString().split("T")[0];
-    downloadBlob(blob, `sellers_${dateStr}.${format}`);
-    setExportOpen(false);
-  }, [exportFlagOnExport]);
-
-  // Export functions with large dataset routing
-  const downloadCSV = useCallback(async () => {
-    const filtered = getFilteredSellersForExport();
-    if (filtered.length === 0) return;
-
-    // Route to server-side streaming for large datasets
-    if (totalCount > LARGE_EXPORT_THRESHOLD) {
-      await serverSideExport('csv');
-      return;
-    }
-
-    // Client-side export for small datasets
-    const headers = ["display_name", "platform", "times_seen", "updated_at"];
-    const rows = filtered.map(s => [
-      `"${s.display_name.replace(/"/g, '""')}"`,
-      s.platform,
-      s.times_seen,
-      s.updated_at || "",
-    ]);
-
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    downloadBlob(blob, `sellers_${new Date().toISOString().split("T")[0]}.csv`);
-
-    // Flag exported sellers
-    flagExportedSellers(filtered.map(s => s.id));
-    setExportOpen(false);
-  }, [getFilteredSellersForExport, totalCount, serverSideExport, flagExportedSellers]);
-
-  const downloadJSON = useCallback(async () => {
-    const filtered = getFilteredSellersForExport();
-    if (filtered.length === 0) return;
-
-    // Route to server-side streaming for large datasets
-    if (totalCount > LARGE_EXPORT_THRESHOLD) {
-      await serverSideExport('json');
-      return;
-    }
-
-    // Client-side export for small datasets
-    const data = {
-      exported_at: new Date().toISOString(),
-      count: filtered.length,
-      sellers: filtered.map(s => ({
-        display_name: s.display_name,
-        platform: s.platform,
-        times_seen: s.times_seen,
-        updated_at: s.updated_at,
-      })),
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    downloadBlob(blob, `sellers_${new Date().toISOString().split("T")[0]}.json`);
-
-    // Flag exported sellers
-    flagExportedSellers(filtered.map(s => s.id));
-    setExportOpen(false);
-  }, [getFilteredSellersForExport, totalCount, serverSideExport, flagExportedSellers]);
-
-  const copyRawText = async () => {
-    const filtered = getFilteredSellersForExport();
-    if (filtered.length === 0) return;
-
-    const text = filtered.map(s => s.display_name).join("\n");
-    await navigator.clipboard.writeText(text);
-
-    // Flag exported sellers
-    flagExportedSellers(filtered.map(s => s.id));
-    setExportOpen(false);
-  };
-
   // Cell props for react-window v2
   const cellProps = useMemo<CellProps>(() => ({
     sellers: filteredSellers,
@@ -1212,117 +1052,21 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
               {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             </Button>
           )}
-          <Popover open={exportOpen} onOpenChange={setExportOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                Export
-                <ChevronDown className="h-4 w-4 ml-1" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 bg-popover border-border p-4">
-              <div className="space-y-4">
-                {/* Flag on export checkbox */}
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="flag-on-export"
-                    checked={exportFlagOnExport}
-                    onCheckedChange={(checked) => setExportFlagOnExport(checked === true)}
-                    className="border-border data-[state=checked]:bg-yellow-600"
-                  />
-                  <Label htmlFor="flag-on-export" className="text-foreground text-sm cursor-pointer">
-                    Flag exported sellers
-                  </Label>
-                </div>
-
-                {/* First N input */}
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs">First N (optional)</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    placeholder="Export first N sellers"
-                    value={exportFirstN}
-                    onChange={(e) => {
-                      setExportFirstN(e.target.value);
-                      if (e.target.value) {
-                        setExportRangeStart("");
-                        setExportRangeEnd("");
-                      }
-                    }}
-                    className="bg-card border-border text-foreground h-8 text-sm"
-                  />
-                </div>
-
-                {/* Range inputs */}
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs">Range (optional)</Label>
-                  <div className="flex gap-2 items-center">
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="From"
-                      value={exportRangeStart}
-                      onChange={(e) => {
-                        setExportRangeStart(e.target.value);
-                        if (e.target.value) setExportFirstN("");
-                      }}
-                      className="bg-card border-border text-foreground h-8 text-sm"
-                    />
-                    <span className="text-muted-foreground text-sm">to</span>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="To"
-                      value={exportRangeEnd}
-                      onChange={(e) => {
-                        setExportRangeEnd(e.target.value);
-                        if (e.target.value) setExportFirstN("");
-                      }}
-                      className="bg-card border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Preview count */}
-                <div className="text-sm text-muted-foreground text-center py-1 bg-card rounded font-mono">
-                  {exportPreviewCount.toLocaleString()} sellers
-                </div>
-
-                {/* Export buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={downloadCSV}
-                    disabled={exportPreviewCount === 0}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    CSV
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={downloadJSON}
-                    disabled={exportPreviewCount === 0}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Braces className="h-3 w-3 mr-1" />
-                    JSON
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={copyRawText}
-                    disabled={exportPreviewCount === 0}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    Copy
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <Button variant="outline" size="sm" onClick={() => setExportModalOpen(true)}>
+            <Download className="h-4 w-4 mr-1" />
+            Export
+          </Button>
         </div>
       </div>
+
+      {/* Seller export modal */}
+      <SellerExportModal
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
+        sellers={filteredSellers}
+        totalCount={totalCount}
+        onExportComplete={() => onSellerChange?.()}
+      />
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
