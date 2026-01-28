@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card";
 import { Calendar, Clock, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorEmpty } from "@/components/empty-states/error-empty";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -180,7 +181,16 @@ export function ScheduleConfig() {
   }
 
   if (!schedule) {
-    return <div className="text-muted-foreground">Unable to load schedule</div>;
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="py-8">
+          <ErrorEmpty
+            message="Unable to load schedule configuration. The server may be unavailable."
+            onRetry={fetchData}
+          />
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

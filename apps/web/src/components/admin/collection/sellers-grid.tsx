@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Download, FileText, Braces, Plus, ChevronDown, Trash2, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
+import { NoResults } from "@/components/empty-states/no-results";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSyncSellers } from "@/hooks/sync/use-sync-sellers";
@@ -1389,10 +1391,17 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
         )}
 
         {filteredSellers.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            {totalCount === 0
-              ? "No sellers yet. Add one above or run a collection."
-              : "No sellers match your search."}
+          <div className="flex items-center justify-center h-full">
+            {totalCount === 0 ? (
+              <FirstTimeEmpty
+                entityName="sellers"
+                description="Add sellers above or run a collection to get started."
+              />
+            ) : (
+              <NoResults
+                searchTerm={debouncedSearch || undefined}
+              />
+            )}
           </div>
         ) : (
           <Grid<CellProps>
