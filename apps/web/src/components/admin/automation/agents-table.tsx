@@ -48,6 +48,7 @@ import {
 import { useAutomationPolling } from "@/hooks/use-automation-polling";
 import { MoreVertical, Pencil, RefreshCcw, Trash2, ChevronDown, ChevronRight, User } from "lucide-react";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 interface AgentsTableProps {
   refreshTrigger: number;
@@ -211,7 +212,9 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
     <>
       <div className="rounded-lg border border-border bg-card">
         {loading && !agents ? (
-          <div className="text-center text-muted-foreground py-8">Loading...</div>
+          <div className="p-0">
+            <TableSkeleton columns={6} rows={4} />
+          </div>
         ) : !agents || agents.length === 0 ? (
           <div className="py-8">
             <FirstTimeEmpty

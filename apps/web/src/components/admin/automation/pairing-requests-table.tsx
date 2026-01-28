@@ -38,6 +38,7 @@ import {
 } from "@/lib/api";
 import { useAutomationPolling } from "@/hooks/use-automation-polling";
 import { RejectDialog } from "./reject-dialog";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { AlertTriangle, User } from "lucide-react";
 
 interface PairingRequestsTableProps {
@@ -202,8 +203,8 @@ export function PairingRequestsTable({
           <TableBody>
             {loading && !requests ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  Loading...
+                <TableCell colSpan={5} className="p-0">
+                  <TableSkeleton columns={5} rows={3} />
                 </TableCell>
               </TableRow>
             ) : !requests || requests.length === 0 ? (

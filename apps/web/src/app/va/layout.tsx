@@ -7,6 +7,8 @@ import { AppSidebar } from "@/components/layout/app-sidebar"
 import { BreadcrumbNav } from "@/components/layout/breadcrumb-nav"
 import { vaSidebarSections } from "@/lib/navigation"
 import { useUserRole } from "@/hooks/use-user-role"
+import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton"
+import { Skeleton } from "@/components/ui/skeleton"
 import dynamic from "next/dynamic"
 import { ShortcutsReference } from "@/components/command-palette/shortcuts-reference"
 import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog"
@@ -51,9 +53,17 @@ export default function VALayout({ children }: { children: React.ReactNode }) {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
+      <SidebarProvider>
+        <AppSidebar sections={[]} basePath="/va" roleLabel="VA" role="va" />
+        <SidebarInset>
+          <header className="flex h-14 shrink-0 items-center border-b border-border px-4">
+            <Skeleton className="h-4 w-32" />
+          </header>
+          <div className="flex-1 p-8">
+            <DashboardSkeleton />
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     )
   }
 

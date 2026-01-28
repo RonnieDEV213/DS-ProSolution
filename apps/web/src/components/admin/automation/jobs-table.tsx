@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { automationApi, AutomationJob, JobStatus } from "@/lib/api";
 import { useAutomationPolling } from "@/hooks/use-automation-polling";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 interface JobsTableProps {
   refreshTrigger: number;
@@ -117,8 +118,8 @@ export function JobsTable({ refreshTrigger }: JobsTableProps) {
           <TableBody>
             {loading && !jobs ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  Loading...
+                <TableCell colSpan={5} className="p-0">
+                  <TableSkeleton columns={5} rows={5} />
                 </TableCell>
               </TableRow>
             ) : !jobs || jobs.length === 0 ? (
