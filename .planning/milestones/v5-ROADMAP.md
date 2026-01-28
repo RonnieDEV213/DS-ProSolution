@@ -20,7 +20,7 @@ v5 makes the entire application feel instant-loading by introducing a persistent
 
 - [x] **Phase 29: App-Wide Persistent Cache (V3 Lite)** — `useCachedQuery()` hook, wire to 5 legacy pages, complete Accounts V3
 - [x] **Phase 30: Consistent Skeletons & Empty States** — Wire skeletons to all legacy pages, standardize empty states
-- [ ] **Phase 31: Collection History System** — Record export/flag events, build history viewer UI
+- [x] **Phase 31: Collection History System** — Record export/flag events, build history viewer UI
 - [ ] **Phase 32: History-Based Rollback** — Point-in-time restoration from history, replace undo toasts
 - [ ] **Phase 33: Collection Keyboard Shortcuts** — Mirror bookkeeping shortcuts, integrate with command palette
 
@@ -64,13 +64,13 @@ Plans:
   1. Exporting sellers (CSV/JSON/clipboard) creates a history entry with export metadata (format, count, filters)
   2. Flagging/unflagging sellers creates history entries with seller IDs and flag state
   3. History viewer UI allows browsing, filtering by event type, and viewing event details
-**Plans**: 5 plans
+**Plans**: 5 plans, 3 waves — COMPLETE
 Plans:
-- [ ] 31-01-PLAN.md — Backend foundation: migration, service methods, API endpoints
-- [ ] 31-02-PLAN.md — Export modal and export event recording
-- [ ] 31-03-PLAN.md — Flag event recording and batch flag API
-- [ ] 31-04-PLAN.md — History viewer: filtering, infinite scroll, day grouping
-- [ ] 31-05-PLAN.md — Changes panel variants and clickable History header
+- [x] 31-01-PLAN.md — Backend foundation: migration, service methods, API endpoints
+- [x] 31-02-PLAN.md — Export modal and export event recording
+- [x] 31-03-PLAN.md — Flag event recording and batch flag API
+- [x] 31-04-PLAN.md — History viewer: filtering, infinite scroll, day grouping
+- [x] 31-05-PLAN.md — Changes panel variants and clickable History header
 
 ### Phase 32: History-Based Rollback
 
