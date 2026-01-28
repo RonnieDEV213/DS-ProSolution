@@ -352,6 +352,18 @@ export const sellerApi = {
     fetchAPI<{ flagged: boolean }>(`/sellers/${id}/flag`, {
       method: "POST",
     }),
+
+  flagBatch: (sellerIds: string[], flagged: boolean) =>
+    fetchAPI<{ updated_count: number }>("/sellers/flag-batch", {
+      method: "POST",
+      body: JSON.stringify({ seller_ids: sellerIds, flagged }),
+    }),
+
+  logExportEvent: (sellerNames: string[], exportFormat: string) =>
+    fetchAPI<void>("/sellers/log-export", {
+      method: "POST",
+      body: JSON.stringify({ seller_names: sellerNames, export_format: exportFormat }),
+    }),
 };
 
 // Utility functions
