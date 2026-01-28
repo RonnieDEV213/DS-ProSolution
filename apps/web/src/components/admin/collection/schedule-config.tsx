@@ -27,6 +27,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Calendar, Clock, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorEmpty } from "@/components/empty-states/error-empty";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -147,11 +149,48 @@ export function ScheduleConfig() {
   };
 
   if (loading) {
-    return <div className="text-muted-foreground">Loading schedule...</div>;
+    return (
+      <Card className="bg-card border-border animate-fade-in">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded" />
+            <Skeleton className="h-5 w-40" />
+          </div>
+          <Skeleton className="h-4 w-64 mt-1" />
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-52" />
+            </div>
+            <Skeleton className="h-5 w-9 rounded-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+          <Skeleton className="h-9 w-full" />
+        </CardContent>
+      </Card>
+    );
   }
 
   if (!schedule) {
-    return <div className="text-muted-foreground">Unable to load schedule</div>;
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="py-8">
+          <ErrorEmpty
+            message="Unable to load schedule configuration. The server may be unavailable."
+            onRetry={fetchData}
+          />
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

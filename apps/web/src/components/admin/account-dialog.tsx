@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -426,7 +427,7 @@ export function AccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent hideCloseButton className="sm:max-w-3xl bg-card border-border text-foreground p-0">
+      <DialogContent showCloseButton={false} className="sm:max-w-3xl bg-card border-border text-foreground p-0">
         <div className="flex h-[500px]">
           {/* Sidebar */}
           <div className="w-52 border-r border-border flex flex-col">
@@ -605,7 +606,14 @@ export function AccountDialog({
                     {isEditing ? (
                       // Edit mode - show fetched assignments
                       loadingAssignments ? (
-                        <p className="text-sm text-muted-foreground">Loading...</p>
+                        <div className="space-y-2 animate-fade-in">
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="flex items-center justify-between p-3 rounded bg-muted">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-7 w-16" />
+                            </div>
+                          ))}
+                        </div>
                       ) : assignments.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           No VAs assigned to this account yet.

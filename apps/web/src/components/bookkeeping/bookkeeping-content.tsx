@@ -2,8 +2,6 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { ListImperativeAPI } from "react-window";
 
@@ -12,6 +10,9 @@ import { AccountSelector } from "@/components/bookkeeping/account-selector";
 import { RecordsToolbar } from "@/components/bookkeeping/records-toolbar";
 import { VirtualizedRecordsList } from "@/components/bookkeeping/virtualized-records-list";
 import { AddRecordDialog } from "@/components/bookkeeping/add-record-dialog";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
+import { PageHeader } from "@/components/layout/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRowDensity } from "@/hooks/use-row-density";
 import { useUserRole } from "@/hooks/use-user-role";
 import { useAccounts } from "@/hooks/queries/use-accounts";
@@ -22,18 +23,22 @@ import { type Account, type BookkeepingStatus } from "@/lib/api";
 const DEFAULT_ORG_ID = "default";
 
 export function BookkeepingContent() {
+  const searchParams = useSearchParams();
+
+  // Initialize from URL param only (SSR-safe). localStorage restored via useEffect.
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
-    null
+    () => searchParams.get("account_id")
+  );
+  const [accountRestored, setAccountRestored] = useState(
+    () => !!searchParams.get("account_id")
   );
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
-  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const persistenceApplied = useRef(false);
   const listRef = useRef<ListImperativeAPI | null>(null);
   const listContainerRef = useRef<HTMLDivElement | null>(null);
   const [listHeight, setListHeight] = useState(600);
 
-  const searchParams = useSearchParams();
   const router = useRouter();
   const userRole = useUserRole();
 
@@ -98,38 +103,48 @@ export function BookkeepingContent() {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  // Apply persisted account selection after accounts load (once)
+  // Restore persisted account ID from localStorage after hydration.
+  // URL param is read synchronously in useState (SSR-safe); localStorage deferred here.
+  useEffect(() => {
+    if (accountRestored) return;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) setSelectedAccountId(stored);
+    } catch {
+      // localStorage may be unavailable
+    }
+    setAccountRestored(true);
+  }, [accountRestored]);
+
+  // Validate restored account ID once accounts load from server.
+  // If the persisted ID is invalid (deleted account), clear it.
+  // Also sync URL params for the restored account.
   useEffect(() => {
     if (accounts.length === 0 || persistenceApplied.current) return;
     persistenceApplied.current = true;
 
-    let restoredAccountId: string | null = null;
-
-    // Check URL param first
-    const urlAccountId = searchParams.get("account_id");
-    if (urlAccountId && accounts.some((a) => a.id === urlAccountId)) {
-      restoredAccountId = urlAccountId;
-    } else {
-      // Fall back to localStorage
-      try {
-        const storedId = localStorage.getItem(STORAGE_KEY);
-        if (storedId && accounts.some((a) => a.id === storedId)) {
-          restoredAccountId = storedId;
-          // Update URL to match
+    if (selectedAccountId) {
+      // Validate the restored ID against actual accounts
+      if (accounts.some((a) => a.id === selectedAccountId)) {
+        // Valid - ensure URL is in sync
+        const urlAccountId = searchParams.get("account_id");
+        if (urlAccountId !== selectedAccountId) {
           const params = new URLSearchParams(searchParams.toString());
-          params.set("account_id", storedId);
+          params.set("account_id", selectedAccountId);
           router.replace(`?${params.toString()}`, { scroll: false });
         }
-      } catch {
-        // localStorage may be unavailable
+        return;
       }
+      // Invalid persisted ID - clear it
+      setSelectedAccountId(null);
     }
 
-    // Apply restored account (records will load via query)
-    if (restoredAccountId) {
-      setSelectedAccountId(restoredAccountId);
+    // No persisted ID (or it was invalid) - check URL param
+    const urlAccountId = searchParams.get("account_id");
+    if (urlAccountId && accounts.some((a) => a.id === urlAccountId)) {
+      setSelectedAccountId(urlAccountId);
     }
-  }, [accounts, searchParams, router]);
+  }, [accounts, selectedAccountId, searchParams, router]);
 
   const handleAccountSelect = (accountId: string) => {
     setSelectedAccountId(accountId);
@@ -180,54 +195,27 @@ export function BookkeepingContent() {
     ? filteredRecords.length
     : totalCount || filteredRecords.length;
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "?") return;
-
-      const target = event.target as HTMLElement | null;
-      if (target) {
-        const tagName = target.tagName;
-        if (
-          tagName === "INPUT" ||
-          tagName === "TEXTAREA" ||
-          target.isContentEditable
-        ) {
-          return;
-        }
-      }
-
-      event.preventDefault();
-      setHelpModalOpen(true);
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
   // Error display (handle both null and undefined from different hooks)
   const error = accountsError?.message || recordsError?.message || null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-foreground">Order Tracking</h1>
-          {/* Background refetch indicator */}
-          {recordsFetching && !recordsLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          )}
-        </div>
-        <AccountSelector
-          accounts={accounts}
-          selectedAccountId={selectedAccountId}
-          onSelect={handleAccountSelect}
-          disabled={accountsLoading}
-        />
-      </div>
+    <div className="animate-fade-in">
+      <PageHeader
+        title="Order Tracking"
+        actions={
+          <>
+            {recordsFetching && !recordsLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+            <AccountSelector
+              accounts={accounts}
+              selectedAccountId={selectedAccountId}
+              onSelect={handleAccountSelect}
+              disabled={accountsLoading}
+            />
+          </>
+        }
+      />
 
       {error && (
         <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded mb-4">
@@ -235,9 +223,23 @@ export function BookkeepingContent() {
         </div>
       )}
 
-      {!selectedAccountId ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <p className="text-lg">Select an account to view records</p>
+      {!selectedAccountId && !accountRestored ? (
+        <div className="space-y-4 pt-4">
+          <Skeleton className="h-4 w-48" />
+          <div className="flex gap-2">
+            <Skeleton className="h-10 flex-1" />
+            <Skeleton className="h-10 w-24" />
+          </div>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : !selectedAccountId ? (
+        <div className="py-16">
+          <FirstTimeEmpty
+            entityName="records"
+            description="Select an account from the dropdown above to view order tracking records."
+          />
         </div>
       ) : (
         <>
@@ -255,8 +257,6 @@ export function BookkeepingContent() {
               onToggleDensity={toggleDensity}
               recordCount={displayTotalCount}
               isFiltered={isFiltered}
-              helpOpen={helpModalOpen}
-              onHelpOpenChange={setHelpModalOpen}
               accountId={selectedAccountId}
               totalRecords={totalCount}
               onAddRecord={() => setAddDialogOpen(true)}
@@ -274,7 +274,7 @@ export function BookkeepingContent() {
               hasMore={hasMore}
               totalCount={displayTotalCount}
               loadMore={syncResult.loadMore}
-              isLoading={recordsFetching}
+              isLoading={recordsLoading}
               listRef={listRef}
             />
           </div>
@@ -291,6 +291,6 @@ export function BookkeepingContent() {
           onRecordAdded={handleRecordAdded}
         />
       )}
-    </motion.div>
+    </div>
   );
 }

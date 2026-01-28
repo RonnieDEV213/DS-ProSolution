@@ -3,19 +3,18 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { AccountsTable } from "@/components/admin/accounts-table";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function VAAccountsPage() {
   const [search, setSearch] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Accounts</h1>
-        <p className="text-muted-foreground mt-2">
-          View your assigned accounts and their current status.
-        </p>
-      </div>
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        title="Accounts"
+        description="View your assigned accounts and their current status."
+      />
 
       <div className="flex gap-4">
         <Input

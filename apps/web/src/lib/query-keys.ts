@@ -10,6 +10,14 @@ export interface RecordFilters {
 }
 
 /**
+ * Filter options for seller queries.
+ */
+export interface SellerFilters {
+  flagged?: boolean;
+  search?: string;
+}
+
+/**
  * Type-safe query key factory.
  * Pattern: ['entity', orgId, ...scope] for org-scoped queries.
  */
@@ -36,6 +44,51 @@ export const queryKeys = {
     /** Infinite query for cursor pagination */
     infinite: (orgId: string, accountId: string, filters?: RecordFilters) =>
       ["records", orgId, accountId, "infinite", filters] as const,
+  },
+
+  /**
+   * Seller query keys
+   */
+  sellers: {
+    /** All seller-related queries for an org */
+    all: (orgId: string) => ["sellers", orgId] as const,
+    /** Seller list query with optional filters */
+    list: (orgId: string, filters?: SellerFilters) =>
+      ["sellers", orgId, "list", filters] as const,
+    /** Infinite query for cursor pagination */
+    infinite: (orgId: string, filters?: SellerFilters) =>
+      ["sellers", orgId, "infinite", filters] as const,
+  },
+  /**
+   * Admin query keys (users, department roles, invites, dashboard)
+   */
+  admin: {
+    /** Users list with optional search + pagination */
+    users: (search?: string, page?: number) =>
+      ["admin", "users", search ?? "", page ?? 1] as const,
+    /** Department roles for an org */
+    departmentRoles: (orgId: string) =>
+      ["admin", "department-roles", orgId] as const,
+    /** Invites list with pagination */
+    invites: (page?: number) =>
+      ["admin", "invites", page ?? 1] as const,
+    /** Dashboard aggregate counts */
+    dashboardCounts: () =>
+      ["admin", "dashboard-counts"] as const,
+  },
+
+  /**
+   * Collection query keys
+   */
+  collection: {
+    runs: {
+      /** All collection run queries */
+      all: () => ["collection", "runs"] as const,
+      /** Active run polling query */
+      active: () => ["collection", "runs", "active"] as const,
+      /** Progress for a specific run */
+      progress: (runId: string) => ["collection", "runs", runId, "progress"] as const,
+    },
   },
 } as const;
 

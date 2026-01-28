@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -82,15 +83,16 @@ interface VA {
   };
 }
 
-type Tab = "profile" | "permissions" | "manage-vas";
+type Tab = "all-profiles" | "profile" | "permissions" | "manage-vas";
 
 interface DepartmentRoleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orgId: string;
-  role: DepartmentRole | null; // null = create, object = edit
+  role: DepartmentRole | null; // null = create/browse, object = edit
   onSaved: () => void;
   onDeleted?: () => void;
+  onRoleUpdated?: () => void;
 }
 
 export function DepartmentRoleDialog({
@@ -100,6 +102,7 @@ export function DepartmentRoleDialog({
   role,
   onSaved,
   onDeleted,
+  onRoleUpdated,
 }: DepartmentRoleDialogProps) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
@@ -107,7 +110,7 @@ export function DepartmentRoleDialog({
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
 
   // Tab and search state
-  const [activeTab, setActiveTab] = useState<Tab>("permissions");
+  const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [searchQuery, setSearchQuery] = useState("");
 
   // VA management state
@@ -120,7 +123,61 @@ export function DepartmentRoleDialog({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isEditing = role !== null;
+  // Internal role management for All Profiles tab
+  const [editingRole, setEditingRole] = useState<DepartmentRole | null>(null);
+  const [roles, setRoles] = useState<DepartmentRole[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [assignmentCounts, setAssignmentCounts] = useState<Record<string, number>>({});
+
+  const isEditing = editingRole !== null;
+
+  // Browse mode = dialog was opened with role===null (shows all-profiles tab)
+  const browseMode = role === null;
+
+  // Fetch all roles for the All Profiles list
+  const fetchRoles = useCallback(async () => {
+    setLoadingRoles(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) return;
+
+      const res = await fetch(`${API_BASE}/admin/orgs/${orgId}/department-roles`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      setRoles(data.roles);
+
+      // Fetch assignment counts
+      const roleIds = data.roles.map((r: DepartmentRole) => r.id);
+      const counts: Record<string, number> = {};
+      roleIds.forEach((id: string) => { counts[id] = 0; });
+
+      if (roleIds.length > 0) {
+        const { data: assignments } = await supabase
+          .from("membership_department_roles")
+          .select("role_id")
+          .in("role_id", roleIds);
+
+        assignments?.forEach((a: { role_id: string }) => {
+          counts[a.role_id] = (counts[a.role_id] || 0) + 1;
+        });
+      }
+      setAssignmentCounts(counts);
+    } catch {
+      // Silently fail
+    } finally {
+      setLoadingRoles(false);
+    }
+  }, [orgId]);
 
   // Fetch all VAs in the org
   const fetchAllVAs = useCallback(async () => {
@@ -177,35 +234,69 @@ export function DepartmentRoleDialog({
     }
   }, []);
 
+  // Deselect profile and return to All Profiles view
+  const handleDeselectRole = useCallback(() => {
+    setEditingRole(null);
+    setName("");
+    setAdminRemarks("");
+    setSelectedPermissions(new Set());
+    setAssignedVAIds(new Set());
+    setOriginalVAIds(new Set());
+    setActiveTab("all-profiles");
+  }, []);
+
+  // Load a role into the form for editing (from All Profiles list)
+  const handleSelectRole = useCallback((selectedRole: DepartmentRole) => {
+    if (editingRole?.id === selectedRole.id) {
+      handleDeselectRole();
+      return;
+    }
+    setEditingRole(selectedRole);
+    setName(selectedRole.name);
+    setAdminRemarks(selectedRole.admin_remarks || "");
+    setSelectedPermissions(new Set(selectedRole.permissions));
+    setSearchQuery("");
+    fetchAllVAs().then((vas) => {
+      if (vas.length > 0) {
+        fetchAssignedVAs(selectedRole.id, vas);
+      }
+    });
+  }, [editingRole, handleDeselectRole, fetchAllVAs, fetchAssignedVAs]);
+
   // Reset form when dialog opens or role changes
   useEffect(() => {
     if (open) {
-      setActiveTab("profile");
       setSearchQuery("");
 
       if (role) {
+        // Direct edit mode from parent
+        setEditingRole(role);
+        setActiveTab("profile");
         setName(role.name);
         setAdminRemarks(role.admin_remarks || "");
         setSelectedPermissions(new Set(role.permissions));
 
-        // Fetch VAs for edit mode
         fetchAllVAs().then((vas) => {
           if (vas.length > 0) {
             fetchAssignedVAs(role.id, vas);
           }
         });
       } else {
+        // Browse/create mode
+        setEditingRole(null);
+        setActiveTab("all-profiles");
         setName("");
         setAdminRemarks("");
         setSelectedPermissions(new Set());
         setAssignedVAIds(new Set());
         setOriginalVAIds(new Set());
-
-        // Fetch VAs for create mode too (so user can assign VAs immediately)
         fetchAllVAs();
       }
+
+      // Fetch roles for the all-profiles list
+      fetchRoles();
     }
-  }, [open, role, fetchAllVAs, fetchAssignedVAs]);
+  }, [open, role, fetchAllVAs, fetchAssignedVAs, fetchRoles]);
 
   // Filter permissions based on search query
   const filteredPermissionGroups = useMemo(() => {
@@ -300,7 +391,7 @@ export function DepartmentRoleDialog({
 
       // Include admin_remarks if it changed (for edit) or has content (for create)
       if (isEditing) {
-        const originalRemarks = role.admin_remarks || "";
+        const originalRemarks = editingRole.admin_remarks || "";
         if (adminRemarks !== originalRemarks) {
           body.admin_remarks = adminRemarks;
         }
@@ -309,7 +400,7 @@ export function DepartmentRoleDialog({
       }
 
       const url = isEditing
-        ? `${API_BASE}/admin/orgs/${orgId}/department-roles/${role.id}`
+        ? `${API_BASE}/admin/orgs/${orgId}/department-roles/${editingRole.id}`
         : `${API_BASE}/admin/orgs/${orgId}/department-roles`;
 
       const res = await fetch(url, {
@@ -327,7 +418,7 @@ export function DepartmentRoleDialog({
       // Get the role ID for VA assignments
       let roleIdForAssignments: string;
       if (isEditing) {
-        roleIdForAssignments = role.id;
+        roleIdForAssignments = editingRole.id;
       } else {
         // For new profiles, get the ID from the response
         const createdRole = await res.json();
@@ -356,7 +447,21 @@ export function DepartmentRoleDialog({
       }
 
       toast.success(isEditing ? "Access profile updated" : "Access profile created");
-      onSaved();
+
+      if (browseMode) {
+        // Stay in dialog, refresh list, go to all-profiles tab
+        fetchRoles();
+        setEditingRole(null);
+        setActiveTab("all-profiles");
+        setName("");
+        setAdminRemarks("");
+        setSelectedPermissions(new Set());
+        setAssignedVAIds(new Set());
+        setOriginalVAIds(new Set());
+        onRoleUpdated?.();
+      } else {
+        onSaved();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
@@ -365,7 +470,7 @@ export function DepartmentRoleDialog({
   };
 
   const handleDelete = async () => {
-    if (!role) return;
+    if (!editingRole) return;
 
     setDeleting(true);
     try {
@@ -379,7 +484,7 @@ export function DepartmentRoleDialog({
         return;
       }
 
-      const res = await fetch(`${API_BASE}/admin/orgs/${orgId}/department-roles/${role.id}`, {
+      const res = await fetch(`${API_BASE}/admin/orgs/${orgId}/department-roles/${editingRole.id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -393,8 +498,22 @@ export function DepartmentRoleDialog({
 
       toast.success("Access profile deleted");
       setDeleteConfirmOpen(false);
-      onOpenChange(false);
-      onDeleted?.();
+
+      if (browseMode) {
+        // Stay in dialog, refresh list, go to all-profiles tab
+        fetchRoles();
+        setEditingRole(null);
+        setActiveTab("all-profiles");
+        setName("");
+        setAdminRemarks("");
+        setSelectedPermissions(new Set());
+        setAssignedVAIds(new Set());
+        setOriginalVAIds(new Set());
+        onRoleUpdated?.();
+      } else {
+        onOpenChange(false);
+        onDeleted?.();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete profile");
     } finally {
@@ -402,17 +521,29 @@ export function DepartmentRoleDialog({
     }
   };
 
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString();
+  };
+
+  // Dialog title based on current state
+  const dialogTitle = activeTab === "all-profiles"
+    ? "Access Profiles"
+    : isEditing
+      ? "Edit Profile"
+      : "Create Profile";
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent hideCloseButton className="sm:max-w-3xl p-0 bg-card border-border text-foreground overflow-hidden">
+        <DialogContent showCloseButton={false} className="sm:max-w-3xl p-0 bg-card border-border text-foreground overflow-hidden">
           <div className="flex h-[500px]">
             {/* Sidebar */}
             <div className="w-52 border-r border-border flex flex-col bg-muted/50">
               {/* Header */}
               <DialogHeader className="p-4 border-b border-border">
                 <DialogTitle className="text-base">
-                  {isEditing ? "Edit Profile" : "Create Profile"}
+                  {dialogTitle}
                 </DialogTitle>
                 <DialogDescription className="sr-only">
                   Form to create or edit an access profile
@@ -421,6 +552,17 @@ export function DepartmentRoleDialog({
 
               {/* Tab Navigation */}
               <nav className="flex-1 p-2 space-y-1">
+                <button
+                  onClick={() => setActiveTab("all-profiles")}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded text-sm transition-colors",
+                    activeTab === "all-profiles"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent"
+                  )}
+                >
+                  All Profiles
+                </button>
                 <button
                   onClick={() => setActiveTab("profile")}
                   className={cn(
@@ -474,7 +616,63 @@ export function DepartmentRoleDialog({
             {/* Main Content */}
             <div className="flex-1 flex flex-col">
               {/* Content Area */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
+                {/* All Profiles Tab */}
+                {activeTab === "all-profiles" && (
+                  <div className="space-y-4">
+                    {loadingRoles ? (
+                      <div className="space-y-1 animate-fade-in">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="p-3 rounded-lg bg-muted/50 border-l-3 border-l-transparent">
+                            <div className="flex items-center justify-between">
+                              <Skeleton className="h-4 w-28" />
+                              <Skeleton className="h-3 w-12" />
+                            </div>
+                            <Skeleton className="h-2 w-24 mt-1.5" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : roles.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-8">
+                        No access profiles yet. Create one to get started.
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {roles.map((r) => (
+                          <button
+                            key={r.id}
+                            onClick={() => handleSelectRole(r)}
+                            className={cn(
+                              "w-full text-left p-3 rounded-lg transition-colors border-l-3",
+                              editingRole?.id === r.id
+                                ? "bg-primary text-primary-foreground border-l-primary-foreground"
+                                : "bg-muted/50 hover:bg-accent border-l-transparent"
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">{r.name}</span>
+                              <span className={cn(
+                                "text-xs",
+                                editingRole?.id === r.id ? "text-primary-foreground/70" : "text-muted-foreground"
+                              )}>
+                                {assignmentCounts[r.id] ?? 0} VA{(assignmentCounts[r.id] ?? 0) !== 1 ? "s" : ""}
+                              </span>
+                            </div>
+                            {r.created_at && (
+                              <p className={cn(
+                                "text-xs mt-0.5",
+                                editingRole?.id === r.id ? "text-primary-foreground/70" : "text-muted-foreground"
+                              )}>
+                                Created {formatDate(r.created_at)}
+                              </p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Profile Tab */}
                 {activeTab === "profile" && (
                   <div className="space-y-4">
@@ -576,7 +774,17 @@ export function DepartmentRoleDialog({
                     </p>
 
                     {loadingVAs ? (
-                      <p className="text-muted-foreground">Loading VAs...</p>
+                      <div className="space-y-2 animate-fade-in">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-3 p-3 rounded bg-muted">
+                            <Skeleton className="h-4 w-4 rounded" />
+                            <div className="flex-1">
+                              <Skeleton className="h-4 w-28" />
+                              <Skeleton className="h-3 w-36 mt-1" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     ) : allVAs.length === 0 ? (
                       <p className="text-muted-foreground">No VAs found in the organization.</p>
                     ) : (
@@ -606,15 +814,23 @@ export function DepartmentRoleDialog({
 
               {/* Footer */}
               <div className="border-t border-border p-4 flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Profile"}
-                </Button>
+                {activeTab === "all-profiles" ? (
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    Close
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={browseMode ? handleDeselectRole : () => onOpenChange(false)}
+                    >
+                      {browseMode ? "Back" : "Cancel"}
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving}>
+                      {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Profile"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -627,7 +843,7 @@ export function DepartmentRoleDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Access Profile</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{role?.name}&quot;? This will remove the profile
+              Are you sure you want to delete &quot;{editingRole?.name}&quot;? This will remove the profile
               from all assigned VAs. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

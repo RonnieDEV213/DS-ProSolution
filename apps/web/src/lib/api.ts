@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-async function getAccessToken(): Promise<string | null> {
+export async function getAccessToken(): Promise<string | null> {
   const supabase = createClient();
   const {
     data: { session },
@@ -297,6 +297,73 @@ export const api = {
     if (params.flagged !== undefined) searchParams.set("flagged", String(params.flagged));
     return fetchAPI(`/sync/sellers?${searchParams}`);
   },
+};
+
+// ============================================================
+// Seller API Functions
+// ============================================================
+
+export const sellerApi = {
+  createSeller: (name: string) =>
+    fetchAPI<SellerSyncItem>("/sellers", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+
+  createSellersBulk: (names: string[]) =>
+    fetchAPI<{ success_count: number; failed_count: number; errors: string[] }>(
+      "/sellers/bulk",
+      {
+        method: "POST",
+        body: JSON.stringify({ names }),
+      }
+    ),
+
+  updateSeller: (id: string, name: string) =>
+    fetchAPI<SellerSyncItem>(`/sellers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteSeller: async (id: string): Promise<void> => {
+    const token = await getAccessToken();
+    const res = await fetch(`${API_BASE}/sellers/${id}`, {
+      method: "DELETE",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+    if (!res.ok) {
+      const error = await res
+        .json()
+        .catch(() => ({ detail: "Delete failed" }));
+      throw new Error(error.detail || "Delete failed");
+    }
+    // 204 = success, no body to parse
+  },
+
+  bulkDeleteSellers: (ids: string[]) =>
+    fetchAPI<{ deleted_count: number }>("/sellers/bulk/delete", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+
+  flagSeller: (id: string) =>
+    fetchAPI<{ flagged: boolean }>(`/sellers/${id}/flag`, {
+      method: "POST",
+    }),
+
+  flagBatch: (sellerIds: string[], flagged: boolean) =>
+    fetchAPI<{ updated_count: number }>("/sellers/flag-batch", {
+      method: "POST",
+      body: JSON.stringify({ seller_ids: sellerIds, flagged }),
+    }),
+
+  logExportEvent: (sellerNames: string[], exportFormat: string) =>
+    fetchAPI<void>("/sellers/log-export", {
+      method: "POST",
+      body: JSON.stringify({ seller_names: sellerNames, export_format: exportFormat }),
+    }),
 };
 
 // Utility functions

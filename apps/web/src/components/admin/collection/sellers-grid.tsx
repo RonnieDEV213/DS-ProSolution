@@ -3,21 +3,41 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Grid, type GridImperativeAPI } from "react-window";
 import type { CSSProperties, ReactElement } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Download, FileText, Braces, Plus, ChevronDown, Trash2 } from "lucide-react";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Trash2, Loader2, Download, Flag, Keyboard } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
+import { NoResults } from "@/components/empty-states/no-results";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+import { useSyncSellers } from "@/hooks/sync/use-sync-sellers";
+import { useFlagSeller, useBatchFlagSellers } from "@/hooks/mutations/use-flag-seller";
+import { useUpdateSeller } from "@/hooks/mutations/use-update-seller";
+import { useDeleteSeller } from "@/hooks/mutations/use-delete-seller";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { db } from "@/lib/db";
+import { sellerApi } from "@/lib/api";
+import type { SellerRecord } from "@/lib/db/schema";
+import { useCollectionShortcuts } from "@/hooks/use-collection-shortcuts";
+import { Kbd } from "@/components/ui/kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { STORAGE_KEYS } from "@/lib/storage-keys";
+import { SellerExportModal } from "./seller-export-modal";
 
 // Grid configuration
 const MIN_CELL_WIDTH = 180; // Minimum cell width to determine column count
@@ -25,36 +45,21 @@ const CELL_HEIGHT = 32;
 const GRID_GAP = 4;
 const GRID_PADDING = 8;
 
-interface Seller {
-  id: string;
-  display_name: string;
-  normalized_name: string;
-  platform: string;
-  times_seen: number;
-  feedback_percent?: number;
-  feedback_count?: number;
-  created_at?: string;
-  flagged?: boolean;
-}
-
 interface SellersGridProps {
   refreshTrigger: number;
   onSellerChange: () => void;
   newSellerIds?: Set<string>;
 }
 
-// Undo/redo types for delete operations
-interface DeletedSeller extends Seller {
-  originalIndex: number;
-}
+// Undo type for delete operations (single-level per CONTEXT.md)
 interface UndoEntry {
-  sellers: DeletedSeller[];
+  sellers: (SellerRecord & { originalIndex: number })[];
   timestamp: number;
 }
 
 // Props passed to cell component via cellProps
 interface CellProps {
-  sellers: Seller[];
+  sellers: SellerRecord[];
   columnCount: number;
   cellWidth: number;
   selectedIds: Set<string>;
@@ -64,10 +69,10 @@ interface CellProps {
   shiftPreviewIds: Set<string>;
   editingId: string | null;
   editValue: string;
-  onSellerClick: (seller: Seller, event: React.MouseEvent) => void;
+  onSellerClick: (seller: SellerRecord, event: React.MouseEvent) => void;
   onSaveEdit: () => void;
   onEditValueChange: (value: string) => void;
-  onHoverEnter: (seller: Seller, rect: DOMRect, shiftKey: boolean) => void;
+  onHoverEnter: (seller: SellerRecord, rect: DOMRect, shiftKey: boolean) => void;
   onHoverLeave: () => void;
   isDragging: () => boolean;
 }
@@ -106,7 +111,7 @@ function SellerCell({
   const isSelected = selectedIds.has(seller.id);
   const isNew = newSellerIds.has(seller.id);
   const isEditing = editingId === seller.id;
-  const isFlagged = seller.flagged === true;
+  const isFlagged = seller.flagged;
   const isInShiftPreview = shiftPreviewIds.has(seller.id);
 
   // Check if this seller is in the right-drag preview
@@ -173,7 +178,7 @@ function SellerCell({
 }
 
 // Hover detail panel component
-function SellerDetailPanel({ seller }: { seller: Seller | null }) {
+function SellerDetailPanel({ seller }: { seller: SellerRecord | null }) {
   if (!seller) return null;
 
   return (
@@ -182,27 +187,19 @@ function SellerDetailPanel({ seller }: { seller: Seller | null }) {
         {seller.display_name}
       </h4>
       <div className="text-xs text-muted-foreground space-y-1">
-        {seller.feedback_percent !== undefined && (
-          <div className="flex justify-between">
-            <span>Feedback:</span>
-            <span className="text-foreground font-mono">{seller.feedback_percent}%</span>
-          </div>
-        )}
-        {seller.feedback_count !== undefined && (
-          <div className="flex justify-between">
-            <span>Reviews:</span>
-            <span className="text-foreground font-mono">{seller.feedback_count.toLocaleString()}</span>
-          </div>
-        )}
         <div className="flex justify-between">
           <span>Times seen:</span>
           <span className="text-foreground font-mono">{seller.times_seen}</span>
         </div>
-        {seller.created_at && (
+        <div className="flex justify-between">
+          <span>Platform:</span>
+          <span className="text-foreground font-mono">{seller.platform}</span>
+        </div>
+        {seller.updated_at && (
           <div className="flex justify-between">
-            <span>Discovered:</span>
+            <span>Last updated:</span>
             <span className="text-foreground font-mono text-sm">
-              {new Date(seller.created_at).toLocaleDateString()}
+              {new Date(seller.updated_at).toLocaleDateString()}
             </span>
           </div>
         )}
@@ -211,16 +208,46 @@ function SellerDetailPanel({ seller }: { seller: Seller | null }) {
   );
 }
 
+// Data flow architecture:
+// - useSyncSellers (useLiveQuery on IndexedDB) is the single source of truth
+// - All mutations go through hooks (useFlagSeller, useUpdateSeller, useDeleteSeller)
+//   which update IndexedDB first, then sync to API. useLiveQuery reacts automatically.
+// - No SSE handlers push seller data directly; parent refreshTrigger triggers re-sync
+// - Export routes to server-side streaming for large datasets (>10k sellers)
 export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new Set() }: SellersGridProps) {
-  const [sellers, setSellers] = useState<Seller[]>([]);
-  const [loading, setLoading] = useState(true);
   const [newSellerName, setNewSellerName] = useState("");
+
+  // Debounce search term for IndexedDB query (300ms)
+  const debouncedSearch = useDebouncedValue(
+    newSellerName.includes('\n') ? '' : newSellerName.trim(),
+    300
+  );
+
+  const {
+    sellers,
+    isLoading: loading,
+    isSyncing,
+    totalCount,
+    flaggedCount,
+    refetch,
+  } = useSyncSellers({
+    filters: {
+      search: debouncedSearch || undefined,
+    },
+  });
+
+  // Mutation hooks (IndexedDB + API, offline-capable)
+  const flagMutation = useFlagSeller();
+  const batchFlagMutation = useBatchFlagSellers();
+  const updateMutation = useUpdateSeller();
+  const deleteMutation = useDeleteSeller();
+
   const [isAddInputFocused, setIsAddInputFocused] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 400 });
-  const [hoveredSeller, setHoveredSeller] = useState<Seller | null>(null);
+  const [hoveredSeller, setHoveredSeller] = useState<SellerRecord | null>(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
 
   // Selection state
@@ -231,9 +258,8 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   // Shift+hover preview state
   const [shiftPreviewIds, setShiftPreviewIds] = useState<Set<string>>(new Set());
 
-  // Undo/redo stacks for delete operations
+  // Single-level undo stack for delete operations (per CONTEXT.md)
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
-  const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
 
   // Drag selection state
   const isDraggingRef = useRef(false);
@@ -257,39 +283,33 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const [rightDragMode, setRightDragMode] = useState<boolean | null>(null);
 
   // Refs to access current sellers in stable callbacks
-  const sellersRef = useRef<Seller[]>([]);
+  const sellersRef = useRef<SellerRecord[]>([]);
   sellersRef.current = sellers;
-  const filteredSellersRef = useRef<Seller[]>([]);
+  const filteredSellersRef = useRef<SellerRecord[]>([]);
 
-  // Export options state
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exportFlagOnExport, setExportFlagOnExport] = useState(true);
-  const [exportFirstN, setExportFirstN] = useState("");
-  const [exportRangeStart, setExportRangeStart] = useState("");
-  const [exportRangeEnd, setExportRangeEnd] = useState("");
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const pendingDeleteIdsRef = useRef<string[]>([]);
 
-  const supabase = createClient();
+  // Export modal state
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
-  // Fetch sellers - defined early so other callbacks can reference it
-  const fetchSellers = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+  // Derived: any dialog open (gates keyboard shortcuts to prevent conflicts)
+  const isDialogOpen = deleteDialogOpen || exportModalOpen;
 
-      const response = await fetch(`${API_BASE}/sellers?limit=100000`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+  // First-visit shortcuts hint state
+  const [showShortcutsHint, setShowShortcutsHint] = useState(false);
 
-      if (response.ok) {
-        const data = await response.json();
-        setSellers(data.sellers || []);
-      }
-    } catch (e) {
-      console.error("Failed to fetch sellers:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase.auth]);
+  useEffect(() => {
+    const dismissed = localStorage.getItem(STORAGE_KEYS.COLLECTION_SHORTCUTS_HINT_DISMISSED);
+    if (!dismissed) setShowShortcutsHint(true);
+  }, []);
+
+  const dismissHint = useCallback(() => {
+    localStorage.setItem(STORAGE_KEYS.COLLECTION_SHORTCUTS_HINT_DISMISSED, "true");
+    setShowShortcutsHint(false);
+  }, []);
 
   // Calculate grid dimensions
   const { columnCount, cellWidth } = useMemo(() => {
@@ -303,19 +323,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return { columnCount: cols, cellWidth: Math.floor(width) };
   }, [containerSize.width]);
 
-  // Filter sellers based on search input (only when single line - not bulk add mode)
-  const filteredSellers = useMemo(() => {
-    const searchTerm = newSellerName.trim().toLowerCase();
-    const isMultiLine = newSellerName.includes('\n');
-
-    if (!searchTerm || isMultiLine) {
-      return sellers;
-    }
-
-    return sellers.filter(s =>
-      s.display_name.toLowerCase().includes(searchTerm)
-    );
-  }, [sellers, newSellerName]);
+  // useSyncSellers already handles search filtering via debouncedSearch
+  // No additional client-side filtering needed
+  const filteredSellers = sellers;
 
   // Update ref for stable callback access
   filteredSellersRef.current = filteredSellers;
@@ -328,7 +338,6 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   const allSelected = filteredSellers.length > 0 && filteredSellers.every(s => selectedIds.has(s.id));
   const someSelected = selectedIds.size > 0 && !allSelected;
   const hasSelection = selectedIds.size > 0;
-  const flaggedCount = useMemo(() => sellers.filter(s => s.flagged).length, [sellers]);
 
   const toggleSelectAll = useCallback(() => {
     if (hasSelection) {
@@ -384,7 +393,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   }, [getGridPositionFromPixels, getSellerIndex, filteredSellers]);
 
   // Click handler for seller cells
-  const handleSellerClick = useCallback((seller: Seller, event: React.MouseEvent) => {
+  const handleSellerClick = useCallback((seller: SellerRecord, event: React.MouseEvent) => {
     if ((event.target as HTMLElement).closest('button')) return;
     if (editingId === seller.id) return;
 
@@ -424,160 +433,124 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     }, 200);
   }, [editingId, filteredSellers, selectionAnchor, toggleSelection]);
 
-  // Undo last delete operation
+  // Undo last delete operation (single-level per CONTEXT.md)
   const handleUndo = useCallback(async () => {
     if (undoStack.length === 0) return;
 
     const lastEntry = undoStack[undoStack.length - 1];
-
-    // Move to redo stack
     setUndoStack(prev => prev.slice(0, -1));
-    setRedoStack(prev => [...prev, lastEntry]);
 
-    // Restore sellers to UI (optimistic)
-    setSellers(prev => {
-      const restored = [...prev];
-      // Sort by original index to insert in correct positions
-      const sorted = [...lastEntry.sellers].sort((a, b) => a.originalIndex - b.originalIndex);
-      for (const seller of sorted) {
-        // Insert at original position or at end if position is beyond current length
-        const idx = Math.min(seller.originalIndex, restored.length);
-        restored.splice(idx, 0, seller);
-      }
-      return restored;
-    });
+    // Restore to IndexedDB immediately (useLiveQuery reacts)
+    await db.sellers.bulkPut(lastEntry.sellers);
 
-    // Re-add to backend
+    // Re-add to server
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
       const names = lastEntry.sellers.map(s => s.display_name);
       if (names.length === 1) {
-        await fetch(`${API_BASE}/sellers`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ name: names[0] }),
-        });
+        await sellerApi.createSeller(names[0]);
       } else {
-        await fetch(`${API_BASE}/sellers/bulk`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ names }),
-        });
+        await sellerApi.createSellersBulk(names);
       }
       toast.success(`Restored ${names.length} seller${names.length > 1 ? 's' : ''}`);
       onSellerChange();
-      fetchSellers(); // Refresh to get new IDs
+      refetch(); // Re-sync to get correct server IDs
     } catch (e) {
       console.error("Undo failed:", e);
       toast.error("Failed to restore sellers");
     }
-  }, [undoStack, supabase.auth, onSellerChange, fetchSellers]);
+  }, [undoStack, onSellerChange, refetch]);
 
-  // Redo last undone delete operation
-  const handleRedo = useCallback(async () => {
-    if (redoStack.length === 0) return;
-
-    const lastEntry = redoStack[redoStack.length - 1];
-
-    // Move to undo stack
-    setRedoStack(prev => prev.slice(0, -1));
-    setUndoStack(prev => [...prev, lastEntry]);
-
-    // Remove from UI
-    const idsToRemove = new Set(lastEntry.sellers.map(s => s.id));
-    setSellers(prev => prev.filter(s => !idsToRemove.has(s.id)));
-
-    // Delete from backend
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const ids = lastEntry.sellers.map(s => s.id);
-      await fetch(`${API_BASE}/sellers/bulk/delete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ ids }),
-      });
-      toast.success(`Re-deleted ${ids.length} seller${ids.length > 1 ? 's' : ''}`);
-      onSellerChange();
-    } catch (e) {
-      console.error("Redo failed:", e);
-      toast.error("Failed to re-delete sellers");
-    }
-  }, [redoStack, supabase.auth, onSellerChange]);
-
-  // Bulk delete handler with undo support
-  const handleBulkDelete = async () => {
+  // Bulk delete: open confirmation dialog (capture IDs now, before mousedown clears selection)
+  const handleBulkDeleteClick = () => {
     if (selectedIds.size === 0) return;
+    pendingDeleteIdsRef.current = Array.from(selectedIds);
+    setDeleteDialogOpen(true);
+  };
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+  // Flag toggle handler (Google Docs Ctrl+B pattern)
+  const handleFlagToggle = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    const selectedSellers = filteredSellers.filter(s => selectedIds.has(s.id));
+    const allFlagged = selectedSellers.every(s => s.flagged);
+    const newFlagState = !allFlagged;
+    const idsToChange = selectedSellers
+      .filter(s => s.flagged !== newFlagState)
+      .map(s => s.id);
+    if (idsToChange.length > 0) {
+      batchFlagMutation.mutate(
+        { ids: idsToChange, flagged: newFlagState },
+        { onSuccess: () => onSellerChange() }
+      );
+    }
+  }, [selectedIds, filteredSellers, batchFlagMutation, onSellerChange]);
 
-    const idsArray = Array.from(selectedIds);
+  // S shortcut handler: dispatch custom event to page.tsx (RunConfigModal lives there)
+  const handleStartRunShortcut = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("dspro:shortcut:startrun"));
+  }, []);
 
-    // Capture deleted sellers with their original positions for undo
-    const deletedSellers: DeletedSeller[] = idsArray.map(id => {
-      const originalIndex = filteredSellers.findIndex(s => s.id === id);
-      const seller = sellers.find(s => s.id === id)!;
-      return { ...seller, originalIndex };
-    });
+  // Clear selection handler for Escape shortcut
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setSelectionAnchor(null);
+  }, []);
 
-    // Push to undo stack
-    setUndoStack(prev => [...prev, { sellers: deletedSellers, timestamp: Date.now() }]);
-    setRedoStack([]); // Clear redo stack on new action
+  // Wire collection keyboard shortcuts hook
+  useCollectionShortcuts({
+    enabled: true,
+    selectedCount: selectedIds.size,
+    isDialogOpen,
+    onDelete: handleBulkDeleteClick,
+    onFlag: handleFlagToggle,
+    onExport: () => setExportModalOpen(true),
+    onStartRun: handleStartRunShortcut,
+    onClearSelection: handleClearSelection,
+  });
 
-    // Optimistically remove from UI
-    setSellers(prev => prev.filter(s => !selectedIds.has(s.id)));
+  // Bulk delete: confirmed via dialog (use ref captured at dialog open)
+  const handleBulkDeleteConfirm = async () => {
+    const idsArray = pendingDeleteIdsRef.current;
+    if (idsArray.length === 0) return;
+
+    setIsDeleting(true);
+
+    // Capture deleted sellers from IndexedDB for undo (before deletion)
+    const deletedSellers: (SellerRecord & { originalIndex: number })[] = [];
+    for (const id of idsArray) {
+      const seller = await db.sellers.get(id);
+      if (seller) {
+        const originalIndex = filteredSellers.findIndex(s => s.id === id);
+        deletedSellers.push({ ...seller, originalIndex });
+      }
+    }
+
+    // Push to undo stack (single-level: overwrite)
+    setUndoStack([{ sellers: deletedSellers, timestamp: Date.now() }]);
+    setDeleteDialogOpen(false);
     setSelectedIds(new Set());
 
-    // Show toast with undo option
-    toast.success(
-      `Deleted ${deletedSellers.length} seller${deletedSellers.length > 1 ? 's' : ''}`,
-      {
-        duration: 5000,
-        action: {
-          label: 'Undo',
-          onClick: () => handleUndo(),
-        },
-      }
-    );
-
-    // Perform actual delete
+    // Delete via mutation hook (handles IndexedDB removal + API)
     try {
-      if (idsArray.length === 1) {
-        await fetch(`${API_BASE}/sellers/${idsArray[0]}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-      } else {
-        await fetch(`${API_BASE}/sellers/bulk/delete`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+      await deleteMutation.mutateAsync({ ids: idsArray });
+      toast.success(
+        `Deleted ${idsArray.length.toLocaleString()} seller${idsArray.length > 1 ? 's' : ''}`,
+        {
+          duration: 5000,
+          action: {
+            label: 'Undo',
+            onClick: () => handleUndo(),
           },
-          body: JSON.stringify({ ids: idsArray }),
-        });
-      }
-      onSellerChange();
-    } catch (e) {
-      console.error("Delete failed:", e);
-      // Restore on failure
-      setSellers(prev => [...prev, ...deletedSellers]);
-      setUndoStack(prev => prev.slice(0, -1));
-      toast.error("Failed to delete sellers");
+        }
+      );
+    } catch (error) {
+      // onError in useDeleteSeller already restores IndexedDB records
+      toast.error(
+        `Failed to delete sellers: ${error instanceof Error ? error.message : 'Server error'}`,
+      );
+    } finally {
+      setIsDeleting(false);
     }
+    onSellerChange();
   };
 
   // Auto-scroll during drag
@@ -791,7 +764,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
   // Right-click drag end - apply flags to all sellers in rectangle
   // Defined here so handleMouseUp can reference it
-  const handleRightDragEnd = useCallback(async () => {
+  const handleRightDragEnd = useCallback(() => {
     if (!isRightDraggingRef.current) return;
 
     const previewIds = Array.from(rightDragPreviewIdsRef.current);
@@ -815,26 +788,8 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       const currentFilteredSellers = filteredSellersRef.current;
       if (index < currentFilteredSellers.length) {
         const seller = currentFilteredSellers[index];
-        const newFlagged = !seller.flagged;
-
-        // Update UI immediately
-        setSellers(prev => prev.map(s =>
-          s.id === seller.id ? { ...s, flagged: newFlagged } : s
-        ));
-
-        // Sync to API
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            await fetch(`${API_BASE}/sellers/${seller.id}/flag`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${session.access_token}` },
-            });
-          }
-        } catch (e) {
-          console.error("Failed to sync flag:", e);
-          fetchSellers();
-        }
+        // Toggle flag via mutation hook (updates IndexedDB + API, useLiveQuery reacts)
+        flagMutation.mutate({ id: seller.id, flagged: !seller.flagged }, { onSuccess: () => onSellerChange() });
       }
       return;
     }
@@ -850,27 +805,9 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
     if (idsToToggle.length === 0) return;
 
-    // Update UI immediately
-    setSellers(prev => prev.map(s =>
-      previewIds.includes(s.id) ? { ...s, flagged: mode } : s
-    ));
-
-    // Batch API calls for sellers that need toggling
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await Promise.all(idsToToggle.map(id =>
-        fetch(`${API_BASE}/sellers/${id}/flag`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        })
-      ));
-    } catch (e) {
-      console.error("Failed to sync flags:", e);
-      fetchSellers();
-    }
-  }, [supabase.auth, fetchSellers, getGridPositionFromPixels, columnCount]);
+    // Batch flag all sellers in the drag rectangle (single API call + single audit entry)
+    batchFlagMutation.mutate({ ids: idsToToggle, flagged: mode }, { onSuccess: () => onSellerChange() });
+  }, [flagMutation, batchFlagMutation, getGridPositionFromPixels, columnCount, onSellerChange]);
 
   const handleMouseUp = useCallback(() => {
     // End left-click drag selection
@@ -940,7 +877,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [filteredSellers, selectedIds]);
 
-  // Ctrl+Z for undo, Ctrl+Shift+Z for redo
+  // Ctrl+Z for undo (single-level, no redo per CONTEXT.md)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if typing in input
@@ -948,22 +885,15 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       const isInputFocused = activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA';
       if (isInputFocused) return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        if (e.shiftKey) {
-          // Ctrl+Shift+Z = Redo
-          e.preventDefault();
-          handleRedo();
-        } else {
-          // Ctrl+Z = Undo
-          e.preventDefault();
-          handleUndo();
-        }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo]);
 
   // Clear selection when clicking outside
   useEffect(() => {
@@ -991,9 +921,10 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     });
   }, [sellers]);
 
+  // Trigger re-sync when parent signals data change
   useEffect(() => {
-    fetchSellers();
-  }, [refreshTrigger, fetchSellers]);
+    refetch();
+  }, [refreshTrigger, refetch]);
 
   // Add seller(s) - supports pasting multiple sellers (one per line)
   const handleAddSeller = async () => {
@@ -1009,212 +940,41 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     if (sellerNames.length === 0) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Use bulk endpoint for multiple sellers, single endpoint for one
       if (sellerNames.length === 1) {
-        const response = await fetch(`${API_BASE}/sellers`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ name: sellerNames[0] }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          setAddError(data.detail || "Failed to add seller");
-          return;
-        }
+        await sellerApi.createSeller(sellerNames[0]);
       } else {
-        // Use bulk endpoint
-        const response = await fetch(`${API_BASE}/sellers/bulk`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ names: sellerNames }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          setAddError(data.detail || "Failed to add sellers");
-          return;
-        }
-
-        const result = await response.json();
+        const result = await sellerApi.createSellersBulk(sellerNames);
         if (result.failed_count > 0) {
           if (result.success_count > 0) {
             setAddError(`Added ${result.success_count}, failed ${result.failed_count}: ${result.errors[0]}${result.errors.length > 1 ? '...' : ''}`);
           } else {
             setAddError(result.errors[0] || "Failed to add sellers");
+            return;
           }
         }
       }
-
       setNewSellerName("");
       onSellerChange();
-      fetchSellers();
-    } catch (e) {
+      // Trigger re-sync to pull new sellers into IndexedDB
+      refetch();
+    } catch {
       setAddError("Failed to add seller");
     }
   };
 
   // Save edit
-  const saveEdit = async () => {
+  const saveEdit = useCallback(() => {
     if (!editingId || !editValue?.trim()) {
       setEditingId(null);
       setEditValue("");
       return;
     }
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await fetch(`${API_BASE}/sellers/${editingId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ name: editValue.trim() }),
-      });
-
-      setEditingId(null);
-      onSellerChange();
-      fetchSellers();
-    } catch (e) {
-      console.error("Failed to update seller:", e);
-    }
-  };
-
-  // Get filtered sellers based on export options (uses current search filter as base)
-  const getFilteredSellersForExport = useCallback(() => {
-    let filtered = [...filteredSellers];
-
-    // Apply limit - First N takes priority over range
-    const n = parseInt(exportFirstN, 10);
-    const start = parseInt(exportRangeStart, 10);
-    const end = parseInt(exportRangeEnd, 10);
-
-    if (!isNaN(n) && n > 0) {
-      filtered = filtered.slice(0, n);
-    } else if (!isNaN(start) && !isNaN(end) && start >= 1 && end >= start) {
-      filtered = filtered.slice(start - 1, end); // Convert to 0-indexed
-    }
-
-    return filtered;
-  }, [filteredSellers, exportFirstN, exportRangeStart, exportRangeEnd]);
-
-  // Flag exported sellers
-  const flagExportedSellers = useCallback(async (sellerIds: string[]) => {
-    if (!exportFlagOnExport || sellerIds.length === 0) return;
-
-    // Find sellers that aren't already flagged
-    const currentSellers = sellersRef.current;
-    const idsToFlag = sellerIds.filter(id => {
-      const seller = currentSellers.find(s => s.id === id);
-      return seller && !seller.flagged;
-    });
-
-    if (idsToFlag.length === 0) return;
-
-    // Update UI immediately
-    setSellers(prev => prev.map(s =>
-      sellerIds.includes(s.id) ? { ...s, flagged: true } : s
-    ));
-
-    // Sync to API
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await Promise.all(idsToFlag.map(id =>
-        fetch(`${API_BASE}/sellers/${id}/flag`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        })
-      ));
-    } catch (e) {
-      console.error("Failed to flag exported sellers:", e);
-    }
-  }, [exportFlagOnExport, supabase.auth]);
-
-  // Export count preview
-  const exportPreviewCount = useMemo(() => {
-    return getFilteredSellersForExport().length;
-  }, [getFilteredSellersForExport]);
-
-  // Export functions
-  const downloadCSV = () => {
-    const filtered = getFilteredSellersForExport();
-    if (filtered.length === 0) return;
-
-    const headers = ["display_name", "platform", "times_seen", "created_at"];
-    const rows = filtered.map(s => [
-      `"${s.display_name.replace(/"/g, '""')}"`,
-      s.platform,
-      s.times_seen,
-      s.created_at || "",
-    ]);
-
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sellers_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    // Flag exported sellers
-    flagExportedSellers(filtered.map(s => s.id));
-    setExportOpen(false);
-  };
-
-  const downloadJSON = () => {
-    const filtered = getFilteredSellersForExport();
-    if (filtered.length === 0) return;
-
-    const data = {
-      exported_at: new Date().toISOString(),
-      count: filtered.length,
-      sellers: filtered.map(s => ({
-        display_name: s.display_name,
-        platform: s.platform,
-        times_seen: s.times_seen,
-        created_at: s.created_at,
-      })),
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sellers_${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    // Flag exported sellers
-    flagExportedSellers(filtered.map(s => s.id));
-    setExportOpen(false);
-  };
-
-  const copyRawText = async () => {
-    const filtered = getFilteredSellersForExport();
-    if (filtered.length === 0) return;
-
-    const text = filtered.map(s => s.display_name).join("\n");
-    await navigator.clipboard.writeText(text);
-
-    // Flag exported sellers
-    flagExportedSellers(filtered.map(s => s.id));
-    setExportOpen(false);
-  };
+    updateMutation.mutate({ id: editingId, name: editValue.trim() });
+    setEditingId(null);
+    setEditValue("");
+    onSellerChange();
+  }, [editingId, editValue, updateMutation, onSellerChange]);
 
   // Cell props for react-window v2
   const cellProps = useMemo<CellProps>(() => ({
@@ -1231,7 +991,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     onSellerClick: handleSellerClick,
     onSaveEdit: saveEdit,
     onEditValueChange: setEditValue,
-    onHoverEnter: (seller: Seller, rect: DOMRect, shiftKey: boolean) => {
+    onHoverEnter: (seller: SellerRecord, rect: DOMRect, shiftKey: boolean) => {
       setHoveredSeller(seller);
       setHoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
 
@@ -1258,7 +1018,24 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   }), [filteredSellers, columnCount, cellWidth, selectedIds, newSellerIds, rightDragPreviewIds, rightDragMode, shiftPreviewIds, selectionAnchor, editingId, editValue, handleSellerClick, saveEdit]);
 
   if (loading) {
-    return <div className="text-muted-foreground p-4">Loading sellers...</div>;
+    return (
+      <div className="flex flex-col h-full animate-fade-in">
+        {/* Toolbar skeleton */}
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <div className="flex items-center gap-2 flex-1">
+            <Skeleton className="h-[38px] w-96" />
+            <Skeleton className="h-8 w-8" />
+          </div>
+          <Skeleton className="h-4 w-32" />
+        </div>
+        {/* Grid skeleton - matches 4-column grid layout */}
+        <div className="grid grid-cols-4 gap-1 flex-1">
+          {Array.from({ length: 40 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-full" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1318,134 +1095,105 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
             {selectedIds.size > 0
               ? `${selectedIds.size.toLocaleString()} selected / `
               : ""}
-            {filteredSellers.length !== sellers.length
-              ? `${filteredSellers.length.toLocaleString()} / ${sellers.length.toLocaleString()}`
-              : `${sellers.length.toLocaleString()} sellers`}
+            {filteredSellers.length !== totalCount
+              ? `${filteredSellers.length.toLocaleString()} / ${totalCount.toLocaleString()}`
+              : `${totalCount.toLocaleString()} sellers`}
             {flaggedCount > 0 && (
               <span className="text-yellow-500 ml-2">({flaggedCount} flagged)</span>
             )}
+            {isSyncing && (
+              <span className="text-muted-foreground/60 text-xs ml-1">(syncing...)</span>
+            )}
           </span>
           {selectedIds.size > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleBulkDelete}
-              className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-          <Popover open={exportOpen} onOpenChange={setExportOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                Export
-                <ChevronDown className="h-4 w-4 ml-1" />
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleFlagToggle}
+                className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-900/30"
+              >
+                <Flag className="h-4 w-4 mr-1" />
+                Flag
+                <Kbd className="ml-1.5 text-[10px]">F</Kbd>
               </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 bg-popover border-border p-4">
-              <div className="space-y-4">
-                {/* Flag on export checkbox */}
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="flag-on-export"
-                    checked={exportFlagOnExport}
-                    onCheckedChange={(checked) => setExportFlagOnExport(checked === true)}
-                    className="border-border data-[state=checked]:bg-yellow-600"
-                  />
-                  <Label htmlFor="flag-on-export" className="text-foreground text-sm cursor-pointer">
-                    Flag exported sellers
-                  </Label>
-                </div>
-
-                {/* First N input */}
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs">First N (optional)</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    placeholder="Export first N sellers"
-                    value={exportFirstN}
-                    onChange={(e) => {
-                      setExportFirstN(e.target.value);
-                      if (e.target.value) {
-                        setExportRangeStart("");
-                        setExportRangeEnd("");
-                      }
-                    }}
-                    className="bg-card border-border text-foreground h-8 text-sm"
-                  />
-                </div>
-
-                {/* Range inputs */}
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs">Range (optional)</Label>
-                  <div className="flex gap-2 items-center">
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="From"
-                      value={exportRangeStart}
-                      onChange={(e) => {
-                        setExportRangeStart(e.target.value);
-                        if (e.target.value) setExportFirstN("");
-                      }}
-                      className="bg-card border-border text-foreground h-8 text-sm"
-                    />
-                    <span className="text-muted-foreground text-sm">to</span>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="To"
-                      value={exportRangeEnd}
-                      onChange={(e) => {
-                        setExportRangeEnd(e.target.value);
-                        if (e.target.value) setExportFirstN("");
-                      }}
-                      className="bg-card border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Preview count */}
-                <div className="text-sm text-muted-foreground text-center py-1 bg-card rounded font-mono">
-                  {exportPreviewCount.toLocaleString()} sellers
-                </div>
-
-                {/* Export buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={downloadCSV}
-                    disabled={exportPreviewCount === 0}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    CSV
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={downloadJSON}
-                    disabled={exportPreviewCount === 0}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Braces className="h-3 w-3 mr-1" />
-                    JSON
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={copyRawText}
-                    disabled={exportPreviewCount === 0}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    Copy
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleBulkDeleteClick}
+                disabled={isDeleting}
+                className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
+              >
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                Delete
+                <Kbd className="ml-1.5 text-[10px]">Del</Kbd>
+              </Button>
+            </>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setExportModalOpen(true)}>
+            <Download className="h-4 w-4 mr-1" />
+            Export
+            <Kbd className="ml-1.5 text-[10px]">E</Kbd>
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => window.dispatchEvent(new CustomEvent("dspro:shortcut:toggle-shortcuts"))}
+                className="h-8 w-8"
+              >
+                <Keyboard className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
+          </Tooltip>
         </div>
       </div>
+
+      {/* Seller export modal (scoped to selection when sellers are selected) */}
+      <SellerExportModal
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
+        sellers={selectedIds.size > 0 ? filteredSellers.filter(s => selectedIds.has(s.id)) : filteredSellers}
+        totalCount={selectedIds.size > 0 ? selectedIds.size : totalCount}
+        onExportComplete={() => onSellerChange?.()}
+      />
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {pendingDeleteIdsRef.current.length.toLocaleString()} sellers?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {pendingDeleteIdsRef.current.length.toLocaleString()} sellers from
+              the database. You can undo this action briefly after deletion.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Deleting...</> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* First-visit shortcuts hint */}
+      {showShortcutsHint && (
+        <div className="flex items-center justify-between bg-muted/50 border border-border rounded-md px-3 py-2 mb-2 text-sm text-muted-foreground">
+          <span>
+            Tip: Press <Kbd>?</Kbd> for keyboard shortcuts
+          </span>
+          <Button variant="ghost" size="sm" onClick={dismissHint} className="text-xs h-6 px-2">
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       {/* Virtualized grid container */}
       <div
@@ -1488,10 +1236,17 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
         )}
 
         {filteredSellers.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            {sellers.length === 0
-              ? "No sellers yet. Add one above or run a collection."
-              : "No sellers match your search."}
+          <div className="flex items-center justify-center h-full">
+            {totalCount === 0 ? (
+              <FirstTimeEmpty
+                entityName="sellers"
+                description="Add sellers above or run a collection to get started."
+              />
+            ) : (
+              <NoResults
+                searchTerm={debouncedSearch || undefined}
+              />
+            )}
           </div>
         ) : (
           <Grid<CellProps>

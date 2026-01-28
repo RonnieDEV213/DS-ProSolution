@@ -963,14 +963,15 @@ class AuditLogEntry(BaseModel):
     """Audit log entry for seller changes."""
 
     id: str
-    action: Literal["add", "edit", "remove"]
+    action: Literal["add", "edit", "remove", "export", "flag"]
     seller_name: str
-    source: Literal["manual", "collection_run", "auto_remove"]
+    source: Literal["manual", "collection_run", "auto_remove", "export"]
     source_run_id: Optional[str] = None
     user_id: Optional[str] = None
     created_at: datetime
     affected_count: int
     seller_count_snapshot: Optional[int] = None
+    new_value: Optional[str] = None
 
 
 class AuditLogResponse(BaseModel):
@@ -978,6 +979,26 @@ class AuditLogResponse(BaseModel):
 
     entries: list[AuditLogEntry]
     total: int
+
+
+class LogExportRequest(BaseModel):
+    """Request body for recording an export event in the audit log."""
+
+    seller_names: list[str]
+    export_format: Literal["csv", "json", "clipboard"]
+
+
+class FlagBatchRequest(BaseModel):
+    """Request body for batch flagging/unflagging sellers."""
+
+    seller_ids: list[str]
+    flagged: bool
+
+
+class FlagBatchResponse(BaseModel):
+    """Response from batch flag operation."""
+
+    updated_count: int
 
 
 # ============================================================

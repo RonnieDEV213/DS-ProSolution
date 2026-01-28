@@ -47,6 +47,8 @@ import {
 } from "@/lib/api";
 import { useAutomationPolling } from "@/hooks/use-automation-polling";
 import { MoreVertical, Pencil, RefreshCcw, Trash2, ChevronDown, ChevronRight, User } from "lucide-react";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 interface AgentsTableProps {
   refreshTrigger: number;
@@ -210,9 +212,16 @@ export function AgentsTable({ refreshTrigger, onActionComplete }: AgentsTablePro
     <>
       <div className="rounded-lg border border-border bg-card">
         {loading && !agents ? (
-          <div className="text-center text-muted-foreground py-8">Loading...</div>
+          <div className="p-0">
+            <TableSkeleton columns={6} rows={4} />
+          </div>
         ) : !agents || agents.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">No agents registered</div>
+          <div className="py-8">
+            <FirstTimeEmpty
+              entityName="agents"
+              description="No Chrome Extension agents have been registered yet. Pair an extension to get started."
+            />
+          </div>
         ) : (
           <div className="divide-y divide-border">
             {groupedAgents.map((group) => {

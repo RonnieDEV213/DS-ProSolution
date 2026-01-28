@@ -31,6 +31,8 @@ from app.services.export_service import (
     generate_csv_stream,
     generate_excel_file,
     generate_json_stream,
+    generate_sellers_csv_stream,
+    generate_sellers_json_stream,
     process_export_job,
 )
 from app.services.scheduler import scheduler
@@ -189,6 +191,68 @@ async def export_records_excel(
         background=cleanup_file,
     )
     return response
+
+
+# =============================================================================
+# Seller Streaming Export Endpoints
+# =============================================================================
+
+
+@router.get("/sellers/csv")
+async def export_sellers_csv(
+    flagged: Optional[bool] = Query(None, description="Filter by flagged status"),
+    user: dict = Depends(require_permission_key("seller_collection.read")),
+):
+    """
+    Stream CSV export of sellers.
+
+    Uses async generator to stream data row by row without loading
+    the full dataset into memory. Sellers are org-wide (no account_id needed).
+
+    Optional filter by flagged status.
+    """
+    supabase = get_supabase_for_user(user["token"])
+    org_id = user["membership"]["org_id"]
+    date_str = datetime.now().strftime("%Y%m%d")
+    filename = f"sellers_{date_str}.csv"
+
+    return StreamingResponse(
+        generate_sellers_csv_stream(supabase, org_id, flagged=flagged),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@router.get("/sellers/json")
+async def export_sellers_json(
+    flagged: Optional[bool] = Query(None, description="Filter by flagged status"),
+    user: dict = Depends(require_permission_key("seller_collection.read")),
+):
+    """
+    Stream JSON export of sellers.
+
+    Returns a JSON object with "exported_at" and "sellers" array.
+    Each seller is streamed as an array element for memory efficiency.
+    Sellers are org-wide (no account_id needed).
+
+    Optional filter by flagged status.
+    """
+    supabase = get_supabase_for_user(user["token"])
+    org_id = user["membership"]["org_id"]
+    date_str = datetime.now().strftime("%Y%m%d")
+    filename = f"sellers_{date_str}.json"
+
+    return StreamingResponse(
+        generate_sellers_json_stream(supabase, org_id, flagged=flagged),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-cache",
+        },
+    )
 
 
 # =============================================================================

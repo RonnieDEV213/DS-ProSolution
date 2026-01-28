@@ -306,6 +306,195 @@ async def generate_json_stream(
     yield "]}"
 
 
+# =============================================================================
+# Seller Export Stream Generators
+# =============================================================================
+
+# CSV headers for seller export (user-facing columns only)
+SELLER_CSV_HEADERS = [
+    "display_name",
+    "normalized_name",
+    "platform",
+    "platform_id",
+    "times_seen",
+    "feedback_percent",
+    "feedback_count",
+    "flagged",
+    "created_at",
+]
+
+
+def _extract_seller_row(seller: dict) -> dict:
+    """Extract user-facing fields from a seller record for export."""
+    return {
+        "display_name": seller.get("display_name", ""),
+        "normalized_name": seller.get("normalized_name", ""),
+        "platform": seller.get("platform", ""),
+        "platform_id": seller.get("platform_id", ""),
+        "times_seen": seller.get("times_seen", 0),
+        "feedback_percent": seller.get("feedback_percent"),
+        "feedback_count": seller.get("feedback_count"),
+        "flagged": seller.get("flagged", False),
+        "created_at": seller.get("created_at", ""),
+    }
+
+
+async def generate_sellers_csv_stream(
+    supabase,
+    org_id: str,
+    flagged: Optional[bool] = None,
+) -> AsyncGenerator[str, None]:
+    """
+    Generate streaming CSV export of sellers.
+
+    Yields CSV text in chunks (header first, then batches of rows).
+    Uses cursor pagination to avoid loading all sellers into memory.
+    Sellers are org-wide (not per-account).
+    """
+    # Yield header row
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=SELLER_CSV_HEADERS, extrasaction="ignore")
+    writer.writeheader()
+    yield output.getvalue()
+    output.seek(0)
+    output.truncate(0)
+
+    # Cursor-paginated fetch
+    last_created_at = None
+    last_id = None
+    batch_count = 0
+
+    while True:
+        query = (
+            supabase.table("collection_sellers")
+            .select("*")
+            .eq("org_id", org_id)
+            .is_("deleted_at", "null")
+            .order("created_at", desc=True)
+            .order("id", desc=True)
+            .limit(EXPORT_BATCH_SIZE)
+        )
+
+        if flagged is not None:
+            query = query.eq("flagged", flagged)
+
+        # Apply cursor for pagination
+        if last_created_at is not None and last_id is not None:
+            cursor_filter = (
+                f"created_at.lt.{last_created_at},"
+                f"and(created_at.eq.{last_created_at},id.lt.{last_id})"
+            )
+            query = query.or_(cursor_filter)
+
+        result = query.execute()
+        sellers = result.data or []
+
+        if not sellers:
+            break
+
+        for seller in sellers:
+            row = _extract_seller_row(seller)
+            writer.writerow(row)
+            batch_count += 1
+
+            if batch_count >= EXPORT_BATCH_SIZE:
+                yield output.getvalue()
+                output.seek(0)
+                output.truncate(0)
+                batch_count = 0
+
+        # Check for more pages
+        if len(sellers) < EXPORT_BATCH_SIZE:
+            # Yield remaining
+            remaining = output.getvalue()
+            if remaining:
+                yield remaining
+            break
+
+        # Build cursor for next page
+        last_seller = sellers[-1]
+        last_created_at = last_seller["created_at"]
+        last_id = last_seller["id"]
+
+    # Yield any remaining rows from last full batch
+    if batch_count > 0:
+        remaining = output.getvalue()
+        if remaining:
+            yield remaining
+
+
+async def generate_sellers_json_stream(
+    supabase,
+    org_id: str,
+    flagged: Optional[bool] = None,
+) -> AsyncGenerator[str, None]:
+    """
+    Generate streaming JSON export of sellers.
+
+    Yields JSON object with "sellers" array. Each seller is streamed
+    as an array element for memory efficiency.
+    Uses cursor pagination to avoid loading all sellers into memory.
+    Sellers are org-wide (not per-account).
+    """
+    # Start JSON object
+    exported_at = datetime.now(timezone.utc).isoformat()
+    yield f'{{"exported_at": "{exported_at}", "sellers": ['
+
+    first = True
+    last_created_at = None
+    last_id = None
+
+    while True:
+        query = (
+            supabase.table("collection_sellers")
+            .select("*")
+            .eq("org_id", org_id)
+            .is_("deleted_at", "null")
+            .order("created_at", desc=True)
+            .order("id", desc=True)
+            .limit(EXPORT_BATCH_SIZE)
+        )
+
+        if flagged is not None:
+            query = query.eq("flagged", flagged)
+
+        # Apply cursor for pagination
+        if last_created_at is not None and last_id is not None:
+            cursor_filter = (
+                f"created_at.lt.{last_created_at},"
+                f"and(created_at.eq.{last_created_at},id.lt.{last_id})"
+            )
+            query = query.or_(cursor_filter)
+
+        result = query.execute()
+        sellers = result.data or []
+
+        if not sellers:
+            break
+
+        for seller in sellers:
+            row = _extract_seller_row(seller)
+
+            if first:
+                first = False
+            else:
+                yield ","
+
+            yield json.dumps(row, default=str)
+
+        # Check for more pages
+        if len(sellers) < EXPORT_BATCH_SIZE:
+            break
+
+        # Build cursor for next page
+        last_seller = sellers[-1]
+        last_created_at = last_seller["created_at"]
+        last_id = last_seller["id"]
+
+    # Close JSON array and object
+    yield "]}"
+
+
 async def generate_excel_file(
     supabase,
     account_id: str,

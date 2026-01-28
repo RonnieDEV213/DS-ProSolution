@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:where([data-theme="midnight"], [data-theme="slate"], [data-theme="carbon"]) *);
+@custom-variant dark (&:where([data-theme="midnight"], [data-theme="slate"], [data-theme="carbon"], [data-theme="dark"]) *);
 
 @theme inline {
   --color-background: var(--background);
@@ -162,7 +162,10 @@
     --table-border: oklch(1 0 0 / 10%);
   }
 
-  [data-theme="dawn"] {
+  /* "light" alias: next-themes inline script sets data-theme="light" for system
+     light preference before React maps it to "dawn". This ensures correct styles
+     during that brief window. */
+  :is([data-theme="dawn"], [data-theme="light"]) {
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -252,7 +255,9 @@
     --table-border: oklch(1 0 0 / 10%);
   }
 
-  [data-theme="carbon"] {
+  /* "dark" alias: same as "light" above — ensures correct styles when
+     data-theme="dark" is briefly set for system dark preference. */
+  :is([data-theme="carbon"], [data-theme="dark"]) {
     --background: oklch(0 0 0);
     --foreground: oklch(0.97 0 0);
     --card: oklch(0.09 0 0);
@@ -425,3 +430,59 @@
   }
 }
 
+/* ============================================
+   Skeleton shimmer animation
+   POLISH-06: CSS gradient shimmer (not pulse)
+   ============================================ */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    oklch(from var(--muted) calc(l + 0.08) c h) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* ============================================
+   Reduced motion: disable animations globally
+   POLISH-08: Accessibility compliance
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+    background: var(--muted);
+  }
+
+  .transition-shadow {
+    transition: none;
+  }
+}
+
+/* ============================================
+   Content fade-in for data loading transitions
+   POLISH-04: Page/content transitions
+   ============================================ */
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 300ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: none;
+  }
+}

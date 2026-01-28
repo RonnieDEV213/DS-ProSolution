@@ -71,7 +71,7 @@ export function ConflictResolutionModal() {
 
   return (
     <Dialog open={hasConflicts} onOpenChange={() => {}}>
-      <DialogContent className="max-w-lg" hideCloseButton onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-lg" showCloseButton={false} onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Sync Conflict Detected</DialogTitle>
           <DialogDescription>

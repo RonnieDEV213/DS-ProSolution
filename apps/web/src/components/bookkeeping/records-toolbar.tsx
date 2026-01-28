@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Download, Keyboard, Plus, Rows2, Rows3, Upload } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -9,7 +10,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { QuickFilterChips } from "@/components/bookkeeping/quick-filter-chips";
-import { KeyboardShortcutsModal } from "@/components/bookkeeping/keyboard-shortcuts-modal";
 import { ImportDialog } from "@/components/data-management/import-dialog";
 import { ExportDialog } from "@/components/data-management/export-dialog";
 import type { RowDensity } from "@/hooks/use-row-density";
@@ -22,8 +22,6 @@ interface RecordsToolbarProps {
   onToggleDensity: () => void;
   recordCount: number;
   isFiltered: boolean;
-  helpOpen?: boolean;
-  onHelpOpenChange?: (open: boolean) => void;
   /** Account ID for import/export (required for data operations) */
   accountId?: string;
   /** Total records for export (used to determine streaming vs background) */
@@ -45,19 +43,13 @@ export function RecordsToolbar({
   onToggleDensity,
   recordCount,
   isFiltered,
-  helpOpen,
-  onHelpOpenChange,
   accountId,
   totalRecords = 0,
   filters,
   onAddRecord,
 }: RecordsToolbarProps) {
-  const [internalOpen, setInternalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const isControlled = helpOpen !== undefined && onHelpOpenChange !== undefined;
-  const open = isControlled ? helpOpen : internalOpen;
-  const setOpen = isControlled ? onHelpOpenChange : setInternalOpen;
 
   const countLabel = useMemo(() => {
     const base = `${recordCount.toLocaleString()} record${
@@ -155,7 +147,7 @@ export function RecordsToolbar({
               type="button"
               variant="outline"
               size="icon"
-              onClick={() => setOpen(true)}
+              onClick={() => window.dispatchEvent(new CustomEvent("dspro:shortcut:toggle-shortcuts"))}
               className="h-8 w-8"
             >
               <Keyboard className="h-4 w-4" />
@@ -164,11 +156,6 @@ export function RecordsToolbar({
           <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
         </Tooltip>
       </div>
-
-      <KeyboardShortcutsModal
-        open={open}
-        onOpenChange={(nextOpen) => setOpen(nextOpen)}
-      />
 
       {accountId && (
         <ImportDialog

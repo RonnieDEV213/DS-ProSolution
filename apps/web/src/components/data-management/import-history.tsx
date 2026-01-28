@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertCircle, FileSpreadsheet, RotateCcw, Trash2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -87,8 +88,20 @@ export function ImportHistory({ accountId }: ImportHistoryProps) {
 
   if (isLoading) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        Loading import history...
+      <div className="space-y-3 animate-fade-in">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-md border border-border p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-56" />
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

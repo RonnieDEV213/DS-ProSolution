@@ -20,6 +20,12 @@ import {
 } from "@/components/ui/tooltip";
 import { UserEditDialog } from "./user-edit-dialog";
 import { TransferOwnershipDialog } from "./transfer-ownership-dialog";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
+import { NoResults } from "@/components/empty-states/no-results";
+import { useCachedQuery } from "@/hooks/use-cached-query";
+import { getAccessToken } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -55,47 +61,39 @@ export function UsersTable({
   refreshTrigger,
   onUserUpdated,
 }: UsersTableProps) {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
   const [orgLoadError, setOrgLoadError] = useState<string | null>(null);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const pageSize = 20;
 
-  // Count active admins in the current user list (only count non-suspended admins)
-  const activeAdminCount = users.filter(
-    (u) => u.membership.role === "admin" && u.membership.status === "active"
-  ).length;
+  // Debounce search input
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timeout);
+  }, [search]);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      // Store current user ID for lockout prevention
-      setCurrentUserId(session.user.id);
+  // Fetch users via persistent cache
+  const {
+    data: usersData,
+    isLoading: loading,
+    refetch: refetchUsers,
+  } = useCachedQuery<{ users: User[]; total: number }>({
+    queryKey: queryKeys.admin.users(debouncedSearch, page),
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not authenticated");
 
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       params.set("page", page.toString());
       params.set("page_size", pageSize.toString());
 
       const res = await fetch(`${API_BASE}/admin/users?${params}`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -103,34 +101,45 @@ export function UsersTable({
         throw new Error(error.detail || "Failed to fetch users");
       }
 
-      const data = await res.json();
-      setUsers(data.users);
-      setTotal(data.total);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to fetch users");
-    } finally {
-      setLoading(false);
-    }
-  }, [search, page, pageSize]);
+      return res.json();
+    },
+    cacheKey: `admin:users:${debouncedSearch || ''}:${page}`,
+    staleTime: 30 * 1000, // 30s — admin data changes infrequently
+  });
+
+  const users = usersData?.users ?? [];
+  const total = usersData?.total ?? 0;
+
+  // Re-fetch when refreshTrigger changes (user edited/created)
+  useEffect(() => {
+    if (refreshTrigger > 0) refetchUsers();
+  }, [refreshTrigger, refetchUsers]);
+
+  // Store current user ID
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setCurrentUserId(session.user.id);
+    });
+  }, []);
+
+  // Count active admins in the current user list (only count non-suspended admins)
+  const activeAdminCount = users.filter(
+    (u) => u.membership.role === "admin" && u.membership.status === "active"
+  ).length;
 
   // Fetch org info to get owner_user_id
   const fetchOrg = useCallback(async (orgId: string) => {
     setOrgLoadError(null);
     try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
+      const token = await getAccessToken();
+      if (!token) {
         setOrgLoadError("Not authenticated");
         return;
       }
 
       const res = await fetch(`${API_BASE}/admin/orgs/${orgId}`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -145,13 +154,6 @@ export function UsersTable({
       setOrgLoadError(msg);
     }
   }, []);
-
-  useEffect(() => {
-    const debounce = setTimeout(() => {
-      fetchUsers();
-    }, 300);
-    return () => clearTimeout(debounce);
-  }, [fetchUsers, refreshTrigger]);
 
   // Fetch org info when we have users (get org_id from first user)
   useEffect(() => {
@@ -219,16 +221,20 @@ export function UsersTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {loading && users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  Loading...
+                <TableCell colSpan={4} className="p-0">
+                  <TableSkeleton columns={4} rows={5} />
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No users found
+                <TableCell colSpan={4} className="py-8">
+                  {search ? (
+                    <NoResults searchTerm={search} />
+                  ) : (
+                    <FirstTimeEmpty entityName="users" />
+                  )}
                 </TableCell>
               </TableRow>
             ) : (

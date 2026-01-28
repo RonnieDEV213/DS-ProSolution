@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, Fragment } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -14,6 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DepartmentRoleDialog } from "./department-role-dialog";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useCachedQuery } from "@/hooks/use-cached-query";
+import { getAccessToken } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -52,30 +56,23 @@ export function DepartmentRolesTable({
   refreshTrigger,
   onRoleUpdated,
 }: DepartmentRolesTableProps) {
-  const [roles, setRoles] = useState<DepartmentRole[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editingRole, setEditingRole] = useState<DepartmentRole | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [assignmentCounts, setAssignmentCounts] = useState<Record<string, number>>({});
 
-  const fetchRoles = useCallback(async () => {
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.error("Not authenticated");
-        return;
-      }
+  // Fetch roles + assignment counts via persistent cache
+  const {
+    data: rolesData,
+    isLoading: loading,
+    refetch: refetchRoles,
+  } = useCachedQuery<{ roles: DepartmentRole[]; assignmentCounts: Record<string, number> }>({
+    queryKey: queryKeys.admin.departmentRoles(orgId),
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not authenticated");
 
       const res = await fetch(`${API_BASE}/admin/orgs/${orgId}/department-roles`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -84,32 +81,38 @@ export function DepartmentRolesTable({
       }
 
       const data = await res.json();
-      setRoles(data.roles);
+      const fetchedRoles: DepartmentRole[] = data.roles;
 
       // Fetch assignment counts in a single batch query (avoids N+1)
-      const roleIds = data.roles.map((r: DepartmentRole) => r.id);
+      const roleIds = fetchedRoles.map((r) => r.id);
       const counts: Record<string, number> = {};
-      // Initialize all counts to 0
-      roleIds.forEach((id: string) => { counts[id] = 0; });
+      roleIds.forEach((id) => { counts[id] = 0; });
 
       if (roleIds.length > 0) {
+        const supabase = createClient();
         const { data: assignments } = await supabase
           .from("membership_department_roles")
           .select("role_id")
           .in("role_id", roleIds);
 
-        // Count client-side
         assignments?.forEach((a: { role_id: string }) => {
           counts[a.role_id] = (counts[a.role_id] || 0) + 1;
         });
       }
-      setAssignmentCounts(counts);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to fetch department roles");
-    } finally {
-      setLoading(false);
-    }
-  }, [orgId]);
+
+      return { roles: fetchedRoles, assignmentCounts: counts };
+    },
+    cacheKey: `admin:department-roles:${orgId}`,
+    staleTime: 60 * 1000, // 1min — roles change very rarely
+  });
+
+  const roles = rolesData?.roles ?? [];
+  const assignmentCounts = rolesData?.assignmentCounts ?? {};
+
+  // Re-fetch when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger > 0) refetchRoles();
+  }, [refreshTrigger, refetchRoles]);
 
   const toggleExpanded = (id: string) => {
     const next = new Set(expandedIds);
@@ -120,10 +123,6 @@ export function DepartmentRolesTable({
     }
     setExpandedIds(next);
   };
-
-  useEffect(() => {
-    fetchRoles();
-  }, [fetchRoles, refreshTrigger]);
 
   const getPermissionBadges = (permissions: string[]) => {
     if (permissions.length === 0) {
@@ -172,16 +171,16 @@ export function DepartmentRolesTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {loading && roles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  Loading...
+                <TableCell colSpan={6} className="p-0">
+                  <TableSkeleton columns={6} rows={3} />
                 </TableCell>
               </TableRow>
             ) : roles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  No access profiles found. Create one to get started.
+                <TableCell colSpan={6} className="py-8">
+                  <FirstTimeEmpty entityName="access profiles" />
                 </TableCell>
               </TableRow>
             ) : (

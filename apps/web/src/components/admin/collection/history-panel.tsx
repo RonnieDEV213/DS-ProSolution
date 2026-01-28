@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { getAccessToken } from "@/lib/api";
+import { useSyncRunHistory } from "@/hooks/sync/use-sync-run-history";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { History, Plus, Minus, Edit3, Bot, User } from "lucide-react";
+import { History, Plus, Minus, Edit3, Bot, User, Download, Flag, FlagOff } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -27,11 +30,12 @@ interface CollectionRunEntry {
 interface ManualEditEntry {
   type: "manual_edit";
   id: string;
-  action: "add" | "edit" | "remove";
+  action: "add" | "edit" | "remove" | "export" | "flag";
   seller_name: string;
   affected_count: number;
   created_at: string;
   seller_count_snapshot?: number;
+  new_value?: string;
 }
 
 type HistoryEntry = CollectionRunEntry | ManualEditEntry;
@@ -42,6 +46,7 @@ interface HistoryPanelProps {
   hasActiveRun: boolean;
   onManualEditClick: (logId: string) => void;
   onCollectionRunClick: (runId: string) => void;
+  onHistoryClick: () => void;
 }
 
 const statusStyles = {
@@ -50,11 +55,25 @@ const statusStyles = {
   cancelled: "bg-yellow-500/20 text-yellow-400",
 };
 
-const actionIcons = {
+const actionIcons: Record<string, React.ReactNode> = {
   add: <Plus className="h-3 w-3 text-green-400" />,
   edit: <Edit3 className="h-3 w-3 text-yellow-400" />,
   remove: <Minus className="h-3 w-3 text-red-400" />,
+  export: <Download className="h-3 w-3 text-purple-400" />,
+  flag: <Flag className="h-3 w-3 text-yellow-400" />,
+  unflag: <FlagOff className="h-3 w-3 text-gray-400" />,
 };
+
+/** Resolve display action — returns "unflag" for flag entries where flagged=false */
+function getDisplayAction(entry: ManualEditEntry): string {
+  if (entry.action === "flag" && entry.new_value) {
+    try {
+      const parsed = JSON.parse(entry.new_value);
+      if (parsed.flagged === false) return "unflag";
+    } catch { /* fall through */ }
+  }
+  return entry.action;
+}
 
 export function HistoryPanel({
   refreshTrigger,
@@ -62,88 +81,91 @@ export function HistoryPanel({
   hasActiveRun,
   onManualEditClick,
   onCollectionRunClick,
+  onHistoryClick,
 }: HistoryPanelProps) {
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  // Cache-first run history from IndexedDB
+  const { runs, isLoading: runsLoading } = useSyncRunHistory();
 
-  const fetchHistory = useCallback(async () => {
+  // Manual edit audit logs still fetched from server (not persisted in IndexedDB)
+  const [auditLogs, setAuditLogs] = useState<ManualEditEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+
+  const fetchAuditLogs = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const token = await getAccessToken();
+      if (!token) return;
 
-      // Fetch both endpoints in parallel
-      const [runsResponse, logsResponse] = await Promise.all([
-        fetch(`${API_BASE}/collection/runs/history?limit=50`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }),
-        fetch(`${API_BASE}/sellers/audit-log?limit=50`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }),
-      ]);
-
-      const mergedEntries: HistoryEntry[] = [];
-
-      // Process collection runs
-      if (runsResponse.ok) {
-        const runsData = await runsResponse.json();
-        const runs = runsData.runs || [];
-        for (const run of runs) {
-          mergedEntries.push({
-            type: "collection_run",
-            id: run.id,
-            name: run.name,
-            started_at: run.started_at,
-            completed_at: run.completed_at,
-            status: run.status,
-            sellers_new: run.sellers_new || 0,
-            categories_count: run.categories_count || 0,
-            category_ids: run.category_ids || [],
-            seller_count_snapshot: run.seller_count_snapshot,
-          });
-        }
-      }
-
-      // Process manual edits
-      if (logsResponse.ok) {
-        const logsData = await logsResponse.json();
-        const logs = logsData.entries || [];
-        for (const log of logs) {
-          mergedEntries.push({
-            type: "manual_edit",
-            id: log.id,
-            action: log.action,
-            seller_name: log.seller_name,
-            affected_count: log.affected_count || 1,
-            created_at: log.created_at,
-            seller_count_snapshot: log.seller_count_snapshot,
-          });
-        }
-      }
-
-      // Sort by timestamp descending (most recent first)
-      mergedEntries.sort((a, b) => {
-        const aTime = a.type === "collection_run"
-          ? (a.completed_at || a.started_at)
-          : a.created_at;
-        const bTime = b.type === "collection_run"
-          ? (b.completed_at || b.started_at)
-          : b.created_at;
-        return new Date(bTime).getTime() - new Date(aTime).getTime();
+      const response = await fetch(`${API_BASE}/sellers/audit-log?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Limit to 30 most recent entries
-      setEntries(mergedEntries.slice(0, 30));
+      if (response.ok) {
+        const logsData = await response.json();
+        const logs = logsData.entries || [];
+        const entries: ManualEditEntry[] = logs.map((log: Record<string, unknown>) => ({
+          type: "manual_edit" as const,
+          id: log.id as string,
+          action: log.action as "add" | "edit" | "remove" | "export" | "flag",
+          seller_name: log.seller_name as string,
+          affected_count: (log.affected_count as number) || 1,
+          created_at: log.created_at as string,
+          seller_count_snapshot: log.seller_count_snapshot as number | undefined,
+          new_value: log.new_value as string | undefined,
+        }));
+        setAuditLogs(entries);
+      }
     } catch (e) {
-      console.error("Failed to fetch history:", e);
+      console.error("Failed to fetch audit logs:", e);
     } finally {
-      setLoading(false);
+      setLogsLoading(false);
     }
-  }, [supabase.auth]);
+  }, []);
 
   useEffect(() => {
-    fetchHistory();
-  }, [refreshTrigger, fetchHistory]);
+    fetchAuditLogs();
+  }, [refreshTrigger, fetchAuditLogs]);
+
+  // Merge run history (from IndexedDB) with audit logs (from server), sorted by timestamp
+  const entries = useMemo(() => {
+    const merged: HistoryEntry[] = [];
+
+    // Map IndexedDB runs to CollectionRunEntry
+    for (const run of runs) {
+      if (run.status === "completed" || run.status === "failed" || run.status === "cancelled") {
+        merged.push({
+          type: "collection_run",
+          id: run.id,
+          name: run.name,
+          started_at: run.started_at || "",
+          completed_at: run.completed_at,
+          status: run.status as "completed" | "failed" | "cancelled",
+          sellers_new: run.sellers_new || 0,
+          categories_count: run.categories_count || 0,
+          category_ids: run.category_ids || [],
+          seller_count_snapshot: run.seller_count_snapshot ?? undefined,
+        });
+      }
+    }
+
+    // Add audit logs
+    merged.push(...auditLogs);
+
+    // Sort by timestamp descending (most recent first)
+    merged.sort((a, b) => {
+      const aTime = a.type === "collection_run"
+        ? (a.completed_at || a.started_at)
+        : a.created_at;
+      const bTime = b.type === "collection_run"
+        ? (b.completed_at || b.started_at)
+        : b.created_at;
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
+
+    // Limit to 30 most recent entries
+    return merged.slice(0, 30);
+  }, [runs, auditLogs]);
+
+  const loading = runsLoading && logsLoading;
 
   const getEntryTime = (entry: HistoryEntry): string => {
     if (entry.type === "collection_run") {
@@ -180,6 +202,27 @@ export function HistoryPanel({
     </button>
   );
 
+  const getManualEditLabel = (entry: ManualEditEntry): string => {
+    if (entry.action === "export") {
+      return `Exported ${entry.affected_count} seller${entry.affected_count !== 1 ? "s" : ""}`;
+    }
+    if (entry.action === "flag") {
+      // Parse new_value to determine flagged/unflagged
+      let flagged = true;
+      if (entry.new_value) {
+        try {
+          const parsed = JSON.parse(entry.new_value);
+          flagged = parsed.flagged ?? true;
+        } catch { /* use default */ }
+      }
+      const verb = flagged ? "Flagged" : "Unflagged";
+      return `${verb} ${entry.affected_count} seller${entry.affected_count !== 1 ? "s" : ""}`;
+    }
+    return entry.affected_count > 1
+      ? `${entry.affected_count} sellers`
+      : entry.seller_name;
+  };
+
   const renderManualEdit = (entry: ManualEditEntry) => (
     <button
       key={`edit-${entry.id}`}
@@ -189,11 +232,9 @@ export function HistoryPanel({
       <div className="flex items-center gap-2">
         <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <div className="flex items-center gap-1.5">
-          {actionIcons[entry.action]}
+          {actionIcons[getDisplayAction(entry)]}
           <span className="text-foreground text-sm truncate">
-            {entry.affected_count > 1
-              ? `${entry.affected_count} sellers`
-              : entry.seller_name}
+            {getManualEditLabel(entry)}
           </span>
         </div>
       </div>
@@ -205,18 +246,43 @@ export function HistoryPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <History className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-medium text-foreground">History</h3>
-      </div>
+      {/* Clickable History header - opens full history viewer */}
+      <button
+        onClick={onHistoryClick}
+        className="flex items-center gap-2 mb-3 group cursor-pointer w-full text-left"
+      >
+        <History className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+        <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+          History
+        </h3>
+        <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors ml-auto">
+          View all
+        </span>
+      </button>
 
       {/* History entries */}
       <div className="flex-1 overflow-y-auto space-y-1 min-h-0 scrollbar-thin">
         {loading ? (
-          <div className="text-muted-foreground text-sm">Loading...</div>
+          <div className="space-y-1 animate-fade-in">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="px-3 py-1.5 rounded border-l-2 border-border">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
+                <Skeleton className="h-2 w-20 mt-1" />
+              </div>
+            ))}
+          </div>
         ) : entries.length === 0 ? (
-          <div className="text-muted-foreground text-sm">No activity yet</div>
+          <div className="flex items-center justify-center h-full">
+            <FirstTimeEmpty
+              entityName="history entries"
+              description="Run a collection or add sellers to see activity here."
+              actionLabel="Start Collection"
+              onAction={onStartRunClick}
+            />
+          </div>
         ) : (
           entries.map((entry) =>
             entry.type === "collection_run"

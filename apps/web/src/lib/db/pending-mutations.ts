@@ -1,5 +1,5 @@
 import { db, type PendingMutation } from './index';
-import { api, type RecordSyncItem } from '@/lib/api';
+import { api, sellerApi, type RecordSyncItem } from '@/lib/api';
 import { detectConflict, type Conflict } from './conflicts';
 
 /**
@@ -90,8 +90,9 @@ export async function processQueue(
     await db._pending_mutations.update(mutation.id, { status: 'in-flight' });
 
     try {
-      // For updates, check for conflict before applying
-      if (mutation.operation === 'update') {
+      // For record updates, check for conflict before applying
+      // Sellers use last-write-wins (no conflict detection)
+      if (mutation.table === 'records' && mutation.operation === 'update') {
         // Fetch CURRENT server state to detect conflicts
         const serverRecord = await fetchServerRecord(mutation.record_id);
 
@@ -156,22 +157,52 @@ export async function processQueue(
 
 /**
  * Execute a single mutation against the API.
+ * Dispatches by table, then by operation.
  */
 async function executeMutation(mutation: PendingMutation): Promise<void> {
-  switch (mutation.operation) {
-    case 'create': {
-      // Create expects RecordCreate type - cast through unknown for flexibility
-      const createData = mutation.data as unknown as Parameters<typeof api.createRecord>[0];
-      await api.createRecord(createData);
+  switch (mutation.table) {
+    case 'records': {
+      switch (mutation.operation) {
+        case 'create': {
+          // Create expects RecordCreate type - cast through unknown for flexibility
+          const createData = mutation.data as unknown as Parameters<typeof api.createRecord>[0];
+          await api.createRecord(createData);
+          break;
+        }
+        case 'update': {
+          const updateData = mutation.data as Parameters<typeof api.updateRecord>[1];
+          await api.updateRecord(mutation.record_id, updateData);
+          break;
+        }
+        case 'delete':
+          await api.deleteRecord(mutation.record_id);
+          break;
+      }
       break;
     }
-    case 'update': {
-      const updateData = mutation.data as Parameters<typeof api.updateRecord>[1];
-      await api.updateRecord(mutation.record_id, updateData);
+    case 'sellers': {
+      switch (mutation.operation) {
+        case 'create': {
+          const name = mutation.data.name as string;
+          await sellerApi.createSeller(name);
+          break;
+        }
+        case 'update': {
+          if ('flagged' in mutation.data) {
+            await sellerApi.flagSeller(mutation.record_id);
+          } else if ('name' in mutation.data) {
+            await sellerApi.updateSeller(mutation.record_id, mutation.data.name as string);
+          }
+          break;
+        }
+        case 'delete':
+          await sellerApi.deleteSeller(mutation.record_id);
+          break;
+      }
       break;
     }
-    case 'delete':
-      await api.deleteRecord(mutation.record_id);
+    case 'accounts':
+      // No mutations currently supported for accounts
       break;
   }
 }

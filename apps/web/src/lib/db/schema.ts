@@ -42,11 +42,42 @@ export interface SellerRecord {
   deleted_at: string | null;
 }
 
+// Collection run history for IndexedDB persistence
+export interface CollectionRunRecord {
+  id: string;
+  name: string;
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  started_at: string | null;
+  completed_at: string | null;
+  departments_total: number;
+  departments_completed: number;
+  categories_total: number;
+  categories_completed: number;
+  categories_count: number;
+  products_total: number;
+  products_searched: number;
+  sellers_found: number;
+  sellers_new: number;
+  failed_items: number;
+  duration_seconds: number | null;
+  category_ids: string[];
+  seller_count_snapshot: number | null;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 // Sync metadata for per-table checkpoints
 export interface SyncMeta {
   table_name: string;   // Primary key (e.g., "records:account-123")
   last_sync_at: string; // ISO timestamp of last successful sync
   cursor: string | null; // Opaque cursor for resuming partial sync
+}
+
+// Generic query cache for persistent TanStack Query data
+export interface QueryCacheEntry {
+  key: string;           // Primary key (cache key, e.g., "admin:users:1")
+  data: unknown;         // Cached response payload
+  cached_at: string;     // ISO timestamp of when data was stored
 }
 
 // Pending mutations queue for offline changes

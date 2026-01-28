@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
@@ -9,21 +9,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Minus, Edit3, Bot, FileQuestion } from "lucide-react";
-import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Plus, Minus, Bot, FileQuestion, CalendarIcon, Loader2, Download, Flag, FlagOff } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, isToday, isYesterday } from "date-fns";
 import { cn } from "@/lib/utils";
+import { HistoryFilterChips } from "@/components/admin/collection/history-filter-chips";
+import type { DateRange } from "react-day-picker";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-// Manual edit log entry
+const PAGE_SIZE = 30;
+
+// Manual edit log entry (now includes export and flag action types)
 interface ManualLogEntry {
   type: "manual_edit";
   id: string;
-  action: "add" | "edit" | "remove";
+  action: "add" | "edit" | "remove" | "export" | "flag";
   seller_name: string;
   source: string;
   affected_count: number;
   created_at: string;
+  new_value?: string;
 }
 
 // Collection run entry
@@ -40,10 +49,17 @@ interface CollectionRunEntry {
 
 type HistoryEntry = ManualLogEntry | CollectionRunEntry;
 
-// Changes type for diff display
+// Changes type for diff display (supports diff, export, and flag event types)
 interface SellerChanges {
+  type: "diff" | "export" | "flag";
   added: string[];
   removed: string[];
+  // For export events:
+  exportFormat?: string;
+  exportedSellers?: string[];
+  // For flag events:
+  flagged?: boolean;
+  flaggedSellers?: string[];
 }
 
 interface LogDetailModalProps {
@@ -53,17 +69,80 @@ interface LogDetailModalProps {
   selectedRunId?: string | null;
 }
 
-const actionColors = {
+const actionColors: Record<string, string> = {
   add: "text-green-400 bg-green-400/10",
   edit: "text-yellow-400 bg-yellow-400/10",
   remove: "text-red-400 bg-red-400/10",
+  export: "text-purple-400 bg-purple-400/10",
+  flag: "text-yellow-400 bg-yellow-400/10",
 };
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   completed: "bg-green-500/20 text-green-400",
   failed: "bg-red-500/20 text-red-400",
   cancelled: "bg-yellow-500/20 text-yellow-400",
 };
+
+// Type badge colors for event rows
+const eventBadgeStyles: Record<string, string> = {
+  export: "bg-purple-500/20 text-purple-400",
+  flag: "bg-yellow-500/20 text-yellow-400",
+  unflag: "bg-gray-500/20 text-gray-400",
+  add: "bg-green-500/20 text-green-400",
+  edit: "bg-blue-500/20 text-blue-400",
+  remove: "bg-red-500/20 text-red-400",
+};
+
+const eventLabels: Record<string, string> = {
+  export: "Export",
+  flag: "Flag",
+  unflag: "Unflag",
+  add: "Add",
+  edit: "Edit",
+  remove: "Remove",
+};
+
+/** Resolve display action — returns "unflag" for flag entries where flagged=false */
+function getDisplayAction(entry: ManualLogEntry): string {
+  if (entry.action === "flag" && entry.new_value) {
+    try {
+      const parsed = JSON.parse(entry.new_value);
+      if (parsed.flagged === false) return "unflag";
+    } catch { /* fall through */ }
+  }
+  return entry.action;
+}
+
+// Day grouping helpers
+function getDayLabel(dateStr: string): string {
+  const date = new Date(dateStr);
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  return format(date, "MMM d");
+}
+
+function groupByDay(entries: HistoryEntry[]): [string, HistoryEntry[]][] {
+  const groups = new Map<string, HistoryEntry[]>();
+  for (const entry of entries) {
+    const time =
+      entry.type === "collection_run"
+        ? entry.completed_at || entry.started_at
+        : entry.created_at;
+    const label = getDayLabel(time);
+    const group = groups.get(label) || [];
+    group.push(entry);
+    groups.set(label, group);
+  }
+  return Array.from(groups.entries());
+}
+
+// Get timestamp for an entry
+function getEntryTime(entry: HistoryEntry): string {
+  if (entry.type === "collection_run") {
+    return entry.completed_at || entry.started_at;
+  }
+  return entry.created_at;
+}
 
 export function LogDetailModal({
   open,
@@ -71,11 +150,23 @@ export function LogDetailModal({
   selectedLogId,
   selectedRunId,
 }: LogDetailModalProps) {
-  const [changes, setChanges] = useState<SellerChanges>({ added: [], removed: [] });
+  const [changes, setChanges] = useState<SellerChanges>({ type: "diff", added: [], removed: [] });
   const [allEntries, setAllEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [changesLoading, setChangesLoading] = useState(false);
   const [viewingEntry, setViewingEntry] = useState<{ type: "log" | "run"; id: string } | null>(null);
+
+  // Filter state
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [filterActionTypes, setFilterActionTypes] = useState<string[] | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  // Pagination state for infinite scroll
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Fetch version counter to invalidate stale requests
+  const fetchVersionRef = useRef(0);
 
   const supabase = createClient();
 
@@ -94,6 +185,7 @@ export function LogDetailModal({
         const data = await res.json();
         // New response shape: { sellers, count, added, removed }
         setChanges({
+          type: "diff",
           added: data.added || [],
           removed: data.removed || [],
         });
@@ -120,6 +212,7 @@ export function LogDetailModal({
         const data = await res.json();
         // Collection runs only add sellers, never remove
         setChanges({
+          type: "diff",
           added: (data.sellers || []).map((s: { display_name: string }) => s.display_name),
           removed: [],
         });
@@ -131,102 +224,266 @@ export function LogDetailModal({
     }
   }, [supabase.auth]);
 
-  // Initial fetch when modal opens
-  useEffect(() => {
-    if (!open) return;
-    if (!selectedLogId && !selectedRunId) return;
+  // Fetch entries from the audit log API with filters and pagination
+  const fetchEntries = useCallback(async (
+    offset: number,
+    actionTypes: string[] | null,
+    range: DateRange | undefined,
+    version: number,
+  ): Promise<HistoryEntry[]> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return [];
 
-    // Set initial viewing entry
-    if (selectedRunId) {
-      setViewingEntry({ type: "run", id: selectedRunId });
-    } else if (selectedLogId) {
-      setViewingEntry({ type: "log", id: selectedLogId });
+    // Separate sentinel from real action types for the API
+    const realActionTypes = actionTypes?.filter((t) => t !== "__runs__") ?? null;
+    const shouldFetchRuns =
+      !actionTypes || actionTypes.includes("__runs__");
+
+    const headers = { Authorization: `Bearer ${session.access_token}` };
+    const mergedEntries: HistoryEntry[] = [];
+
+    // Fetch audit log entries (skip when only the runs sentinel is active)
+    if (!realActionTypes || realActionTypes.length > 0) {
+      const params = new URLSearchParams();
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
+      if (realActionTypes && realActionTypes.length > 0) {
+        params.set("action_types", realActionTypes.join(","));
+      }
+      if (range?.from) params.set("date_from", range.from.toISOString());
+      if (range?.to) params.set("date_to", range.to.toISOString());
+
+      const logsRes = await fetch(
+        `${API_BASE}/sellers/audit-log?${params}`,
+        { headers }
+      );
+      if (logsRes.ok) {
+        const data = await logsRes.json();
+        for (const log of data.entries || []) {
+          mergedEntries.push({
+            type: "manual_edit",
+            id: log.id,
+            action: log.action,
+            seller_name: log.seller_name,
+            source: log.source,
+            affected_count: log.affected_count || 1,
+            created_at: log.created_at,
+            new_value: log.new_value,
+          });
+        }
+      }
+    }
+    if (shouldFetchRuns && offset === 0) {
+      // Only fetch runs on first page to avoid duplication
+      const runsParams = new URLSearchParams();
+      runsParams.set("limit", "50");
+      if (range?.from) runsParams.set("date_from", range.from.toISOString());
+      if (range?.to) runsParams.set("date_to", range.to.toISOString());
+
+      const runsRes = await fetch(
+        `${API_BASE}/collection/runs/history?${runsParams}`,
+        { headers }
+      );
+      if (runsRes.ok) {
+        const data = await runsRes.json();
+        for (const run of data.runs || []) {
+          mergedEntries.push({
+            type: "collection_run",
+            id: run.id,
+            name: run.name,
+            started_at: run.started_at,
+            completed_at: run.completed_at,
+            status: run.status,
+            sellers_new: run.sellers_new || 0,
+            categories_count: run.categories_count || 0,
+          });
+        }
+      }
     }
 
-    const fetchData = async () => {
+    // Sort by timestamp descending
+    mergedEntries.sort((a, b) => {
+      const aTime = getEntryTime(a);
+      const bTime = getEntryTime(b);
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
+
+    return mergedEntries;
+  }, [supabase.auth]);
+
+  // Load more entries (infinite scroll)
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const version = fetchVersionRef.current;
+      const entries = await fetchEntries(
+        allEntries.length,
+        filterActionTypes,
+        dateRange,
+        version,
+      );
+      // Stale request check
+      if (version !== fetchVersionRef.current) return;
+      if (entries.length < PAGE_SIZE) {
+        setHasMore(false);
+      }
+      setAllEntries((prev) => [...prev, ...entries]);
+    } catch (e) {
+      console.error("Failed to load more entries:", e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, allEntries.length, filterActionTypes, dateRange, fetchEntries]);
+
+  // IntersectionObserver sentinel for infinite scroll
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+      if (!node || !hasMore) return;
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting) {
+            loadMore();
+          }
+        },
+        { threshold: 0.1 }
+      );
+      observerRef.current.observe(node);
+    },
+    [loadMore, hasMore]
+  );
+
+  // Initial fetch and refetch on filter/date changes
+  useEffect(() => {
+    if (!open) return;
+
+    const version = ++fetchVersionRef.current;
+
+    const fetchInitial = async () => {
       setLoading(true);
+      setAllEntries([]);
+      setHasMore(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        // Fetch both logs and collection runs in parallel
-        const [logsRes, runsRes] = await Promise.all([
-          fetch(`${API_BASE}/sellers/audit-log?limit=100`, {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }),
-          fetch(`${API_BASE}/collection/runs/history?limit=50`, {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }),
-        ]);
-
-        const mergedEntries: HistoryEntry[] = [];
-
-        // Process manual edit logs
-        if (logsRes.ok) {
-          const data = await logsRes.json();
-          for (const log of data.entries || []) {
-            mergedEntries.push({
-              type: "manual_edit",
-              id: log.id,
-              action: log.action,
-              seller_name: log.seller_name,
-              source: log.source,
-              affected_count: log.affected_count || 1,
-              created_at: log.created_at,
-            });
-          }
+        const entries = await fetchEntries(0, filterActionTypes, dateRange, version);
+        // Stale request check
+        if (version !== fetchVersionRef.current) return;
+        if (entries.length < PAGE_SIZE) {
+          setHasMore(false);
         }
+        setAllEntries(entries);
 
-        // Process collection runs
-        if (runsRes.ok) {
-          const data = await runsRes.json();
-          for (const run of data.runs || []) {
-            mergedEntries.push({
-              type: "collection_run",
-              id: run.id,
-              name: run.name,
-              started_at: run.started_at,
-              completed_at: run.completed_at,
-              status: run.status,
-              sellers_new: run.sellers_new || 0,
-              categories_count: run.categories_count || 0,
-            });
-          }
-        }
-
-        // Sort by timestamp descending
-        mergedEntries.sort((a, b) => {
-          const aTime = a.type === "collection_run"
-            ? (a.completed_at || a.started_at)
-            : a.created_at;
-          const bTime = b.type === "collection_run"
-            ? (b.completed_at || b.started_at)
-            : b.created_at;
-          return new Date(bTime).getTime() - new Date(aTime).getTime();
-        });
-
-        setAllEntries(mergedEntries);
-
-        // Fetch changes for initial selection
-        if (selectedRunId) {
+        // Fetch changes for initial selection (only on first open, not on filter changes)
+        if (selectedRunId && !viewingEntry) {
+          setViewingEntry({ type: "run", id: selectedRunId });
           await fetchChangesForRun(selectedRunId);
-        } else if (selectedLogId) {
-          await fetchChangesForEntry(selectedLogId);
+        } else if (selectedLogId && !viewingEntry) {
+          setViewingEntry({ type: "log", id: selectedLogId });
+
+          // Find the matched entry to determine its action type
+          const matched = entries.find(
+            (e) => e.type === "manual_edit" && e.id === selectedLogId
+          ) as ManualLogEntry | undefined;
+
+          if (matched?.action === "export" && matched.new_value) {
+            try {
+              const parsed = JSON.parse(matched.new_value);
+              setChanges({
+                type: "export",
+                added: [],
+                removed: [],
+                exportFormat: parsed.format || "CSV",
+                exportedSellers: parsed.sellers || [],
+              });
+            } catch {
+              setChanges({ type: "export", added: [], removed: [], exportFormat: "CSV", exportedSellers: [] });
+            }
+          } else if (matched?.action === "flag" && matched.new_value) {
+            try {
+              const parsed = JSON.parse(matched.new_value);
+              setChanges({
+                type: "flag",
+                added: [],
+                removed: [],
+                flagged: parsed.flagged ?? true,
+                flaggedSellers: parsed.sellers || [],
+              });
+            } catch {
+              setChanges({ type: "flag", added: [], removed: [], flagged: true, flaggedSellers: [] });
+            }
+          } else {
+            await fetchChangesForEntry(selectedLogId);
+          }
         }
       } catch (e) {
         console.error("Failed to fetch log data:", e);
       } finally {
-        setLoading(false);
+        if (version === fetchVersionRef.current) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchData();
-  }, [open, selectedLogId, selectedRunId, supabase.auth, fetchChangesForEntry, fetchChangesForRun]);
+    fetchInitial();
+  }, [open, filterActionTypes, dateRange, fetchEntries, selectedLogId, selectedRunId, fetchChangesForEntry, fetchChangesForRun, viewingEntry]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setActiveFilter("all");
+      setFilterActionTypes(null);
+      setDateRange(undefined);
+      setAllEntries([]);
+      setHasMore(true);
+      setViewingEntry(null);
+      setChanges({ type: "diff", added: [], removed: [] });
+    }
+  }, [open]);
 
   // Unified click handler for all entry types
   const handleEntryClick = (entry: HistoryEntry) => {
+    if (isViewing(entry)) return;
+
     if (entry.type === "manual_edit") {
       setViewingEntry({ type: "log", id: entry.id });
+
+      // Export and flag entries: parse new_value JSON instead of fetching diff
+      if (entry.action === "export" && entry.new_value) {
+        try {
+          const parsed = JSON.parse(entry.new_value);
+          setChanges({
+            type: "export",
+            added: [],
+            removed: [],
+            exportFormat: parsed.format || "CSV",
+            exportedSellers: parsed.sellers || [],
+          });
+        } catch {
+          setChanges({ type: "export", added: [], removed: [], exportFormat: "CSV", exportedSellers: [] });
+        }
+        return;
+      }
+
+      if (entry.action === "flag" && entry.new_value) {
+        try {
+          const parsed = JSON.parse(entry.new_value);
+          setChanges({
+            type: "flag",
+            added: [],
+            removed: [],
+            flagged: parsed.flagged ?? true,
+            flaggedSellers: parsed.sellers || [],
+          });
+        } catch {
+          setChanges({ type: "flag", added: [], removed: [], flagged: true, flaggedSellers: [] });
+        }
+        return;
+      }
+
+      // Standard add/edit/remove entries: fetch diff from API
       fetchChangesForEntry(entry.id);
     } else if (entry.type === "collection_run") {
       setViewingEntry({ type: "run", id: entry.id });
@@ -245,37 +502,154 @@ export function LogDetailModal({
     return false;
   };
 
-  // Get timestamp for an entry
-  const getEntryTime = (entry: HistoryEntry): string => {
-    if (entry.type === "collection_run") {
-      return entry.completed_at || entry.started_at;
-    }
-    return entry.created_at;
-  };
-
   const hasChanges = changes.added.length > 0 || changes.removed.length > 0;
+
+  // Group entries by day
+  const groupedEntries = groupByDay(allEntries);
+
+  // Whether to show the history list loading skeleton (initial load or filter change)
+  const historyLoading = loading && allEntries.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-background border-border max-w-3xl h-[80vh] flex flex-col" hideCloseButton>
+      <DialogContent className="bg-background border-border w-fit sm:max-w-[95vw] max-w-[95vw] h-[80vh] flex flex-col" showCloseButton={false}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-foreground">
             History Entry
           </DialogTitle>
         </DialogHeader>
 
-        {loading ? (
-          <div className="text-muted-foreground p-4">Loading...</div>
+        {historyLoading ? (
+          <div className="flex gap-4 flex-1 min-h-0 animate-fade-in">
+            {/* Left panel skeleton - changes list (narrow) */}
+            <div className="w-[234px] shrink-0 flex flex-col min-h-0">
+              <Skeleton className="h-4 w-16 mb-2" />
+              <div className="flex-1 rounded border border-border p-2 space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5">
+                    <Skeleton className="h-3.5 w-3.5" />
+                    <Skeleton className="h-3 flex-1" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Right panel skeleton - history list (wider) */}
+            <div className="shrink-0 flex flex-col min-h-0">
+              <Skeleton className="h-4 w-20 mb-2" />
+              <div className="flex items-center gap-2 mb-2">
+                <Skeleton className="h-5 w-10" />
+                <Skeleton className="h-5 w-16" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="flex-1 relative min-h-0">
+                <div className="absolute inset-0 rounded border border-border space-y-0 overflow-y-auto">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="px-3 py-2 border-b border-border last:border-0">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-12" />
+                        <Skeleton className="h-3 w-48" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
+          <div className="flex gap-4 flex-1 min-h-0">
             {/* Left: Changes panel */}
-            <div className="flex flex-col min-h-0">
+            <div className="w-[234px] shrink-0 flex flex-col min-h-0">
               <h4 className="text-sm font-medium text-foreground mb-2 flex-shrink-0">
                 Changes
               </h4>
               <div className="flex-1 overflow-y-auto scrollbar-thin bg-muted rounded border border-border p-2 min-h-0">
                 {changesLoading ? (
-                  <div className="text-muted-foreground text-sm">Loading changes...</div>
+                  <div className="space-y-2 animate-fade-in">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded border-l-2 border-border">
+                        <Skeleton className="h-3.5 w-3.5" />
+                        <Skeleton className="h-3 flex-1" />
+                      </div>
+                    ))}
+                  </div>
+                ) : changes.type === "export" ? (
+                  /* Export Changes Panel */
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-foreground">
+                      Exported {changes.exportedSellers?.length || 0} sellers as {changes.exportFormat || "CSV"}
+                    </h4>
+                    <div className="space-y-1">
+                      {(changes.exportedSellers || []).map((name, i) => (
+                        <div
+                          key={`exported-${name}-${i}`}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded",
+                            "border-l-2 border-purple-500",
+                            i % 2 === 0 ? "bg-purple-500/10" : "bg-purple-500/5"
+                          )}
+                        >
+                          <Download className="h-3.5 w-3.5 text-purple-400" />
+                          <span className="text-sm text-purple-300">{name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : changes.type === "flag" ? (
+                  /* Flag Changes Panel */
+                  <div className="space-y-3">
+                    {changes.flagged ? (
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground mb-2">
+                          Flagged ({changes.flaggedSellers?.length || 0})
+                        </h4>
+                        <div className="space-y-1">
+                          {(changes.flaggedSellers || []).map((name, i) => (
+                            <div
+                              key={`flagged-${name}-${i}`}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded",
+                                "border-l-2 border-yellow-500",
+                                i % 2 === 0 ? "bg-yellow-500/10" : "bg-yellow-500/5"
+                              )}
+                            >
+                              <Flag className="h-3.5 w-3.5 text-yellow-400" />
+                              <span className="text-sm text-yellow-300">{name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground mb-2">
+                          Unflagged ({changes.flaggedSellers?.length || 0})
+                        </h4>
+                        <div className="space-y-1">
+                          {(changes.flaggedSellers || []).map((name, i) => (
+                            <div
+                              key={`unflagged-${name}-${i}`}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded",
+                                "border-l-2 border-gray-500",
+                                i % 2 === 0 ? "bg-gray-500/10" : "bg-gray-500/5"
+                              )}
+                            >
+                              <FlagOff className="h-3.5 w-3.5 text-gray-400" />
+                              <span className="text-sm text-gray-300">{name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : !viewingEntry ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <FileQuestion className="h-12 w-12 mb-2 text-muted-foreground/60" />
+                    <span className="text-sm">Select an entry</span>
+                  </div>
                 ) : !hasChanges ? (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <FileQuestion className="h-12 w-12 mb-2 text-muted-foreground/60" />
@@ -335,78 +709,160 @@ export function LogDetailModal({
               </div>
             </div>
 
-            {/* Right: Full history */}
-            <div className="flex flex-col min-h-0">
+            {/* Right: Full history - width driven by chip bar */}
+            <div className="shrink-0 flex flex-col min-h-0">
               <h4 className="text-sm font-medium text-foreground mb-2 flex-shrink-0">
                 Full History
               </h4>
-              <div className="flex-1 overflow-y-auto scrollbar-thin bg-muted rounded border border-border min-h-0">
-                {allEntries.map((entry) => {
-                  if (entry.type === "manual_edit") {
-                    // Manual edit entry
-                    return (
-                      <button
-                        key={`edit-${entry.id}`}
-                        onClick={() => handleEntryClick(entry)}
-                        className={cn(
-                          "w-full text-left px-3 py-2 border-b border-border last:border-0",
-                          "hover:bg-accent transition-colors",
-                          isViewing(entry) && "bg-blue-500/20 ring-1 ring-blue-500/50"
-                        )}
-                      >
+
+              {/* Filter UI */}
+              <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+                <HistoryFilterChips
+                  activeFilter={activeFilter}
+                  onFilterChange={(id, types) => {
+                    setActiveFilter(id);
+                    setFilterActionTypes(types);
+                    // Reset entries, selection, and changes panel
+                    setAllEntries([]);
+                    setHasMore(true);
+                    setViewingEntry(null);
+                    setChanges({ type: "diff", added: [], removed: [] });
+                  }}
+                />
+                {/* Date range picker */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-6 text-xs">
+                      <CalendarIcon className="h-3 w-3 mr-1" />
+                      {dateRange?.from ? (
+                        dateRange.to
+                          ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
+                          : format(dateRange.from, "MMM d")
+                      ) : "Date range"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(range) => {
+                        setDateRange(range);
+                        setAllEntries([]);
+                        setHasMore(true);
+                        setViewingEntry(null);
+                        setChanges({ type: "diff", added: [], removed: [] });
+                      }}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Scrollable entry list with day grouping - absolute so it doesn't widen the panel */}
+              <div className="flex-1 relative min-h-0">
+              <div className="absolute inset-0 overflow-y-auto scrollbar-thin bg-muted rounded border border-border">
+                {loading && allEntries.length === 0 ? (
+                  <div className="space-y-0">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="px-3 py-2 border-b border-border last:border-0">
                         <div className="flex items-center gap-2">
-                          <Badge className={actionColors[entry.action]}>
-                            {entry.action === "add" && <Plus className="h-3 w-3 mr-1" />}
-                            {entry.action === "edit" && <Edit3 className="h-3 w-3 mr-1" />}
-                            {entry.action === "remove" && <Minus className="h-3 w-3 mr-1" />}
-                            {entry.action}
-                          </Badge>
-                          <span className="text-foreground text-sm truncate flex-1">
-                            {entry.affected_count > 1
-                              ? `${entry.affected_count} sellers`
-                              : entry.seller_name}
-                          </span>
+                          <Skeleton className="h-4 w-12" />
+                          <Skeleton className="h-3 flex-1" />
+                          <Skeleton className="h-3 w-16" />
                         </div>
-                        <div className="text-muted-foreground text-xs mt-1 font-mono">
-                          {format(new Date(entry.created_at), "MMM d, yyyy h:mm a")}
+                      </div>
+                    ))}
+                  </div>
+                ) : allEntries.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-8">
+                    <FileQuestion className="h-10 w-10 mb-2 text-muted-foreground/60" />
+                    <span className="text-sm">No history entries found</span>
+                  </div>
+                ) : (
+                  <>
+                    {groupedEntries.map(([dayLabel, entries], groupIndex) => (
+                      <div key={dayLabel} className={groupIndex > 0 ? "mt-2 border-t border-border" : undefined}>
+                        {/* Sticky day header */}
+                        <div className="sticky top-0 bg-muted backdrop-blur-sm px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b border-border z-10">
+                          {dayLabel}
                         </div>
-                      </button>
-                    );
-                  } else {
-                    // Collection run entry
-                    return (
-                      <button
-                        key={`run-${entry.id}`}
-                        onClick={() => handleEntryClick(entry)}
-                        className={cn(
-                          "w-full text-left px-3 py-2 border-b border-border last:border-0",
-                          "hover:bg-accent transition-colors",
-                          isViewing(entry) && "bg-blue-500/20 ring-1 ring-blue-500/50"
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Bot className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                          <span className="text-foreground text-sm truncate flex-1">
-                            {entry.name}
-                          </span>
-                          <Badge className={cn("text-xs", statusStyles[entry.status])}>
-                            {entry.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          {entry.sellers_new > 0 && (
-                            <span className="text-green-400 text-xs">
-                              +{entry.sellers_new}
-                            </span>
-                          )}
-                          <span className="text-muted-foreground text-xs font-mono">
-                            {format(new Date(getEntryTime(entry)), "MMM d, yyyy h:mm a")}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  }
-                })}
+                        {entries.map((entry) => {
+                          if (entry.type === "manual_edit") {
+                            // Manual edit / export / flag entry with type badge
+                            return (
+                              <button
+                                key={`edit-${entry.id}`}
+                                onClick={() => handleEntryClick(entry)}
+                                className={cn(
+                                  "w-full text-left px-3 py-2 border-b border-border last:border-0",
+                                  "hover:bg-accent transition-colors",
+                                  isViewing(entry) && "bg-blue-500/20 ring-1 ring-blue-500/50"
+                                )}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Badge className={cn("text-xs", eventBadgeStyles[getDisplayAction(entry)] || actionColors[entry.action])}>
+                                    {eventLabels[getDisplayAction(entry)] || entry.action}
+                                  </Badge>
+                                  <span className="text-foreground text-sm truncate flex-1">
+                                    {entry.affected_count > 1
+                                      ? entry.seller_name
+                                      : entry.seller_name}
+                                  </span>
+                                  <span className="text-muted-foreground text-xs font-mono flex-shrink-0">
+                                    {format(new Date(entry.created_at), "HH:mm")}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          } else {
+                            // Collection run entry
+                            return (
+                              <button
+                                key={`run-${entry.id}`}
+                                onClick={() => handleEntryClick(entry)}
+                                className={cn(
+                                  "w-full text-left px-3 py-2 border-b border-border last:border-0",
+                                  "hover:bg-accent transition-colors",
+                                  isViewing(entry) && "bg-blue-500/20 ring-1 ring-blue-500/50"
+                                )}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Bot className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                                  <span className="text-foreground text-sm truncate flex-1">
+                                    {entry.name}
+                                  </span>
+                                  <Badge className={cn("text-xs", statusStyles[entry.status])}>
+                                    {entry.status}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {entry.sellers_new > 0 && (
+                                    <span className="text-green-400 text-xs">
+                                      +{entry.sellers_new}
+                                    </span>
+                                  )}
+                                  <span className="text-muted-foreground text-xs font-mono">
+                                    {format(new Date(getEntryTime(entry)), "HH:mm")}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          }
+                        })}
+                      </div>
+                    ))}
+                    {/* Loading more spinner */}
+                    {loadingMore && (
+                      <div className="flex items-center justify-center py-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground ml-2">Loading more...</span>
+                      </div>
+                    )}
+                    {/* Infinite scroll sentinel */}
+                    {hasMore && <div ref={sentinelRef} className="h-8" />}
+                  </>
+                )}
+              </div>
               </div>
             </div>
           </div>

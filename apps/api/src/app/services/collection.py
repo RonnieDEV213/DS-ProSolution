@@ -18,7 +18,6 @@ from supabase import Client
 from app.services.scrapers import OxylabsAmazonScraper, OxylabsEbayScraper
 from app.services.db_utils import (
     batched_query,
-    batched_delete,
     batched_insert,
     batched_update,
     paginated_fetch,
@@ -731,74 +730,30 @@ class CollectionService:
         source: str = "manual",
     ) -> tuple[int, int, list[str]]:
         """
-        Bulk remove sellers.
+        Bulk remove sellers via single RPC call.
         Returns (success_count, failed_count, errors).
-        Logs as a single audit entry.
-
-        Optimized for large operations (millions of sellers):
-        - Concurrent batched lookups
-        - Concurrent batched deletes
+        The RPC function handles deletion, audit logging, and snapshot atomically.
         """
-        import json
-
-        errors: list[str] = []
-        removed_names: list[str] = []
-
-        # Get all seller names (concurrent batched lookup)
-        lookup_results = batched_query(
-            self.supabase,
-            table="sellers",
-            select="id, display_name",
-            filter_column="id",
-            filter_values=seller_ids,
-            extra_filters={"org_id": org_id},
-        )
-        seller_map = {s["id"]: s["display_name"] for s in lookup_results}
-
-        # Separate valid and invalid IDs
-        valid_ids = []
-        not_found_count = 0
-        for seller_id in seller_ids:
-            if seller_id not in seller_map:
-                not_found_count += 1
-                errors.append(f"{seller_id}: not found")
-            else:
-                valid_ids.append(seller_id)
-                removed_names.append(seller_map[seller_id])
-
-        # Delete valid sellers (concurrent batched delete)
-        success_count, delete_errors = batched_delete(
-            self.supabase,
-            table="sellers",
-            filter_column="id",
-            filter_values=valid_ids,
-        )
-        errors.extend(delete_errors)
-        failed_count = not_found_count + len(delete_errors)
-
-        # Log as single audit entry if any were removed
-        if success_count > 0:
-            # Get current seller count for snapshot (after bulk delete)
-            seller_count = await self._get_seller_count_snapshot(org_id)
-
-            summary = f"{removed_names[0]}" if success_count == 1 else f"{removed_names[0]} (+{success_count - 1} more)"
-            log_data = {
-                "org_id": org_id,
-                "action": "remove",
-                "seller_id": None,
-                "seller_name": summary,
-                "old_value": json.dumps({"names": removed_names}),
-                "new_value": None,
-                "source": source,
-                "source_run_id": None,
-                "source_criteria": None,
-                "user_id": user_id,
-                "affected_count": success_count,
-                "seller_count_snapshot": seller_count,
-            }
-            self.supabase.table("seller_audit_log").insert(log_data).execute()
-
-        return success_count, failed_count, errors
+        try:
+            result = self.supabase.rpc(
+                "bulk_delete_sellers",
+                {
+                    "p_org_id": org_id,
+                    "p_seller_ids": seller_ids,
+                    "p_user_id": user_id,
+                    "p_source": source,
+                },
+            ).execute()
+            row = result.data[0] if result.data else {}
+            deleted_count = row.get("deleted_count", 0)
+            failed_count = len(seller_ids) - deleted_count
+            errors = []
+            if failed_count > 0:
+                errors.append(f"{failed_count} seller(s) not found or already deleted")
+            return deleted_count, failed_count, errors
+        except Exception as e:
+            logger.error("bulk_remove_sellers RPC error: %s", e, exc_info=True)
+            return 0, len(seller_ids), [str(e)]
 
     async def toggle_seller_flag(self, org_id: str, seller_id: str) -> bool:
         """Toggle the flagged status of a seller. Returns the new flagged state."""
@@ -862,17 +817,137 @@ class CollectionService:
         }
         self.supabase.table("seller_audit_log").insert(log_data).execute()
 
+    async def log_export_event(
+        self,
+        org_id: str,
+        user_id: str,
+        seller_names: list[str],
+        export_format: str,
+    ) -> None:
+        """Log a seller export as a single history entry."""
+        import json
+
+        seller_count = await self._get_seller_count_snapshot(org_id)
+
+        log_data = {
+            "org_id": org_id,
+            "action": "export",
+            "seller_id": None,
+            "seller_name": f"Exported {len(seller_names)} sellers as {export_format}",
+            "old_value": None,
+            "new_value": json.dumps({
+                "format": export_format,
+                "sellers": seller_names,
+            }),
+            "source": "manual",
+            "source_run_id": None,
+            "source_criteria": None,
+            "user_id": user_id,
+            "affected_count": len(seller_names),
+            "seller_count_snapshot": seller_count,
+        }
+        self.supabase.table("seller_audit_log").insert(log_data).execute()
+
+    async def log_flag_event(
+        self,
+        org_id: str,
+        user_id: str,
+        seller_names: list[str],
+        flagged: bool,
+    ) -> None:
+        """Log a flag/unflag operation as a single history entry."""
+        import json
+
+        seller_count = await self._get_seller_count_snapshot(org_id)
+        action_word = "Flagged" if flagged else "Unflagged"
+
+        log_data = {
+            "org_id": org_id,
+            "action": "flag",
+            "seller_id": None,
+            "seller_name": f"{action_word} {len(seller_names)} sellers",
+            "old_value": None,
+            "new_value": json.dumps({
+                "flagged": flagged,
+                "sellers": seller_names,
+            }),
+            "source": "manual",
+            "source_run_id": None,
+            "source_criteria": None,
+            "user_id": user_id,
+            "affected_count": len(seller_names),
+            "seller_count_snapshot": seller_count,
+        }
+        self.supabase.table("seller_audit_log").insert(log_data).execute()
+
+    async def batch_toggle_flag(
+        self,
+        org_id: str,
+        user_id: str,
+        seller_ids: list[str],
+        flagged: bool,
+    ) -> int:
+        """Batch update flag state for multiple sellers and log as single audit entry."""
+        from app.services.db_utils import batched_query, batched_update
+
+        # Update all sellers to the target flagged state
+        batched_update(
+            self.supabase,
+            table="sellers",
+            filter_column="id",
+            filter_values=seller_ids,
+            update_data={
+                "flagged": flagged,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+            extra_filters={"org_id": org_id},
+        )
+
+        # Get seller names for audit log
+        seller_results = batched_query(
+            self.supabase,
+            table="sellers",
+            select="display_name",
+            filter_column="id",
+            filter_values=seller_ids,
+            extra_filters={"org_id": org_id},
+        )
+        seller_names = [s["display_name"] for s in seller_results]
+
+        # Log the flag event
+        await self.log_flag_event(org_id, user_id, seller_names, flagged)
+
+        return len(seller_names)
+
     async def get_audit_log(
         self,
         org_id: str,
         limit: int = 50,
         offset: int = 0,
+        action_types: list[str] | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> tuple[list[dict], int]:
-        """Get audit log entries, newest first."""
-        result = (
+        """Get filtered audit log entries, newest first."""
+        query = (
             self.supabase.table("seller_audit_log")
-            .select("id, action, seller_name, source, source_run_id, user_id, created_at, affected_count, seller_count_snapshot", count="exact")
+            .select(
+                "id, action, seller_name, source, source_run_id, user_id, "
+                "created_at, affected_count, seller_count_snapshot, new_value",
+                count="exact",
+            )
             .eq("org_id", org_id)
+        )
+
+        if action_types:
+            query = query.in_("action", action_types)
+        if date_from:
+            query = query.gte("created_at", date_from)
+        if date_to:
+            query = query.lte("created_at", date_to)
+
+        result = (
+            query
             .order("created_at", desc=True)
             .range(offset, offset + limit - 1)
             .execute()

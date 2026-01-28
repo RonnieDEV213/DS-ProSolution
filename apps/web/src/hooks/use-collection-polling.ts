@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
+import { queryKeys } from "@/lib/query-keys";
+import { getAccessToken } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-
-// Timeout for polling requests - abort if taking too long to prevent request buildup
-const POLLING_TIMEOUT_MS = 3000;
 
 interface EnhancedProgress {
   run_id: string;
@@ -44,167 +45,76 @@ interface CollectionRun {
 }
 
 export function useCollectionPolling(pollingInterval = 500) {
-  const [activeRun, setActiveRun] = useState<CollectionRun | null>(null);
-  const [progress, setProgress] = useState<EnhancedProgress | null>(null);
   const [newSellerIds, setNewSellerIds] = useState<Set<string>>(new Set());
-  const supabase = createClient();
 
-  // Refs to track and cancel in-flight requests
-  const activeRunAbortRef = useRef<AbortController | null>(null);
-  const progressAbortRef = useRef<AbortController | null>(null);
-
-  // Check for active run
-  const checkActiveRun = useCallback(async () => {
-    // Abort any previous in-flight request
-    if (activeRunAbortRef.current) {
-      activeRunAbortRef.current.abort();
-    }
-
-    const controller = new AbortController();
-    activeRunAbortRef.current = controller;
-
-    // Set timeout to auto-abort
-    const timeoutId = setTimeout(() => controller.abort(), POLLING_TIMEOUT_MS);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        clearTimeout(timeoutId);
-        return null;
-      }
+  // Query for active run - polls continuously to detect new runs
+  const {
+    data: activeRun,
+    refetch: refetchActiveRun,
+  } = useQuery({
+    queryKey: queryKeys.collection.runs.active(),
+    queryFn: async ({ signal }): Promise<CollectionRun | null> => {
+      const token = await getAccessToken();
+      if (!token) return null;
 
       const response = await fetch(`${API_BASE}/collection/runs?limit=1`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        signal: controller.signal,
+        headers: { Authorization: `Bearer ${token}` },
+        signal,
       });
-      clearTimeout(timeoutId);
 
-      if (response.ok) {
-        const data = await response.json();
-        const runs = data.runs || [];
-        const active = runs.find(
-          (r: CollectionRun) => r.status === "running" || r.status === "paused"
-        );
-        setActiveRun(active || null);
-        return active || null;
-      }
-    } catch (e) {
-      clearTimeout(timeoutId);
-      // Suppress transient network errors and abort errors during polling
-      if (e instanceof Error && e.name === "AbortError") {
-        return null;
-      }
-      if (e instanceof TypeError && (e as Error).message === "Failed to fetch") {
-        // Silently ignore - will retry on next poll
-        return null;
-      }
-      console.error("Failed to check active run:", e);
-    }
-    return null;
-  }, [supabase.auth]);
+      if (!response.ok) return null;
+      const data = await response.json();
+      const runs = data.runs || [];
+      return runs.find(
+        (r: CollectionRun) => r.status === "running" || r.status === "paused"
+      ) || null;
+    },
+    refetchInterval: pollingInterval,
+    // Stop polling when page is not visible (built-in TanStack Query behavior)
+    refetchIntervalInBackground: false,
+    // Don't show error toasts for polling failures
+    retry: false,
+    // Stale time 0 - always refetch on interval
+    staleTime: 0,
+  });
 
-  // Fetch progress for active run
-  const fetchProgress = useCallback(async (run: CollectionRun) => {
-    // Abort any previous in-flight request
-    if (progressAbortRef.current) {
-      progressAbortRef.current.abort();
-    }
+  // Query for progress (only runs when activeRun exists and is active)
+  const {
+    data: progress,
+  } = useQuery({
+    queryKey: queryKeys.collection.runs.progress(activeRun?.id ?? ""),
+    queryFn: async ({ signal }): Promise<EnhancedProgress | null> => {
+      if (!activeRun) return null;
 
-    const controller = new AbortController();
-    progressAbortRef.current = controller;
-
-    // Set timeout to auto-abort
-    const timeoutId = setTimeout(() => controller.abort(), POLLING_TIMEOUT_MS);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        clearTimeout(timeoutId);
-        return;
-      }
+      const token = await getAccessToken();
+      if (!token) return null;
 
       const response = await fetch(
-        `${API_BASE}/collection/runs/${run.id}/progress`,
+        `${API_BASE}/collection/runs/${activeRun.id}/progress`,
         {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          signal: controller.signal,
+          headers: { Authorization: `Bearer ${token}` },
+          signal,
         }
       );
-      clearTimeout(timeoutId);
 
-      if (response.ok) {
-        const data = await response.json();
-        // Provide defaults for new fields for backwards compatibility
-        setProgress({
-          ...data,
-          run_id: run.id,
-          status: run.status,
-          // Default phase to "amazon" if backend hasn't been updated
-          phase: data.phase || "amazon",
-          // Default products_found to 0 if not provided
-          products_found: data.products_found ?? 0,
-        });
-      }
-    } catch (e) {
-      clearTimeout(timeoutId);
-      // Suppress transient network errors and abort errors during polling
-      if (e instanceof Error && e.name === "AbortError") {
-        return;
-      }
-      if (e instanceof TypeError && (e as Error).message === "Failed to fetch") {
-        return;
-      }
-      console.error("Failed to fetch progress:", e);
-    }
-  }, [supabase.auth]);
-
-  // Track consecutive failures to avoid flicker on transient errors
-  const consecutiveFailuresRef = useRef(0);
-  const MAX_FAILURES_BEFORE_CLEAR = 3;
-
-  // Polling effect
-  useEffect(() => {
-    let mounted = true;
-
-    const poll = async () => {
-      if (!mounted) return;
-
-      const run = await checkActiveRun();
-      if (run && (run.status === "running" || run.status === "paused")) {
-        consecutiveFailuresRef.current = 0; // Reset on success
-        await fetchProgress(run);
-      } else if (run === null) {
-        // Only clear progress after multiple consecutive failures to avoid flicker
-        consecutiveFailuresRef.current += 1;
-        if (consecutiveFailuresRef.current >= MAX_FAILURES_BEFORE_CLEAR) {
-          setProgress(null);
-        }
-        // Otherwise keep showing last known progress
-      } else {
-        // Run exists but is not running/paused (completed, cancelled, etc.)
-        consecutiveFailuresRef.current = 0;
-        setProgress(null);
-      }
-    };
-
-    // Initial check
-    poll();
-
-    // Set up polling interval
-    const interval = setInterval(poll, pollingInterval);
-
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-      // Abort any in-flight requests on cleanup
-      if (activeRunAbortRef.current) {
-        activeRunAbortRef.current.abort();
-      }
-      if (progressAbortRef.current) {
-        progressAbortRef.current.abort();
-      }
-    };
-  }, [checkActiveRun, fetchProgress, pollingInterval]);
+      if (!response.ok) return null;
+      const data = await response.json();
+      return {
+        ...data,
+        run_id: activeRun.id,
+        status: activeRun.status,
+        // Default phase to "amazon" if backend hasn't been updated
+        phase: data.phase || "amazon",
+        // Default products_found to 0 if not provided
+        products_found: data.products_found ?? 0,
+      };
+    },
+    enabled: !!activeRun && (activeRun.status === "running" || activeRun.status === "paused"),
+    refetchInterval: pollingInterval,
+    refetchIntervalInBackground: false,
+    retry: false,
+    staleTime: 0,
+  });
 
   // Track new sellers added during this session
   const addNewSellerId = useCallback((id: string) => {
@@ -215,26 +125,17 @@ export function useCollectionPolling(pollingInterval = 500) {
     setNewSellerIds(new Set());
   }, []);
 
-  // Full refresh that updates both activeRun AND progress
-  // Use this after pause/resume/cancel to immediately reflect the new state
-  // NOTE: We don't clear progress here - let the polling loop handle that
-  // with its consecutive failure tracking to avoid flicker on timing issues
+  // Full refresh that forces re-fetch of active run and progress
   const refreshAll = useCallback(async () => {
-    const run = await checkActiveRun();
-    if (run && (run.status === "running" || run.status === "paused")) {
-      consecutiveFailuresRef.current = 0;
-      await fetchProgress(run);
-    }
-    // Don't setProgress(null) here - the polling loop will handle cleanup
-    // after consecutive failures to avoid UI flicker during pause/resume
-  }, [checkActiveRun, fetchProgress]);
+    await refetchActiveRun();
+  }, [refetchActiveRun]);
 
   return {
-    activeRun,
-    progress,
+    activeRun: activeRun ?? null,
+    progress: progress ?? null,
     newSellerIds,
     addNewSellerId,
     clearNewSellerIds,
-    refresh: refreshAll,  // Use refreshAll instead of just checkActiveRun
+    refresh: refreshAll,
   };
 }

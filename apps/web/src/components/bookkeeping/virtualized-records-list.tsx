@@ -38,6 +38,8 @@ import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { RecordRow } from "@/components/bookkeeping/record-row";
 import { SkeletonRow } from "@/components/bookkeeping/skeleton-row";
 import { ResultSummary } from "@/components/bookkeeping/result-summary";
+import { FilteredEmpty } from "@/components/empty-states/filtered-empty";
+import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 
 type FieldType = "text" | "date" | "number" | "cents";
 
@@ -371,10 +373,13 @@ export function VirtualizedRecordsList({
   }
 
   if (records.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        No records found for this account.
-      </div>
+    return isFiltered ? (
+      <FilteredEmpty />
+    ) : (
+      <FirstTimeEmpty
+        entityName="records"
+        description="No records found for this account. Add your first order tracking record to get started."
+      />
     );
   }
 
