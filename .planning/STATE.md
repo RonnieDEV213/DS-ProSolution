@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-01-27)
 Phase: 30 of 30 (consistent-skeletons-empty-states)
 Plan: 2 of 4
 Status: In progress
-Last activity: 2026-01-28 — Completed 30-02-PLAN.md
+Last activity: 2026-01-28 — Completed 30-01-PLAN.md (retroactive, after 30-02)
 
 Progress: [██░░░░░░░░] 20% (v5 milestone: 1/5 phases, Phase 30: 2/4 plans)
 
@@ -55,5 +55,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: Completed 30-02-PLAN.md (collection page skeleton loading states)
+Stopped at: Completed 30-01-PLAN.md (VA layout + automation table skeletons)
 Resume file: None
