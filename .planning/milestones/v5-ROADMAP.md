@@ -64,7 +64,13 @@ Plans:
   1. Exporting sellers (CSV/JSON/clipboard) creates a history entry with export metadata (format, count, filters)
   2. Flagging/unflagging sellers creates history entries with seller IDs and flag state
   3. History viewer UI allows browsing, filtering by event type, and viewing event details
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 31-01-PLAN.md — Backend foundation: migration, service methods, API endpoints
+- [ ] 31-02-PLAN.md — Export modal and export event recording
+- [ ] 31-03-PLAN.md — Flag event recording and batch flag API
+- [ ] 31-04-PLAN.md — History viewer: filtering, infinite scroll, day grouping
+- [ ] 31-05-PLAN.md — Changes panel variants and clickable History header
 
 ### Phase 32: History-Based Rollback
 
