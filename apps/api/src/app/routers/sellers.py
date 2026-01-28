@@ -23,6 +23,9 @@ from app.models import (
     BulkOperationResponse,
     BulkSellerCreate,
     BulkSellerDelete,
+    FlagBatchRequest,
+    FlagBatchResponse,
+    LogExportRequest,
     SellerCreate,
     SellerListResponse,
     SellerResponse,
@@ -253,16 +256,33 @@ async def delete_seller(
 async def get_audit_log(
     limit: int = 50,
     offset: int = 0,
+    action_types: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     user: dict = Depends(require_permission_key("admin.automation")),
     service: CollectionService = Depends(get_collection_service),
 ):
     """
-    Get audit log of seller changes.
+    Get audit log of seller changes with optional filtering.
+
+    Query params:
+    - action_types: Comma-separated action filter (e.g. "export,flag")
+    - date_from: ISO date string for range start
+    - date_to: ISO date string for range end
 
     Requires admin.automation permission.
     """
     org_id = user["membership"]["org_id"]
-    entries, total = await service.get_audit_log(org_id, limit=limit, offset=offset)
+    action_list = action_types.split(",") if action_types else None
+
+    entries, total = await service.get_audit_log(
+        org_id,
+        limit=limit,
+        offset=offset,
+        action_types=action_list,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
     return AuditLogResponse(
         entries=[
@@ -276,6 +296,7 @@ async def get_audit_log(
                 created_at=e["created_at"],
                 affected_count=e["affected_count"],
                 seller_count_snapshot=e.get("seller_count_snapshot"),
+                new_value=e.get("new_value"),
             )
             for e in entries
         ],
@@ -313,6 +334,59 @@ async def get_sellers_at_log(
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ============================================================
+# Audit Log Recording
+# ============================================================
+
+
+@router.post("/log-export", status_code=201)
+async def log_export_event(
+    data: LogExportRequest,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Record an export event in the audit log.
+
+    Called by the frontend after any export operation completes
+    (regardless of client-side or server-side export path).
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    user_id = user["user_id"]
+
+    await service.log_export_event(
+        org_id, user_id, data.seller_names, data.export_format
+    )
+
+    return {"status": "recorded"}
+
+
+@router.post("/flag-batch", response_model=FlagBatchResponse)
+async def flag_batch(
+    data: FlagBatchRequest,
+    user: dict = Depends(require_permission_key("admin.automation")),
+    service: CollectionService = Depends(get_collection_service),
+):
+    """
+    Batch update flag state for multiple sellers.
+
+    Creates a single audit log entry for the batch operation.
+    Used for drag-paint flagging and other bulk flag operations.
+
+    Requires admin.automation permission.
+    """
+    org_id = user["membership"]["org_id"]
+    user_id = user["user_id"]
+
+    count = await service.batch_toggle_flag(
+        org_id, user_id, data.seller_ids, data.flagged
+    )
+
+    return FlagBatchResponse(updated_count=count)
 
 
 # ============================================================
