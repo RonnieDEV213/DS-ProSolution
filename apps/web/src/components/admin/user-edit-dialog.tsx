@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -547,7 +548,17 @@ export function UserEditDialog({
                       Assign access profiles to grant specific permissions.
                     </p>
                     {loadingDeptRoles ? (
-                      <p className="text-sm text-muted-foreground">Loading profiles...</p>
+                      <div className="space-y-2 animate-fade-in">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-3 p-3 rounded bg-muted">
+                            <Skeleton className="h-4 w-4 rounded" />
+                            <div className="flex-1">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-3 w-48 mt-1" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     ) : availableDeptRoles.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         No access profiles available. Create profiles in the Access Profiles page.
