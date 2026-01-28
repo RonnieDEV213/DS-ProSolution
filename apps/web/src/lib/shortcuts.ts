@@ -11,6 +11,7 @@ export const SHORTCUT_GROUPS = [
   "Navigation",
   "Actions",
   "Command Palette",
+  "Collection",
 ] as const
 
 export type ShortcutGroup = typeof SHORTCUT_GROUPS[number]
@@ -71,11 +72,98 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     group: "Actions",
   },
   {
+    key: "n",
+    label: "New",
+    description: "Create new item (context-dependent)",
+    display: ["N"],
+    group: "Actions",
+  },
+  {
+    key: "f",
+    label: "Filter",
+    description: "Focus search/filter input",
+    display: ["F"],
+    group: "Actions",
+  },
+  {
+    key: "e",
+    label: "Export",
+    description: "Export current view",
+    display: ["E"],
+    group: "Actions",
+  },
+  {
     key: "Escape",
     label: "Close",
     description: "Close modal or dialog",
     display: ["Esc"],
     group: "Actions",
+  },
+
+  // Collection (page-scoped)
+  {
+    key: "Delete",
+    label: "Delete Selected",
+    description: "Delete selected sellers",
+    display: ["Del"],
+    group: "Collection",
+    scope: "collection",
+  },
+  {
+    key: "f",
+    label: "Flag Selected",
+    description: "Toggle flag on selected sellers",
+    display: ["F"],
+    group: "Collection",
+    scope: "collection",
+  },
+  {
+    key: "e",
+    label: "Export",
+    description: "Export sellers (selection-scoped if any selected)",
+    display: ["E"],
+    group: "Collection",
+    scope: "collection",
+  },
+  {
+    key: "s",
+    label: "Start Run",
+    description: "Open run configuration dialog",
+    display: ["S"],
+    group: "Collection",
+    scope: "collection",
+  },
+  {
+    key: "Escape",
+    label: "Clear Selection",
+    description: "Clear seller selection",
+    display: ["Esc"],
+    group: "Collection",
+    scope: "collection",
+  },
+  {
+    key: "mod+z",
+    label: "Undo Delete",
+    description: "Undo last bulk delete",
+    display: ["\u2318", "Z"],
+    group: "Collection",
+    scope: "collection",
+  },
+  {
+    key: "mod+a",
+    label: "Select All",
+    description: "Select all visible sellers",
+    display: ["\u2318", "A"],
+    group: "Collection",
+    scope: "collection",
+  },
+  {
+    key: "mod+c",
+    label: "Copy Selected",
+    description: "Copy selected seller names to clipboard",
+    display: ["\u2318", "C"],
+    group: "Collection",
+    scope: "collection",
   },
 ]
 
