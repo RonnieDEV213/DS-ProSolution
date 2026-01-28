@@ -59,6 +59,13 @@ export default function CollectionPage() {
     setLogDetailOpen(true);
   };
 
+  const handleHistoryHeaderClick = () => {
+    // Open modal with no specific entry pre-selected (browse-only mode)
+    setSelectedLogId(null);
+    setSelectedRunId(null);
+    setLogDetailOpen(true);
+  };
+
   const handleRunStarted = () => {
     clearNewSellerIds();
     refresh();
@@ -68,7 +75,7 @@ export default function CollectionPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Collection"
+        title="Automation Hub"
         description="Manage seller collections and collection runs."
       />
 
@@ -103,6 +110,7 @@ export default function CollectionPage() {
                 setSelectedLogId(null);
                 setLogDetailOpen(true);
               }}
+              onHistoryClick={handleHistoryHeaderClick}
             />
           </div>
         </div>

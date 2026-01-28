@@ -5,7 +5,7 @@ import { getAccessToken } from "@/lib/api";
 import { useSyncRunHistory } from "@/hooks/sync/use-sync-run-history";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { History, Plus, Minus, Edit3, Bot, User } from "lucide-react";
+import { History, Plus, Minus, Edit3, Bot, User, Download, Flag } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { formatDistanceToNow } from "date-fns";
@@ -30,11 +30,12 @@ interface CollectionRunEntry {
 interface ManualEditEntry {
   type: "manual_edit";
   id: string;
-  action: "add" | "edit" | "remove";
+  action: "add" | "edit" | "remove" | "export" | "flag";
   seller_name: string;
   affected_count: number;
   created_at: string;
   seller_count_snapshot?: number;
+  new_value?: string;
 }
 
 type HistoryEntry = CollectionRunEntry | ManualEditEntry;
@@ -45,6 +46,7 @@ interface HistoryPanelProps {
   hasActiveRun: boolean;
   onManualEditClick: (logId: string) => void;
   onCollectionRunClick: (runId: string) => void;
+  onHistoryClick: () => void;
 }
 
 const statusStyles = {
@@ -53,10 +55,12 @@ const statusStyles = {
   cancelled: "bg-yellow-500/20 text-yellow-400",
 };
 
-const actionIcons = {
+const actionIcons: Record<string, React.ReactNode> = {
   add: <Plus className="h-3 w-3 text-green-400" />,
   edit: <Edit3 className="h-3 w-3 text-yellow-400" />,
   remove: <Minus className="h-3 w-3 text-red-400" />,
+  export: <Download className="h-3 w-3 text-purple-400" />,
+  flag: <Flag className="h-3 w-3 text-yellow-400" />,
 };
 
 export function HistoryPanel({
@@ -65,6 +69,7 @@ export function HistoryPanel({
   hasActiveRun,
   onManualEditClick,
   onCollectionRunClick,
+  onHistoryClick,
 }: HistoryPanelProps) {
   // Cache-first run history from IndexedDB
   const { runs, isLoading: runsLoading } = useSyncRunHistory();
@@ -88,11 +93,12 @@ export function HistoryPanel({
         const entries: ManualEditEntry[] = logs.map((log: Record<string, unknown>) => ({
           type: "manual_edit" as const,
           id: log.id as string,
-          action: log.action as "add" | "edit" | "remove",
+          action: log.action as "add" | "edit" | "remove" | "export" | "flag",
           seller_name: log.seller_name as string,
           affected_count: (log.affected_count as number) || 1,
           created_at: log.created_at as string,
           seller_count_snapshot: log.seller_count_snapshot as number | undefined,
+          new_value: log.new_value as string | undefined,
         }));
         setAuditLogs(entries);
       }
@@ -184,6 +190,27 @@ export function HistoryPanel({
     </button>
   );
 
+  const getManualEditLabel = (entry: ManualEditEntry): string => {
+    if (entry.action === "export") {
+      return `Exported ${entry.affected_count} seller${entry.affected_count !== 1 ? "s" : ""}`;
+    }
+    if (entry.action === "flag") {
+      // Parse new_value to determine flagged/unflagged
+      let flagged = true;
+      if (entry.new_value) {
+        try {
+          const parsed = JSON.parse(entry.new_value);
+          flagged = parsed.flagged ?? true;
+        } catch { /* use default */ }
+      }
+      const verb = flagged ? "Flagged" : "Unflagged";
+      return `${verb} ${entry.affected_count} seller${entry.affected_count !== 1 ? "s" : ""}`;
+    }
+    return entry.affected_count > 1
+      ? `${entry.affected_count} sellers`
+      : entry.seller_name;
+  };
+
   const renderManualEdit = (entry: ManualEditEntry) => (
     <button
       key={`edit-${entry.id}`}
@@ -195,9 +222,7 @@ export function HistoryPanel({
         <div className="flex items-center gap-1.5">
           {actionIcons[entry.action]}
           <span className="text-foreground text-sm truncate">
-            {entry.affected_count > 1
-              ? `${entry.affected_count} sellers`
-              : entry.seller_name}
+            {getManualEditLabel(entry)}
           </span>
         </div>
       </div>
@@ -209,11 +234,19 @@ export function HistoryPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <History className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-medium text-foreground">History</h3>
-      </div>
+      {/* Clickable History header - opens full history viewer */}
+      <button
+        onClick={onHistoryClick}
+        className="flex items-center gap-2 mb-3 group cursor-pointer w-full text-left"
+      >
+        <History className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+        <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+          History
+        </h3>
+        <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors ml-auto">
+          View all
+        </span>
+      </button>
 
       {/* History entries */}
       <div className="flex-1 overflow-y-auto space-y-1 min-h-0 scrollbar-thin">
