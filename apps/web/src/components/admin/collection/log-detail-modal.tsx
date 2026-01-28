@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus, Bot, FileQuestion, CalendarIcon, Loader2 } from "lucide-react";
+import { Plus, Minus, Bot, FileQuestion, CalendarIcon, Loader2, Download, Flag, FlagOff } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -49,10 +49,17 @@ interface CollectionRunEntry {
 
 type HistoryEntry = ManualLogEntry | CollectionRunEntry;
 
-// Changes type for diff display
+// Changes type for diff display (supports diff, export, and flag event types)
 interface SellerChanges {
+  type: "diff" | "export" | "flag";
   added: string[];
   removed: string[];
+  // For export events:
+  exportFormat?: string;
+  exportedSellers?: string[];
+  // For flag events:
+  flagged?: boolean;
+  flaggedSellers?: string[];
 }
 
 interface LogDetailModalProps {
@@ -130,7 +137,7 @@ export function LogDetailModal({
   selectedLogId,
   selectedRunId,
 }: LogDetailModalProps) {
-  const [changes, setChanges] = useState<SellerChanges>({ added: [], removed: [] });
+  const [changes, setChanges] = useState<SellerChanges>({ type: "diff", added: [], removed: [] });
   const [allEntries, setAllEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [changesLoading, setChangesLoading] = useState(false);
@@ -165,6 +172,7 @@ export function LogDetailModal({
         const data = await res.json();
         // New response shape: { sellers, count, added, removed }
         setChanges({
+          type: "diff",
           added: data.added || [],
           removed: data.removed || [],
         });
@@ -191,6 +199,7 @@ export function LogDetailModal({
         const data = await res.json();
         // Collection runs only add sellers, never remove
         setChanges({
+          type: "diff",
           added: (data.sellers || []).map((s: { display_name: string }) => s.display_name),
           removed: [],
         });
@@ -378,7 +387,7 @@ export function LogDetailModal({
       setAllEntries([]);
       setHasMore(true);
       setViewingEntry(null);
-      setChanges({ added: [], removed: [] });
+      setChanges({ type: "diff", added: [], removed: [] });
     }
   }, [open]);
 
@@ -386,6 +395,41 @@ export function LogDetailModal({
   const handleEntryClick = (entry: HistoryEntry) => {
     if (entry.type === "manual_edit") {
       setViewingEntry({ type: "log", id: entry.id });
+
+      // Export and flag entries: parse new_value JSON instead of fetching diff
+      if (entry.action === "export" && entry.new_value) {
+        try {
+          const parsed = JSON.parse(entry.new_value);
+          setChanges({
+            type: "export",
+            added: [],
+            removed: [],
+            exportFormat: parsed.format || "CSV",
+            exportedSellers: parsed.sellers || [],
+          });
+        } catch {
+          setChanges({ type: "export", added: [], removed: [], exportFormat: "CSV", exportedSellers: [] });
+        }
+        return;
+      }
+
+      if (entry.action === "flag" && entry.new_value) {
+        try {
+          const parsed = JSON.parse(entry.new_value);
+          setChanges({
+            type: "flag",
+            added: [],
+            removed: [],
+            flagged: parsed.flagged ?? true,
+            flaggedSellers: parsed.sellers || [],
+          });
+        } catch {
+          setChanges({ type: "flag", added: [], removed: [], flagged: true, flaggedSellers: [] });
+        }
+        return;
+      }
+
+      // Standard add/edit/remove entries: fetch diff from API
       fetchChangesForEntry(entry.id);
     } else if (entry.type === "collection_run") {
       setViewingEntry({ type: "run", id: entry.id });
@@ -468,6 +512,75 @@ export function LogDetailModal({
                         <Skeleton className="h-3 flex-1" />
                       </div>
                     ))}
+                  </div>
+                ) : changes.type === "export" ? (
+                  /* Export Changes Panel */
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-foreground">
+                      Exported {changes.exportedSellers?.length || 0} sellers as {changes.exportFormat || "CSV"}
+                    </h4>
+                    <div className="space-y-1">
+                      {(changes.exportedSellers || []).map((name, i) => (
+                        <div
+                          key={`exported-${name}-${i}`}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded",
+                            "border-l-2 border-purple-500",
+                            i % 2 === 0 ? "bg-purple-500/10" : "bg-purple-500/5"
+                          )}
+                        >
+                          <Download className="h-3.5 w-3.5 text-purple-400" />
+                          <span className="text-sm text-purple-300">{name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : changes.type === "flag" ? (
+                  /* Flag Changes Panel */
+                  <div className="space-y-3">
+                    {changes.flagged ? (
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground mb-2">
+                          Flagged ({changes.flaggedSellers?.length || 0})
+                        </h4>
+                        <div className="space-y-1">
+                          {(changes.flaggedSellers || []).map((name, i) => (
+                            <div
+                              key={`flagged-${name}-${i}`}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded",
+                                "border-l-2 border-yellow-500",
+                                i % 2 === 0 ? "bg-yellow-500/10" : "bg-yellow-500/5"
+                              )}
+                            >
+                              <Flag className="h-3.5 w-3.5 text-yellow-400" />
+                              <span className="text-sm text-yellow-300">{name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground mb-2">
+                          Unflagged ({changes.flaggedSellers?.length || 0})
+                        </h4>
+                        <div className="space-y-1">
+                          {(changes.flaggedSellers || []).map((name, i) => (
+                            <div
+                              key={`unflagged-${name}-${i}`}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded",
+                                "border-l-2 border-gray-500",
+                                i % 2 === 0 ? "bg-gray-500/10" : "bg-gray-500/5"
+                              )}
+                            >
+                              <FlagOff className="h-3.5 w-3.5 text-gray-400" />
+                              <span className="text-sm text-gray-300">{name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : !hasChanges ? (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
