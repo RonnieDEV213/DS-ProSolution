@@ -1,8 +1,8 @@
 # Milestone v5: Collection Polish + App-Wide Cache
 
-**Status:** In Progress
+**Status:** Complete — shipped 2026-01-28
 **Phases:** 29-31, 33 (Phase 32 dropped)
-**Total Plans:** TBD
+**Total Plans:** 14
 
 ## Overview
 
@@ -22,7 +22,7 @@ v5 makes the entire application feel instant-loading by introducing a persistent
 - [x] **Phase 30: Consistent Skeletons & Empty States** — Wire skeletons to all legacy pages, standardize empty states
 - [x] **Phase 31: Collection History System** — Record export/flag events, build history viewer UI
 - ~~Phase 32: History-Based Rollback~~ — **DROPPED** (only undo toast is seller delete in sellers-grid.tsx; Ctrl+Z removal folded into Phase 33)
-- [ ] **Phase 33: Collection Keyboard Shortcuts** — Page-scoped shortcuts for collection actions, page-contextual shortcuts reference
+- [x] **Phase 33: Collection Keyboard Shortcuts** — Page-scoped shortcuts for collection actions, page-contextual shortcuts reference
 
 ## Phase Details
 
@@ -87,10 +87,10 @@ Plans:
   3. Shortcuts work only when on the collection page (no conflict with other pages)
   4. Ctrl+Z keyboard shortcut KEPT as-is (per user override — undoes bulk delete, 1 level)
   5. Command palette (Cmd+K) stays navigation-only (no collection shortcuts added)
-**Plans**: 2 plans, 2 waves
+**Plans**: 2 plans, 2 waves — COMPLETE
 Plans:
-- [ ] 33-01-PLAN.md — Registry extension + page-contextual ShortcutsReference
-- [ ] 33-02-PLAN.md — useCollectionShortcuts hook, wiring, toolbar, hint
+- [x] 33-01-PLAN.md — Registry extension + page-contextual ShortcutsReference
+- [x] 33-02-PLAN.md — useCollectionShortcuts hook, wiring, toolbar, hint
 
 ---
 
@@ -120,5 +120,5 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-27*
-*Updated: 2026-01-28 — Phase 33 planned (2 plans, 2 waves)*
+*Updated: 2026-01-28 — Phase 33 complete; v5 milestone shipped*
 *For current project status, see .planning/ROADMAP.md*

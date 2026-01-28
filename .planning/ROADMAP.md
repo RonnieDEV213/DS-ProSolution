@@ -6,7 +6,7 @@
 - ✅ v2 SellerCollection (Phases 8-14) - shipped 2026-01-23
 - ✅ v3 Storage & Rendering Infrastructure (Phases 15-21) - shipped 2026-01-25
 - ✅ v4 UI/Design System (Phases 22-28.1) - shipped 2026-01-27
-- 🚧 v5 Collection Polish + App-Wide Cache (Phases 29-33) - in progress (Phase 31 complete)
+- ✅ v5 Collection Polish + App-Wide Cache (Phases 29-31, 33; Phase 32 dropped) - shipped 2026-01-28
 
 ## Phases
 
@@ -32,7 +32,7 @@ See: .planning/milestones/v3-ROADMAP.md
 </details>
 
 <details>
-<summary>✅ v4 UI/Design System (Phases 22-28.1) — SHIPPED 2026-01-27</summary>
+<summary>v4 UI/Design System (Phases 22-28.1) — SHIPPED 2026-01-27</summary>
 
 See: .planning/milestones/v4-ROADMAP.md
 
@@ -47,8 +47,10 @@ See: .planning/milestones/v4-ROADMAP.md
 | 15-21 | v3 | 23/23 | Complete | 2026-01-25 |
 | 22-28.1 | v4 | 44/44 | Complete | 2026-01-27 |
 
-**Total:** 4 milestones shipped, 28.1 phases, 116 plans + Phases 29-31 (12 plans)
+| 29-31, 33 | v5 | 14/14 | Complete | 2026-01-28 |
+
+**Total:** 5 milestones shipped, 33 phases, 130 plans
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-27 — Phase 31 Collection History System complete*
+*Last updated: 2026-01-28 — Phase 33 complete; v5 milestone shipped*
