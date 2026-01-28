@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-27)
 ## Current Position
 
 Phase: 31 of 31 (collection-history-system)
-Plan: 4 of ? in phase
+Plan: 5 of ? in phase
 Status: In progress
-Last activity: 2026-01-28 — Completed 31-04-PLAN.md (history viewer UI)
+Last activity: 2026-01-28 — Completed 31-05-PLAN.md (export/flag Changes panels + clickable History header)
 
 Progress: [████░░░░░░] 40% (v5 milestone: 2/5 phases)
 
@@ -55,5 +55,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: Completed 31-02-PLAN.md (seller export modal with audit logging)
+Stopped at: Completed 31-05-PLAN.md (export/flag Changes panels + clickable History header)
 Resume file: None
