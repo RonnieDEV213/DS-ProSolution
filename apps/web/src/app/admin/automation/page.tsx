@@ -72,6 +72,13 @@ export default function CollectionPage() {
     handleRefresh();
   };
 
+  // Listen for S keyboard shortcut from SellersGrid
+  useEffect(() => {
+    const handleStartRun = () => setRunConfigOpen(true);
+    window.addEventListener("dspro:shortcut:startrun", handleStartRun);
+    return () => window.removeEventListener("dspro:shortcut:startrun", handleStartRun);
+  }, []);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader

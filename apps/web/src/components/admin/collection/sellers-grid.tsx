@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Loader2, Download } from "lucide-react";
+import { Plus, Trash2, Loader2, Download, Flag } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FirstTimeEmpty } from "@/components/empty-states/first-time-empty";
 import { NoResults } from "@/components/empty-states/no-results";
@@ -29,6 +29,9 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { db } from "@/lib/db";
 import { sellerApi } from "@/lib/api";
 import type { SellerRecord } from "@/lib/db/schema";
+import { useCollectionShortcuts } from "@/hooks/use-collection-shortcuts";
+import { Kbd } from "@/components/ui/kbd";
+import { STORAGE_KEYS } from "@/lib/storage-keys";
 import { SellerExportModal } from "./seller-export-modal";
 
 // Grid configuration
@@ -287,6 +290,22 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
+  // Derived: any dialog open (gates keyboard shortcuts to prevent conflicts)
+  const isDialogOpen = deleteDialogOpen || exportModalOpen;
+
+  // First-visit shortcuts hint state
+  const [showShortcutsHint, setShowShortcutsHint] = useState(false);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem(STORAGE_KEYS.COLLECTION_SHORTCUTS_HINT_DISMISSED);
+    if (!dismissed) setShowShortcutsHint(true);
+  }, []);
+
+  const dismissHint = useCallback(() => {
+    localStorage.setItem(STORAGE_KEYS.COLLECTION_SHORTCUTS_HINT_DISMISSED, "true");
+    setShowShortcutsHint(false);
+  }, []);
+
   // Calculate grid dimensions
   const { columnCount, cellWidth } = useMemo(() => {
     const availableWidth = containerSize.width - GRID_PADDING * 2;
@@ -442,6 +461,46 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     pendingDeleteIdsRef.current = Array.from(selectedIds);
     setDeleteDialogOpen(true);
   };
+
+  // Flag toggle handler (Google Docs Ctrl+B pattern)
+  const handleFlagToggle = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    const selectedSellers = filteredSellers.filter(s => selectedIds.has(s.id));
+    const allFlagged = selectedSellers.every(s => s.flagged);
+    const newFlagState = !allFlagged;
+    const idsToChange = selectedSellers
+      .filter(s => s.flagged !== newFlagState)
+      .map(s => s.id);
+    if (idsToChange.length > 0) {
+      batchFlagMutation.mutate(
+        { ids: idsToChange, flagged: newFlagState },
+        { onSuccess: () => onSellerChange() }
+      );
+    }
+  }, [selectedIds, filteredSellers, batchFlagMutation, onSellerChange]);
+
+  // S shortcut handler: dispatch custom event to page.tsx (RunConfigModal lives there)
+  const handleStartRunShortcut = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("dspro:shortcut:startrun"));
+  }, []);
+
+  // Clear selection handler for Escape shortcut
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setSelectionAnchor(null);
+  }, []);
+
+  // Wire collection keyboard shortcuts hook
+  useCollectionShortcuts({
+    enabled: true,
+    selectedCount: selectedIds.size,
+    isDialogOpen,
+    onDelete: handleBulkDeleteClick,
+    onFlag: handleFlagToggle,
+    onExport: () => setExportModalOpen(true),
+    onStartRun: handleStartRunShortcut,
+    onClearSelection: handleClearSelection,
+  });
 
   // Bulk delete: confirmed via dialog (use ref captured at dialog open)
   const handleBulkDeleteConfirm = async () => {
@@ -725,7 +784,7 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
       if (index < currentFilteredSellers.length) {
         const seller = currentFilteredSellers[index];
         // Toggle flag via mutation hook (updates IndexedDB + API, useLiveQuery reacts)
-        flagMutation.mutate({ id: seller.id, flagged: !seller.flagged });
+        flagMutation.mutate({ id: seller.id, flagged: !seller.flagged }, { onSuccess: () => onSellerChange() });
       }
       return;
     }
@@ -742,8 +801,8 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     if (idsToToggle.length === 0) return;
 
     // Batch flag all sellers in the drag rectangle (single API call + single audit entry)
-    batchFlagMutation.mutate({ ids: idsToToggle, flagged: mode });
-  }, [flagMutation, batchFlagMutation, getGridPositionFromPixels, columnCount]);
+    batchFlagMutation.mutate({ ids: idsToToggle, flagged: mode }, { onSuccess: () => onSellerChange() });
+  }, [flagMutation, batchFlagMutation, getGridPositionFromPixels, columnCount, onSellerChange]);
 
   const handleMouseUp = useCallback(() => {
     // End left-click drag selection
@@ -1042,29 +1101,44 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
             )}
           </span>
           {selectedIds.size > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleBulkDeleteClick}
-              disabled={isDeleting}
-              className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
-            >
-              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleFlagToggle}
+                className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-900/30"
+              >
+                <Flag className="h-4 w-4 mr-1" />
+                Flag
+                <Kbd className="ml-1.5 text-[10px]">F</Kbd>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleBulkDeleteClick}
+                disabled={isDeleting}
+                className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
+              >
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                Delete
+                <Kbd className="ml-1.5 text-[10px]">Del</Kbd>
+              </Button>
+            </>
           )}
           <Button variant="outline" size="sm" onClick={() => setExportModalOpen(true)}>
             <Download className="h-4 w-4 mr-1" />
             Export
+            <Kbd className="ml-1.5 text-[10px]">E</Kbd>
           </Button>
         </div>
       </div>
 
-      {/* Seller export modal */}
+      {/* Seller export modal (scoped to selection when sellers are selected) */}
       <SellerExportModal
         open={exportModalOpen}
         onOpenChange={setExportModalOpen}
-        sellers={filteredSellers}
-        totalCount={totalCount}
+        sellers={selectedIds.size > 0 ? filteredSellers.filter(s => selectedIds.has(s.id)) : filteredSellers}
+        totalCount={selectedIds.size > 0 ? selectedIds.size : totalCount}
         onExportComplete={() => onSellerChange?.()}
       />
 
@@ -1090,6 +1164,18 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* First-visit shortcuts hint */}
+      {showShortcutsHint && (
+        <div className="flex items-center justify-between bg-muted/50 border border-border rounded-md px-3 py-2 mb-2 text-sm text-muted-foreground">
+          <span>
+            Tip: Press <Kbd>?</Kbd> for keyboard shortcuts
+          </span>
+          <Button variant="ghost" size="sm" onClick={dismissHint} className="text-xs h-6 px-2">
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       {/* Virtualized grid container */}
       <div
