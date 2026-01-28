@@ -12,7 +12,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Download, FileText, Braces, Plus, ChevronDown, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Download, FileText, Braces, Plus, ChevronDown, Trash2, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSyncSellers } from "@/hooks/sync/use-sync-sellers";
@@ -276,6 +287,11 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   sellersRef.current = sellers;
   const filteredSellersRef = useRef<SellerRecord[]>([]);
 
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const pendingDeleteIdsRef = useRef<string[]>([]);
+
   // Export options state
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFlagOnExport, setExportFlagOnExport] = useState(true);
@@ -432,11 +448,19 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
     }
   }, [undoStack, onSellerChange, refetch]);
 
-  // Bulk delete handler with undo support
-  const handleBulkDelete = async () => {
+  // Bulk delete: open confirmation dialog (capture IDs now, before mousedown clears selection)
+  const handleBulkDeleteClick = () => {
     if (selectedIds.size === 0) return;
+    pendingDeleteIdsRef.current = Array.from(selectedIds);
+    setDeleteDialogOpen(true);
+  };
 
-    const idsArray = Array.from(selectedIds);
+  // Bulk delete: confirmed via dialog (use ref captured at dialog open)
+  const handleBulkDeleteConfirm = async () => {
+    const idsArray = pendingDeleteIdsRef.current;
+    if (idsArray.length === 0) return;
+
+    setIsDeleting(true);
 
     // Capture deleted sellers from IndexedDB for undo (before deletion)
     const deletedSellers: (SellerRecord & { originalIndex: number })[] = [];
@@ -450,22 +474,30 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
 
     // Push to undo stack (single-level: overwrite)
     setUndoStack([{ sellers: deletedSellers, timestamp: Date.now() }]);
+    setDeleteDialogOpen(false);
     setSelectedIds(new Set());
 
     // Delete via mutation hook (handles IndexedDB removal + API)
-    deleteMutation.mutate({ ids: idsArray });
-
-    // Show toast with undo option
-    toast.success(
-      `Deleted ${idsArray.length} seller${idsArray.length > 1 ? 's' : ''}`,
-      {
-        duration: 5000,
-        action: {
-          label: 'Undo',
-          onClick: () => handleUndo(),
-        },
-      }
-    );
+    try {
+      await deleteMutation.mutateAsync({ ids: idsArray });
+      toast.success(
+        `Deleted ${idsArray.length.toLocaleString()} seller${idsArray.length > 1 ? 's' : ''}`,
+        {
+          duration: 5000,
+          action: {
+            label: 'Undo',
+            onClick: () => handleUndo(),
+          },
+        }
+      );
+    } catch (error) {
+      // onError in useDeleteSeller already restores IndexedDB records
+      toast.error(
+        `Failed to delete sellers: ${error instanceof Error ? error.message : 'Server error'}`,
+      );
+    } finally {
+      setIsDeleting(false);
+    }
     onSellerChange();
   };
 
@@ -1083,7 +1115,24 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
   }), [filteredSellers, columnCount, cellWidth, selectedIds, newSellerIds, rightDragPreviewIds, rightDragMode, shiftPreviewIds, selectionAnchor, editingId, editValue, handleSellerClick, saveEdit]);
 
   if (loading) {
-    return <div className="text-muted-foreground p-4">Loading sellers...</div>;
+    return (
+      <div className="flex flex-col h-full animate-fade-in">
+        {/* Toolbar skeleton */}
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <div className="flex items-center gap-2 flex-1">
+            <Skeleton className="h-[38px] w-96" />
+            <Skeleton className="h-8 w-8" />
+          </div>
+          <Skeleton className="h-4 w-32" />
+        </div>
+        {/* Grid skeleton - matches 4-column grid layout */}
+        <div className="grid grid-cols-4 gap-1 flex-1">
+          {Array.from({ length: 40 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-full" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1157,10 +1206,11 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
             <Button
               size="sm"
               variant="ghost"
-              onClick={handleBulkDelete}
+              onClick={handleBulkDeleteClick}
+              disabled={isDeleting}
               className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
             >
-              <Trash2 className="h-4 w-4" />
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             </Button>
           )}
           <Popover open={exportOpen} onOpenChange={setExportOpen}>
@@ -1274,6 +1324,29 @@ export function SellersGrid({ refreshTrigger, onSellerChange, newSellerIds = new
           </Popover>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {pendingDeleteIdsRef.current.length.toLocaleString()} sellers?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {pendingDeleteIdsRef.current.length.toLocaleString()} sellers from
+              the database. You can undo this action briefly after deletion.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Deleting...</> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Virtualized grid container */}
       <div

@@ -6,6 +6,7 @@ import { useSyncRunHistory } from "@/hooks/sync/use-sync-run-history";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { History, Plus, Minus, Edit3, Bot, User } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -216,7 +217,17 @@ export function HistoryPanel({
       {/* History entries */}
       <div className="flex-1 overflow-y-auto space-y-1 min-h-0 scrollbar-thin">
         {loading ? (
-          <div className="text-muted-foreground text-sm">Loading...</div>
+          <div className="space-y-1 animate-fade-in">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="px-3 py-1.5 rounded border-l-2 border-border">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <Skeleton className="h-3 flex-1" />
+                </div>
+                <Skeleton className="h-2 w-20 mt-1" />
+              </div>
+            ))}
+          </div>
         ) : entries.length === 0 ? (
           <div className="text-muted-foreground text-sm">No activity yet</div>
         ) : (
